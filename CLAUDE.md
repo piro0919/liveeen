@@ -57,9 +57,9 @@ At ¥150 per dollar (not checked), ¥50,000 is about 5,500 viewer-hours on Cloud
 
 ## Where things run
 
-- Domain: **liveeen.kkweb.io**, chosen by the owner on 2026-10-31 for the site, the media server (a host under it, such as media.liveeen.kkweb.io; the name is not decided) and the email sender. On 2026-10-31 Vercel showed liveeen.com, .app, .live, .tv, .io and .jp all free (liveeen.com $11.25 a year); none was bought
 Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
+- Domain: **liveeen.kkweb.io**, chosen by the owner on 2026-10-31 for the site, the media server (a host under it, such as media.liveeen.kkweb.io; the name is not decided) and the email sender. On 2026-10-31 Vercel showed liveeen.com, .app, .live, .tv, .io and .jp all free (liveeen.com $11.25 a year); none was bought
 - Web app: Next.js on Vercel, functions in **sin1**. Same setup as vocafy (Better Auth with Google, `pg`)
 - DB: Neon, **Singapore** (no Tokyo region; the region cannot be changed later)
 - Media: MediaMTX on Akamai Tokyo
