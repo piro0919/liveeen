@@ -57,6 +57,7 @@ At ¥150 per dollar (not checked), ¥50,000 is about 5,500 viewer-hours on Cloud
 
 ## Where things run
 
+- Domain: **liveeen.kkweb.io**, chosen by the owner on 2026-10-31 for the site, the media server (a host under it, such as media.liveeen.kkweb.io; the name is not decided) and the email sender. On 2026-10-31 Vercel showed liveeen.com, .app, .live, .tv, .io and .jp all free (liveeen.com $11.25 a year); none was bought
 Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 - Web app: Next.js on Vercel, functions in **sin1**. Same setup as vocafy (Better Auth with Google, `pg`)
@@ -157,7 +158,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - `/settings` has メールで知らせる (`notification_setting.email`). **Off by default** (Claude's call: no email nobody asked for). It goes to the Google address used to sign in
 - Sent at the same moment as browser notifications and under the same 10-minute rule (`src/lib/email.ts`). Plain text only: subject 〈name〉 さんが配信を始めました, the stream's URL, and how to stop it with the link to `/settings` (wording provisional). Resend's batch API, 100 per request, one request at a time (the default limit is 10 requests per second per team)
 - Needs `RESEND_API_KEY`, `EMAIL_FROM` and `BETTER_AUTH_URL` (the links are made from it). Without them the switch is hidden and nothing is sent. `EMAIL_FROM` contains `<` `>`, so quote it in `.env.local`
-- Locally `.env.local` has a sending-only key named `liveeen local`, limited to kkweb.io, and sends from `Liveeen <liveeen@kkweb.io>`. **Production needs its own sending domain verified in Resend**; Liveeen has no domain yet. The other domains on the account follow a `<app>.kkweb.io` pattern (shodolog, onigiri), which is an option but not decided
+- Locally `.env.local` has a sending-only key named `liveeen local`, limited to kkweb.io, and sends from `Liveeen <liveeen@kkweb.io>`. **Production sends from `liveeen.kkweb.io`**, which has to be added and verified in Resend first (not done yet). kkweb.io's DNS is on Cloudflare (checked with dig on 2026-10-31), where shodolog.kkweb.io already has its Resend records
 - One-click unsubscribe (RFC 8058), added 2026-10-31: each email carries `List-Unsubscribe: <…/api/email/unsubscribe?token=…>` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click`. The token is the user id signed with `BETTER_AUTH_SECRET` under its own purpose prefix, with no expiry (`src/lib/unsubscribe-token.ts`; Claude's call). A POST turns メールで知らせる off without sign-in; a GET only redirects to `/settings`, because mail scanners open links. The email body still links to `/settings` too
 - Checked 2026-10-31 locally with curl: GET redirected and left the setting on, a wrong token got 400, the right token got 200 and turned it off. Not checked: a real email in Gmail (whether it shows the unsubscribe link)
 - Checked 2026-10-31: turning the switch on stays on after a reload; a publish sent one email that reached piro.haniwa@gmail.com's inbox (not spam). Local test users have `@example.invalid` addresses; one email went to `u2@example.invalid` by mistake during the check, so point a test user at a real address before turning email on for it
@@ -204,7 +205,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 - Akamai's monthly server price for the plan we need
 - How many viewers one server can serve, per latency mode (measure on the server)
-- Whether liveeen.app / .live are free; trademarks
+- Trademarks
 
 Sources:
 
