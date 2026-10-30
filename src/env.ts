@@ -26,6 +26,8 @@ export const env = createEnv({
     NEXT_PUBLIC_MEDIA_RTMP_URL: z.string().min(1),
     // WebRTC の受け口（WHIP と WHEP。http(s)://…）
     NEXT_PUBLIC_MEDIA_WEBRTC_URL: z.url(),
+    // HLS の受け口（http(s)://…）
+    NEXT_PUBLIC_MEDIA_HLS_URL: z.url(),
   },
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -36,6 +38,7 @@ export const env = createEnv({
     MEDIA_TOKEN_SECRET: process.env.MEDIA_TOKEN_SECRET,
     NEXT_PUBLIC_MEDIA_RTMP_URL: process.env.NEXT_PUBLIC_MEDIA_RTMP_URL,
     NEXT_PUBLIC_MEDIA_WEBRTC_URL: process.env.NEXT_PUBLIC_MEDIA_WEBRTC_URL,
+    NEXT_PUBLIC_MEDIA_HLS_URL: process.env.NEXT_PUBLIC_MEDIA_HLS_URL,
   },
   emptyStringAsUndefined: true,
 });

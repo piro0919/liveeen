@@ -1,12 +1,27 @@
 import 'server-only';
 import { db } from './db';
+import type { LatencyMode } from './latency';
 import { hashStreamKey, newChannelId, newStreamKey } from './stream-key';
 
-export type Channel = { id: string };
+export type Channel = { id: string; latencyMode: LatencyMode };
+
+const CHANNEL_COLUMNS = 'id, latency_mode as "latencyMode"';
 
 /** その人のチャンネル。まだ作っていなければ null */
 export async function channelOf(userId: string): Promise<Channel | null> {
-  const { rows } = await db().query<Channel>('select id from channel where user_id = $1', [userId]);
+  const { rows } = await db().query<Channel>(
+    `select ${CHANNEL_COLUMNS} from channel where user_id = $1`,
+    [userId],
+  );
+  return rows[0] ?? null;
+}
+
+/** id からチャンネル。無ければ null */
+export async function channelById(id: string): Promise<Channel | null> {
+  const { rows } = await db().query<Channel>(
+    `select ${CHANNEL_COLUMNS} from channel where id = $1`,
+    [id],
+  );
   return rows[0] ?? null;
 }
 
@@ -33,4 +48,8 @@ export async function resetStreamKey(userId: string): Promise<string | null> {
     [userId, hashStreamKey(key)],
   );
   return rowCount === 1 ? key : null;
+}
+
+export async function setLatencyMode(userId: string, mode: LatencyMode): Promise<void> {
+  await db().query('update channel set latency_mode = $2 where user_id = $1', [userId, mode]);
 }

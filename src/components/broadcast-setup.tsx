@@ -1,13 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState } from 'react';
 import { createChannelAction, resetStreamKeyAction, type KeyState } from '@/app/broadcast/actions';
+import type { Channel } from '@/lib/channels';
 import { BrowserPublisher } from './browser-publisher';
+import { LatencyChoice } from './latency-choice';
 
 const NO_KEY: KeyState = { key: null };
 
 type Props = {
-  channelId: string | null;
+  channel: Channel | null;
   rtmpUrl: string;
   webrtcUrl: string;
 };
@@ -17,12 +20,12 @@ type Props = {
  * 鍵は作ったときと作り直したときにだけ見せる（DB には SHA-256 でしか無い）。
  * 作った直後はページが作り直されてもこの部品は残るので、見せる鍵も残る
  */
-export function BroadcastSetup({ channelId, rtmpUrl, webrtcUrl }: Props) {
+export function BroadcastSetup({ channel, rtmpUrl, webrtcUrl }: Props) {
   const [created, create, creating] = useActionState(createChannelAction, NO_KEY);
   const [reset, resetKey, resetting] = useActionState(resetStreamKeyAction, NO_KEY);
   const key = reset.key ?? created.key;
 
-  if (!channelId) {
+  if (!channel) {
     return (
       <form action={create} className="flex flex-col gap-4">
         <label className="flex items-center gap-2">
@@ -36,9 +39,17 @@ export function BroadcastSetup({ channelId, rtmpUrl, webrtcUrl }: Props) {
     );
   }
 
+  const channelId = channel.id;
   const whipUrl = `${webrtcUrl}/${channelId}/whip`;
   return (
     <div className="flex flex-col gap-8">
+      <p>
+        配信の住所：
+        <Link href={`/${channelId}`} className="underline">
+          /{channelId}
+        </Link>
+      </p>
+      <LatencyChoice mode={channel.latencyMode} />
       <section className="flex flex-col gap-2">
         <h2 className="font-bold">ブラウザで配信</h2>
         <BrowserPublisher whipUrl={whipUrl} />

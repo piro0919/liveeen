@@ -51,7 +51,7 @@ function preferH264(transceiver: RTCRtpTransceiver) {
   transceiver.setCodecPreferences([...codecs].sort((a, b) => h264Rank(a) - h264Rank(b)));
 }
 
-function waitForIceGathering(pc: RTCPeerConnection): Promise<void> {
+export function waitForIceGathering(pc: RTCPeerConnection): Promise<void> {
   if (pc.iceGatheringState === 'complete') return Promise.resolve();
   return new Promise((resolve) => {
     const done = () => {

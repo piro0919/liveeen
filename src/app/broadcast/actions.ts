@@ -1,7 +1,8 @@
 'use server';
 
 import { refresh } from 'next/cache';
-import { channelOf, createChannel, resetStreamKey } from '@/lib/channels';
+import { channelOf, createChannel, resetStreamKey, setLatencyMode } from '@/lib/channels';
+import { isLatencyMode } from '@/lib/latency';
 import { signMediaToken } from '@/lib/media-token';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
@@ -32,4 +33,12 @@ export async function browserPublishTokenAction(): Promise<string> {
   if (!channel) throw new Error('チャンネルがありません');
   if (!env.MEDIA_TOKEN_SECRET) throw new Error('MEDIA_TOKEN_SECRET がありません');
   return signMediaToken(env.MEDIA_TOKEN_SECRET, channel.id, Date.now());
+}
+
+export async function setLatencyModeAction(mode: string): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  if (!isLatencyMode(mode)) throw new Error(`遅延の選び方が違います: ${mode}`);
+  await setLatencyMode(userId, mode);
+  refresh();
 }

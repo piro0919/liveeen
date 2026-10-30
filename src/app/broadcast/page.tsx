@@ -16,7 +16,7 @@ export default async function BroadcastPage() {
       <h1 className="text-xl font-bold">配信する</h1>
       {userId ? (
         <BroadcastSetup
-          channelId={channel?.id ?? null}
+          channel={channel}
           rtmpUrl={env.NEXT_PUBLIC_MEDIA_RTMP_URL}
           webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
         />
