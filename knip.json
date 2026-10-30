@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["scripts/*.ts", "relay/server.ts"],
+  "entry": ["scripts/*.ts"],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "test/**/*.ts", "relay/**/*.ts"],
   "ignoreDependencies": ["@commitlint/cli", "@secretlint/secretlint-rule-preset-recommend"]
 }
