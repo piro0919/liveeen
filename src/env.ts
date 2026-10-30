@@ -24,6 +24,8 @@ export const env = createEnv({
     // コメントを書く札の署名の鍵（src/lib/comment-token.ts）。中継（relay/）にも同じものを入れる。
     // 無ければ誰もコメントを書けない（読むことはできる）
     COMMENT_TOKEN_SECRET: z.string().min(SECRET_MIN).optional(),
+    // 管理画面（/admin）を開ける人の Google のメールアドレス。カンマで区切る。無ければ誰も開けない
+    ADMIN_EMAILS: z.string().optional(),
   },
   client: {
     // 配信サーバー（MediaMTX）の住所。手元は compose.yaml
@@ -45,6 +47,7 @@ export const env = createEnv({
     MEDIA_TOKEN_SECRET: process.env.MEDIA_TOKEN_SECRET,
     MEDIA_API_URL: process.env.MEDIA_API_URL,
     COMMENT_TOKEN_SECRET: process.env.COMMENT_TOKEN_SECRET,
+    ADMIN_EMAILS: process.env.ADMIN_EMAILS,
     NEXT_PUBLIC_COMMENT_RELAY_URL: process.env.NEXT_PUBLIC_COMMENT_RELAY_URL,
     NEXT_PUBLIC_MEDIA_RTMP_URL: process.env.NEXT_PUBLIC_MEDIA_RTMP_URL,
     NEXT_PUBLIC_MEDIA_WEBRTC_URL: process.env.NEXT_PUBLIC_MEDIA_WEBRTC_URL,

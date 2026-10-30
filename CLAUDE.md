@@ -72,7 +72,8 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Publish passes only when the key matches that channel: WHIP Bearer token, RTMP `?key=` after the path, or RTMP password
 - The key is shown only when it is created or reset (Claude's call, since only the hash is stored; the owner has not seen the screen yet)
 - The browser cannot hold the key, so `/broadcast` gets a 10-minute signed token from a server action (`src/lib/media-token.ts`, `MEDIA_TOKEN_SECRET`). Credentials containing `.` are treated as tokens; stream keys never contain `.`
-- Read passes for anyone (watching needs no sign-in). Admin stop and the monthly cap are not wired in yet
+- Publish is refused for a channel the owner has banned, whatever the key or token (`channel.banned_at`)
+- Read passes for anyone (watching needs no sign-in). The monthly cap is not wired in yet
 - Checked locally on 2026-10-30 with ffmpeg over RTMP: wrong key and no key get 401, the right key publishes
 
 ## The broadcast screen (`/broadcast`)
@@ -130,10 +131,20 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - The owner left the threshold to Claude on 2026-10-31 (「まかせる」). What Claude chose:
   - A stream leaves the top page (the フォロー中 group too) once **3 different signed-in users** have reported it (`DELIST_THRESHOLD`, `src/lib/delist.ts`). The watch page still works by its URL
   - Only signed-in users can report, one report per person per stream. Without sign-in one person could report again and again and remove someone else's stream
-  - Reports count per stream: a stream is told apart by its start time (MediaMTX `readyTime`). Starting a new stream starts from zero and puts it back on the list. Stopping a streamer for good is left to the owner's admin screen (not built)
+  - Reports count per stream: a stream is told apart by its start time (MediaMTX `readyTime`). Starting a new stream starts from zero and puts it back on the list. Stopping a streamer for good is left to the owner's admin screen
 - A 通報する button sits next to フォローする on the watch page. It asks for confirmation; signed-out viewers are sent to sign-in; the streamer sees no button. A report while nothing is live is refused (配信していないので通報できません)
 - No reason is asked for (not decided; the admin screen may want one)
 - Checked 2026-10-31 in Chrome with two local test channels live and three local users: the stream stayed listed after the first and second reports and left the list after the third; reporting twice counts once; the owner sees no button; after restarting the stream it was listed again
+
+## The admin screen (`/admin`)
+
+- Opens only for users whose Google email is in `ADMIN_EMAILS` (comma separated). Everyone else gets 404, as if the page did not exist. Production needs the owner's address there; locally it is the test user `u4@example.invalid`
+- Lists live streams, most-reported first, with the report count and (一覧から外した) at the threshold; delisted streams are included. Each has two buttons, both asking for confirmation:
+  - 配信を止める: cuts the stream's connection through MediaMTX's API (`/v3/rtmpconns/kick/…` or `/v3/webrtcsessions/kick/…`). The streamer can reconnect at once (OBS reconnects on its own)
+  - 配信者を止める: sets `channel.banned_at` and cuts the stream. Publishing is refused from then on, and the channel leaves the live list
+- 止めた配信者 lists banned channels with 戻す, which clears `banned_at`
+- Checked 2026-10-31 locally: a non-admin gets 404; 配信を止める cut an RTMP stream (ffmpeg) and a browser (WHIP) stream, and ffmpeg could reconnect afterwards; 配信者を止める cut the stream, publishing again was refused, and after 戻す it was accepted
+- Not handled: after the cut, the streamer's `/broadcast` still showed 配信を終える 3 s later; the page does not notice that the server closed the stream
 
 ## What the local MediaMTX showed (2026-10-30, v1.21.2)
 

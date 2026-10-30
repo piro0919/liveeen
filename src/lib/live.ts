@@ -1,6 +1,8 @@
 import 'server-only';
+import { z } from 'zod';
 import { db } from './db';
 import { withoutDelisted } from './delist';
+import { kickPath } from './kick';
 import { type LivePath, livePathsOf } from './live-paths';
 import { reportersOf } from './reports';
 import { env } from '@/env';
@@ -30,23 +32,49 @@ export async function liveStream(channelId: string): Promise<LivePath | null> {
 }
 
 /**
- * いま配信中のチャンネル。配信中かどうかは配信サーバー（MediaMTX）の API に聞き、
- * 登録されたチャンネルのものだけを残す。通報でしきい値に届いた配信は除く（src/lib/delist.ts）。
- * 配信サーバーが答えなければ空の一覧
+ * いま配信中の、登録されたチャンネル。配信中かどうかは配信サーバー（MediaMTX）の API に聞く。
+ * 運営が止めたチャンネルは除く。配信サーバーが答えなければ空の一覧。
+ * 通報で外した配信も含む（管理画面はこれを見る）
  */
-export async function liveChannels(): Promise<LiveChannel[]> {
+export async function liveRegisteredChannels(): Promise<LiveChannel[]> {
   const paths = livePathsOf(await mediaApi(`/v3/paths/list?itemsPerPage=${ITEMS_PER_PAGE}`));
   if (paths.length === 0) return [];
   const { rows } = await db().query<{ id: string; displayName: string | null }>(
     `select channel.id, profile.display_name as "displayName"
      from channel left join profile on profile.user_id = channel.user_id
-     where channel.id = any($1)`,
+     where channel.id = any($1) and channel.banned_at is null`,
     [paths.map((path) => path.channelId)],
   );
   const names = new Map(rows.map((row) => [row.id, row.displayName]));
-  const registered = paths.filter((path) => names.has(path.channelId));
-  return withoutDelisted(registered, await reportersOf(registered)).map((path) => ({
-    ...path,
-    displayName: names.get(path.channelId) ?? null,
-  }));
+  return paths
+    .filter((path) => names.has(path.channelId))
+    .map((path) => ({ ...path, displayName: names.get(path.channelId) ?? null }));
+}
+
+/** トップに出す、いま配信中のチャンネル。通報でしきい値に届いた配信は除く（src/lib/delist.ts） */
+export async function liveChannels(): Promise<LiveChannel[]> {
+  const channels = await liveRegisteredChannels();
+  return withoutDelisted(channels, await reportersOf(channels));
+}
+
+const pathSource = z.object({
+  source: z.object({ type: z.string(), id: z.string() }).nullable(),
+});
+
+/**
+ * いまの配信のつなぎを切る（管理画面の「配信を止める」）。切れたら true。
+ * 配信者はすぐつなぎ直せるので、二度と配信させないときは配信者を止める（db/migrations/0009_ban.sql）
+ */
+export async function kickStream(channelId: string): Promise<boolean> {
+  const parsed = pathSource.safeParse(
+    await mediaApi(`/v3/paths/get/${encodeURIComponent(channelId)}`),
+  );
+  const source = parsed.success ? parsed.data.source : null;
+  const path = source ? kickPath(source) : null;
+  if (!path) return false;
+  const response = await fetch(`${env.MEDIA_API_URL}${path}`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
+  }).catch(() => null);
+  return response?.ok ?? false;
 }

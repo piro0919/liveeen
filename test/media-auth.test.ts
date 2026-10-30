@@ -12,6 +12,7 @@ const NOW = 1_800_000_000_000;
 const deps: MediaAuthDeps = {
   channelKeyMatches: async (channelId, streamKeyHash) =>
     channelId === CHANNEL && streamKeyHash === hashStreamKey(KEY),
+  channelBanned: async () => false,
   tokenSecret: SECRET,
   now: NOW,
 };
@@ -83,6 +84,15 @@ describe('allowMedia', () => {
         tokenSecret: undefined,
       }),
     ).toBe(false);
+  });
+
+  it('運営が止めたチャンネルは、鍵でも札でも配信を断る', async () => {
+    const banned = { ...deps, channelBanned: async (id: string) => id === CHANNEL };
+    const token = signMediaToken(SECRET, CHANNEL, NOW);
+    expect(await allowMedia(req({ action: 'publish', path: CHANNEL, token: KEY }), banned)).toBe(
+      false,
+    );
+    expect(await allowMedia(req({ action: 'publish', path: CHANNEL, token }), banned)).toBe(false);
   });
 
   it('視聴は鍵なしで通す', async () => {

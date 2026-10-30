@@ -14,6 +14,14 @@ async function channelKeyMatches(channelId: string, streamKeyHash: string): Prom
   return rowCount === 1;
 }
 
+async function channelBanned(channelId: string): Promise<boolean> {
+  const { rowCount } = await db().query(
+    'select 1 from channel where id = $1 and banned_at is not null',
+    [channelId],
+  );
+  return rowCount === 1;
+}
+
 /**
  * MediaMTX の確かめの受け口（media/mediamtx.yml の authHTTPAddress）。
  * 2xx を返すと通り、それ以外は断られる
@@ -23,6 +31,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.success) return new Response(null, { status: BAD_REQUEST });
   const allowed = await allowMedia(parsed.data, {
     channelKeyMatches,
+    channelBanned,
     tokenSecret: env.MEDIA_TOKEN_SECRET,
     now: Date.now(),
   });

@@ -38,24 +38,28 @@ function credentialOf(request: MediaAuthRequest): string {
 export type MediaAuthDeps = {
   /** 配信の名前と鍵の組が、登録されたチャンネルのものか */
   channelKeyMatches: (channelId: string, streamKeyHash: string) => Promise<boolean>;
+  /** 運営が止めた配信者のチャンネルか（db/migrations/0009_ban.sql）。止めたチャンネルは鍵が合っても通さない */
+  channelBanned: (channelId: string) => Promise<boolean>;
   /** ブラウザの札の署名の鍵。無ければ札は通さない */
   tokenSecret: string | undefined;
   now: number;
 };
 
 /**
- * 通すかどうか。配信は鍵か札が合うチャンネルだけ。視聴は、形の合う名前なら誰でも（見るのにログインは要らない）。
+ * 通すかどうか。配信は鍵か札が合い、運営が止めていないチャンネルだけ。
+ * 視聴は、形の合う名前なら誰でも（見るのにログインは要らない）。
  * それ以外（録画の再生・API など）は通さない
  */
 export async function allowMedia(
   request: MediaAuthRequest,
-  { channelKeyMatches, tokenSecret, now }: MediaAuthDeps,
+  { channelKeyMatches, channelBanned, tokenSecret, now }: MediaAuthDeps,
 ): Promise<boolean> {
   if (!PATH_PATTERN.test(request.path)) return false;
   if (request.action === 'read') return true;
   if (request.action !== 'publish') return false;
   const credential = credentialOf(request);
   if (!credential) return false;
+  if (await channelBanned(request.path)) return false;
   // 配信の鍵は `.` を含まない（src/lib/stream-key.ts）ので、含むものは札として確かめる
   if (credential.includes('.')) {
     return (
