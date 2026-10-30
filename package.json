@@ -16,7 +16,8 @@
     "test": "vitest run",
     "knip": "knip",
     "db:up": "docker compose up -d --wait",
-    "migrate": "tsx --env-file-if-exists=.env.local scripts/migrate.ts"
+    "migrate": "tsx --env-file-if-exists=.env.local scripts/migrate.ts",
+    "relay": "tsx --env-file-if-exists=.env.local relay/server.ts"
   },
   "dependencies": {
     "@t3-oss/env-nextjs": "^0.13.11",
@@ -27,6 +28,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
+    "ws": "^8.22.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -39,6 +41,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "eslint-config-prettier": "^10.1.8",

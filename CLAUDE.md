@@ -63,7 +63,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - DB: Neon, **Singapore** (no Tokyo region; the region cannot be changed later)
 - Media: MediaMTX on Akamai Tokyo
 - Live comments: a small WebSocket relay on the same Akamai server, because Vercel functions cannot hold long-lived connections
-- Locally, `compose.yaml` runs MediaMTX (same version as production) and Postgres. Run `pnpm db:up`, `pnpm migrate`, then `pnpm dev` on port 3000 (MediaMTX asks it about every publish and read)
+- Locally, `compose.yaml` runs MediaMTX (same version as production) and Postgres. Run `pnpm db:up`, `pnpm migrate`, then `pnpm dev` on port 3000 (MediaMTX asks it about every publish and read), and `pnpm relay` for comments (port 8090)
 
 ## How publishing is checked
 
@@ -106,6 +106,15 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - `/broadcast` asks for a name before anything else when there is none. `/settings` changes it (it holds only the name for now)
 - Checked 2026-10-31 in Chrome with the local test user: 21 characters is refused, a valid name opens the broadcast setup, and the top page lists the stream under that name
 
+## Comments
+
+- Shown under the player on `/<channel id>`. Everyone can read them; writing needs sign-in and a display name. Signed-out commenting waits for the per-stream setting (agreed, not built), so for now signed-out viewers only read
+- The relay is `relay/` (Node and `ws`), meant to run on the Akamai server next to MediaMTX. Viewers connect to `NEXT_PUBLIC_COMMENT_RELAY_URL/<channel id>`
+- The relay has no DB and no sign-in. The web app gives signed-in viewers with a name a 10-minute signed token (`src/lib/comment-token.ts`, `COMMENT_TOKEN_SECRET`, the same value on both sides) carrying the user id and the name; the relay checks only the signature, the channel and the expiry, once when connecting. A renamed user keeps the old name until they reconnect
+- Claude's calls on the details: comments are not saved; the relay keeps the last 50 per channel in memory and sends them to whoever joins; one line, up to 200 characters (line breaks become spaces); one post per second per connection
+- Checked 2026-10-31 in Chrome with the local test user and a signed-out window: the signed-out window shows the sign-in prompt and no input, a comment reaches it with the name, a second post within a second is refused, a window opened later sees the earlier comment
+- Not built yet: the streamer blocking someone, IP blocking, reporting comments
+
 ## What the local MediaMTX showed (2026-10-30, v1.21.2)
 
 - RTMP in (ffmpeg standing in for OBS, 720p H264 + AAC) → HLS out: plays in the browser
@@ -120,6 +129,8 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - OBS over RTMP in low-latency mode: ask for WHIP, or transcode the audio on the server
 - Whether liveeen.app / .live are free; trademarks
 - How the production web app authenticates to MediaMTX's API
+- How the comment relay is deployed and kept running on Akamai (and its `wss://` address)
+- Whether comments should be saved (for reports on comments, or for recordings later)
 
 Sources:
 

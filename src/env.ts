@@ -21,6 +21,9 @@ export const env = createEnv({
     MEDIA_TOKEN_SECRET: z.string().min(SECRET_MIN).optional(),
     // 配信サーバー（MediaMTX）の API。トップの配信中の一覧を読む（src/lib/live.ts）
     MEDIA_API_URL: z.url(),
+    // コメントを書く札の署名の鍵（src/lib/comment-token.ts）。中継（relay/）にも同じものを入れる。
+    // 無ければ誰もコメントを書けない（読むことはできる）
+    COMMENT_TOKEN_SECRET: z.string().min(SECRET_MIN).optional(),
   },
   client: {
     // 配信サーバー（MediaMTX）の住所。手元は compose.yaml
@@ -30,6 +33,8 @@ export const env = createEnv({
     NEXT_PUBLIC_MEDIA_WEBRTC_URL: z.url(),
     // HLS の受け口（http(s)://…）
     NEXT_PUBLIC_MEDIA_HLS_URL: z.url(),
+    // コメントの中継（relay/）の住所（ws(s)://…）。手元は pnpm relay
+    NEXT_PUBLIC_COMMENT_RELAY_URL: z.url(),
   },
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -39,6 +44,8 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     MEDIA_TOKEN_SECRET: process.env.MEDIA_TOKEN_SECRET,
     MEDIA_API_URL: process.env.MEDIA_API_URL,
+    COMMENT_TOKEN_SECRET: process.env.COMMENT_TOKEN_SECRET,
+    NEXT_PUBLIC_COMMENT_RELAY_URL: process.env.NEXT_PUBLIC_COMMENT_RELAY_URL,
     NEXT_PUBLIC_MEDIA_RTMP_URL: process.env.NEXT_PUBLIC_MEDIA_RTMP_URL,
     NEXT_PUBLIC_MEDIA_WEBRTC_URL: process.env.NEXT_PUBLIC_MEDIA_WEBRTC_URL,
     NEXT_PUBLIC_MEDIA_HLS_URL: process.env.NEXT_PUBLIC_MEDIA_HLS_URL,
