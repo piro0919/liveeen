@@ -12,8 +12,11 @@ const API_TIMEOUT_MS = 3000;
 /** 一度に読む配信の数。MediaMTX の既定は100件で切れる */
 const ITEMS_PER_PAGE = 1000;
 
-/** 配信中のチャンネル。名前は配信者が付けたもの。名前より先に作られたチャンネルは null */
-export type LiveChannel = LivePath & { displayName: string | null };
+/**
+ * 配信中のチャンネル。名前は配信者が付けたもの。名前より先に作られたチャンネルは null。
+ * handle は住所に使う（src/lib/handle.ts）。まだ選んでいなければ null
+ */
+export type LiveChannel = LivePath & { displayName: string | null; handle: string | null };
 
 /** 配信サーバー（MediaMTX）の API を呼ぶ。合言葉があれば付ける（本番の Caddy が求める。deploy/Caddyfile） */
 function mediaFetch(path: string, init: RequestInit = {}): Promise<Response> {
@@ -46,16 +49,21 @@ export async function liveStream(channelId: string): Promise<LivePath | null> {
 export async function liveRegisteredChannels(): Promise<LiveChannel[]> {
   const paths = livePathsOf(await mediaApi(`/v3/paths/list?itemsPerPage=${ITEMS_PER_PAGE}`));
   if (paths.length === 0) return [];
-  const { rows } = await db().query<{ id: string; displayName: string | null }>(
-    `select channel.id, profile.display_name as "displayName"
+  const { rows } = await db().query<{
+    id: string;
+    displayName: string | null;
+    handle: string | null;
+  }>(
+    `select channel.id, profile.display_name as "displayName", profile.handle
      from channel left join profile on profile.user_id = channel.user_id
      where channel.id = any($1) and channel.banned_at is null`,
     [paths.map((path) => path.channelId)],
   );
-  const names = new Map(rows.map((row) => [row.id, row.displayName]));
-  return paths
-    .filter((path) => names.has(path.channelId))
-    .map((path) => ({ ...path, displayName: names.get(path.channelId) ?? null }));
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return paths.flatMap((path) => {
+    const row = byId.get(path.channelId);
+    return row ? [{ ...path, displayName: row.displayName, handle: row.handle }] : [];
+  });
 }
 
 /** トップに出す、いま配信中のチャンネル。通報でしきい値に届いた配信は除く（src/lib/delist.ts） */

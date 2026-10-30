@@ -1,3 +1,6 @@
+import { channelPath } from './handle';
+import type { LiveStarted } from './push-message';
+
 /** Resend の一括送信の1回に入れられる数（https://resend.com/docs/api-reference/emails/send-batch-emails） */
 export const EMAILS_PER_BATCH = 100;
 
@@ -29,12 +32,11 @@ export function unsubscribeUrl(siteUrl: string, token: string): string {
 export function liveStartedEmails({
   channelId,
   displayName,
+  handle,
   siteUrl,
   from,
   to,
-}: {
-  channelId: string;
-  displayName: string | null;
+}: LiveStarted & {
   siteUrl: string;
   from: string;
   to: Recipient[];
@@ -44,7 +46,7 @@ export function liveStartedEmails({
   const text = [
     `${name} さんが Liveeen で配信を始めました。`,
     '',
-    new URL(`/${channelId}`, siteUrl).href,
+    new URL(channelPath({ id: channelId, handle }), siteUrl).href,
     '',
     'このメールを止めるときは、設定の「メールで知らせる」を切ってください。',
     new URL('/settings', siteUrl).href,

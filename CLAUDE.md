@@ -90,7 +90,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - OBS over RTMP in low-latency mode is handled by telling the streamer, not by transcoding (the owner left it to Claude's recommendation on 2026-10-31; transcoding would need the video too because of B-frames, and costs server CPU). While `low` is chosen, the OBS section of `/broadcast` says to stream with WHIP from OBS 30 or later, because over RTMP viewers get no sound and, depending on the video settings, no picture (wording provisional). OBS's WHIP output sends Opus and sets B-frames to 0 itself (`plugins/obs-webrtc/whip-service.cpp`, checked 2026-10-31; WHIP arrived in OBS 30.0.0 per its release notes). Not checked with a real OBS
 - Checked 2026-10-31 in Chrome: the note shows while `low` is chosen, disappears on switching to HLS, comes back on switching to `low`, and each state stays after a reload
 - The watch screen plays `low` with WebRTC (WHEP) and `hls` with HLS (hls.js; Safari plays HLS natively). No sign-in. When nothing is live it shows 配信していません and retries every 5 s
-- The streamer's URL is `/<channel id>` for now (random id). Handles or nicer URLs are not decided
+- The streamer's URL is `/@<handle>` (see Handles). A channel whose streamer has not picked a handle yet is at `/<channel id>`
 - Checked 2026-10-30 in Chrome with ffmpeg over RTMP: HLS and WebRTC both play 1280×720; HLS notices a stream starting and ending within seconds. WebRTC took about 16 s after the stream ended to show 配信していません (the connection has to fail first); since 2026-10-31 the page asks the server when Chrome reports `disconnected` (the same rule as the broadcast screen, `src/lib/whep.ts`), and it showed 配信していません 6.8 s after ffmpeg ended (measured locally). Over RTMP, WebRTC viewers get no sound (AAC; see below). Not checked in Safari or on a phone
 
 ## The top page (`/`)
@@ -106,8 +106,21 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Everyone picks the name shown on the live list and on comments; the owner chose this on 2026-10-31. The Google account name is never shown, because it is often a real name
 - Stored in the `profile` table, not in Better Auth's `user` table. Names need not be unique
 - Up to 20 characters counted as they look (an emoji sequence is one), no line breaks or control characters (`src/lib/display-name.ts`; Claude's call)
-- `/broadcast` asks for a name before anything else when there is none. `/settings` changes it (it holds only the name for now)
+- `/broadcast` asks for a name before anything else when there is none. `/settings` changes it
 - Checked 2026-10-31 in Chrome with the local test user: 21 characters is refused, a valid name opens the broadcast setup, and the top page lists the stream under that name
+
+## Handles
+
+- Agreed with the owner on 2026-10-31 (Claude proposed the details; the owner chose 「この案で作る」):
+  - The streamer's URL is `/@<handle>`. The old `/<channel id>` redirects there (not permanently, because handles can change)
+  - Lowercase letters, digits and `_`, 3 to 20 characters. Uppercase input is lowercased (`src/lib/handle.ts`)
+  - `/settings` can change it. The old `/@<handle>` stops working
+  - `/broadcast` asks for it right after the display name, also for channels that already exist
+  - Names of the site's own paths cannot be used: `admin`, `api`, `broadcast`, `settings`
+- Stored in `profile.handle` (unique, `db/migrations/0012_handle.sql`), next to the display name, because it is asked before the channel is created. Another person's handle gets このハンドルはほかの人が使っています
+- `/settings` shows the handle field only to users who already picked one on `/broadcast` (Claude's call; viewers have no use for it). Wording of the field is provisional
+- Links on the top page, the admin screen, browser notifications and emails use `/@<handle>` (`channelPath`)
+- Checked 2026-10-31 in Chrome with local users: too short and reserved handles are refused with the reason, ` Test_Piro` is saved as `test_piro`, another user cannot take it, `/<channel id>` redirects to `/@test_piro`, `/@TEST_PIRO` opens the channel, the top page links to `/@test_piro`, a viewer without a handle has no handle field in `/settings`, and after changing it the old handle gives 404 and the new one 200
 
 ## Comments
 

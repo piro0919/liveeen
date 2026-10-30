@@ -1,7 +1,7 @@
 import 'server-only';
 import webpush from 'web-push';
 import { db } from './db';
-import { liveStartedMessage, subscriptionGone } from './push-message';
+import { type LiveStarted, liveStartedMessage, subscriptionGone } from './push-message';
 import { env } from '@/env';
 
 /** 届かなかったときに送り口が持っておく長さ。配信の始まりの知らせは、遅れて届いても意味が薄い */
@@ -44,15 +44,15 @@ export async function hasPushSubscription(userId: string, endpoint: string): Pro
  * チャンネルが配信を始めたことを、フォローしてブラウザ通知を入れた人へ送る。
  * VAPID の鍵が無い環境では送らない
  */
-export async function sendLivePushes(channelId: string, displayName: string | null): Promise<void> {
+export async function sendLivePushes(started: LiveStarted): Promise<void> {
   if (!env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY || !env.VAPID_SUBJECT) return;
   const { rows: subscriptions } = await db().query<PushSubscriptionInput>(
     `select push_subscription.endpoint, push_subscription.p256dh, push_subscription.auth
      from push_subscription join follow on follow.user_id = push_subscription.user_id
      where follow.channel_id = $1`,
-    [channelId],
+    [started.channelId],
   );
-  const payload = JSON.stringify(liveStartedMessage(channelId, displayName));
+  const payload = JSON.stringify(liveStartedMessage(started));
   const vapidDetails = {
     subject: env.VAPID_SUBJECT,
     publicKey: env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,

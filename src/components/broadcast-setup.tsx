@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useActionState } from 'react';
 import { createChannelAction, resetStreamKeyAction, type KeyState } from '@/app/broadcast/actions';
 import type { Channel } from '@/lib/channels';
+import { channelPath } from '@/lib/handle';
 import { BrowserPublisher } from './browser-publisher';
 import { GuestCommentsChoice } from './guest-comments-choice';
 import { LatencyChoice } from './latency-choice';
@@ -46,8 +47,8 @@ export function BroadcastSetup({ channel, rtmpUrl, webrtcUrl }: Props) {
     <div className="flex flex-col gap-8">
       <p>
         配信の住所：
-        <Link href={`/${channelId}`} className="underline">
-          /{channelId}
+        <Link href={channelPath(channel)} className="underline">
+          {channelPath(channel)}
         </Link>
       </p>
       <LatencyChoice mode={channel.latencyMode} />

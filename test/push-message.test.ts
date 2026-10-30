@@ -2,16 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { liveStartedMessage, subscriptionGone } from '@/lib/push-message';
 
 describe('liveStartedMessage', () => {
-  it('配信者の名前と、その配信の住所を入れる', () => {
-    expect(liveStartedMessage('abc123', 'テスト配信者')).toEqual({
+  it('配信者の名前と、その配信の住所（/@ハンドル）を入れる', () => {
+    expect(
+      liveStartedMessage({ channelId: 'abc123', displayName: 'テスト配信者', handle: 'piro' }),
+    ).toEqual({
       title: 'テスト配信者 さんが配信を始めました',
       body: 'タップして見る',
-      url: '/abc123',
+      url: '/@piro',
     });
   });
 
+  it('ハンドルがまだ無ければ、住所はチャンネルの id', () => {
+    expect(
+      liveStartedMessage({ channelId: 'abc123', displayName: 'テスト配信者', handle: null }).url,
+    ).toBe('/abc123');
+  });
+
   it('名前の無いチャンネルは id を名前の代わりにする', () => {
-    expect(liveStartedMessage('abc123', null).title).toBe('abc123 さんが配信を始めました');
+    expect(liveStartedMessage({ channelId: 'abc123', displayName: null, handle: null }).title).toBe(
+      'abc123 さんが配信を始めました',
+    );
   });
 });
 

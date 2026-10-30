@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { connection } from 'next/server';
 import { followedAmong, listsFollowedOnTop } from '@/lib/follows';
+import { channelPath } from '@/lib/handle';
 import { type LiveChannel, liveChannels } from '@/lib/live';
 import { splitFollowed } from '@/lib/live-paths';
 import { currentUserId } from '@/lib/session';
@@ -17,7 +18,10 @@ function LiveList({ channels }: { channels: LiveChannel[] }) {
     <ul className="flex flex-col gap-2">
       {channels.map((channel) => (
         <li key={channel.channelId}>
-          <Link href={`/${channel.channelId}`} className="underline">
+          <Link
+            href={channelPath({ id: channel.channelId, handle: channel.handle })}
+            className="underline"
+          >
             {channel.displayName ?? channel.channelId}
           </Link>{' '}
           <span className="text-sm text-gray-500">

@@ -19,12 +19,18 @@ export async function requireAdmin(): Promise<void> {
   if (!(await isAdmin())) throw new Error('運営ではありません');
 }
 
-export type BannedChannel = { id: string; displayName: string | null; bannedAt: Date };
+export type BannedChannel = {
+  id: string;
+  displayName: string | null;
+  handle: string | null;
+  bannedAt: Date;
+};
 
 /** 止めた配信者のチャンネル。新しく止めた順 */
 export async function bannedChannels(): Promise<BannedChannel[]> {
   const { rows } = await db().query<BannedChannel>(
-    `select channel.id, profile.display_name as "displayName", channel.banned_at as "bannedAt"
+    `select channel.id, profile.display_name as "displayName", profile.handle,
+       channel.banned_at as "bannedAt"
      from channel left join profile on profile.user_id = channel.user_id
      where channel.banned_at is not null
      order by channel.banned_at desc`,

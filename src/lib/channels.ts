@@ -3,25 +3,37 @@ import { db } from './db';
 import type { LatencyMode } from './latency';
 import { hashStreamKey, newChannelId, newStreamKey } from './stream-key';
 
-export type Channel = { id: string; latencyMode: LatencyMode; guestComments: boolean };
+/** handle は配信者のハンドル（db/migrations/0012_handle.sql）。まだ選んでいなければ null */
+export type Channel = {
+  id: string;
+  latencyMode: LatencyMode;
+  guestComments: boolean;
+  handle: string | null;
+};
 
-const CHANNEL_COLUMNS = 'id, latency_mode as "latencyMode", guest_comments as "guestComments"';
+const SELECT_CHANNEL = `select channel.id, channel.latency_mode as "latencyMode",
+  channel.guest_comments as "guestComments", profile.handle
+  from channel left join profile on profile.user_id = channel.user_id`;
 
 /** その人のチャンネル。まだ作っていなければ null */
 export async function channelOf(userId: string): Promise<Channel | null> {
-  const { rows } = await db().query<Channel>(
-    `select ${CHANNEL_COLUMNS} from channel where user_id = $1`,
-    [userId],
-  );
+  const { rows } = await db().query<Channel>(`${SELECT_CHANNEL} where channel.user_id = $1`, [
+    userId,
+  ]);
   return rows[0] ?? null;
 }
 
 /** id からチャンネル。無ければ null */
 export async function channelById(id: string): Promise<Channel | null> {
-  const { rows } = await db().query<Channel>(
-    `select ${CHANNEL_COLUMNS} from channel where id = $1`,
-    [id],
-  );
+  const { rows } = await db().query<Channel>(`${SELECT_CHANNEL} where channel.id = $1`, [id]);
+  return rows[0] ?? null;
+}
+
+/** ハンドルからチャンネル。無ければ null（ハンドルだけ選んでチャンネルをまだ作っていない人も null） */
+export async function channelByHandle(handle: string): Promise<Channel | null> {
+  const { rows } = await db().query<Channel>(`${SELECT_CHANNEL} where profile.handle = $1`, [
+    handle,
+  ]);
   return rows[0] ?? null;
 }
 

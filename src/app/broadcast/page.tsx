@@ -1,24 +1,31 @@
 import type { Metadata } from 'next';
 import { BroadcastSetup } from '@/components/broadcast-setup';
 import { DisplayNameForm } from '@/components/display-name-form';
+import { HandleForm } from '@/components/handle-form';
 import { SignInButton } from '@/components/sign-in-button';
 import { channelOf } from '@/lib/channels';
-import { displayNameOf } from '@/lib/profiles';
+import { displayNameOf, handleOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
 
 export const metadata: Metadata = { title: '配信する | Liveeen' };
 
-/** 配信を始める画面。配信はログインが要る。名前は配信の一覧に出るので、まだ付けていなければ先に付けてもらう */
+/**
+ * 配信を始める画面。配信はログインが要る。名前は配信の一覧に出るので、まだ付けていなければ先に付けてもらう。
+ * 名前の次に、配信の住所になるハンドルを選んでもらう（チャンネルを作る前の人も、もう作ってある人も）
+ */
 export default async function BroadcastPage() {
   const userId = await currentUserId();
   const channel = userId ? await channelOf(userId) : null;
   const displayName = userId ? await displayNameOf(userId) : null;
+  const handle = userId ? await handleOf(userId) : null;
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
       <h1 className="text-xl font-bold">配信する</h1>
       {userId && !displayName ? (
         <DisplayNameForm name={null} />
+      ) : userId && !handle ? (
+        <HandleForm handle={null} />
       ) : userId ? (
         <BroadcastSetup
           channel={channel}

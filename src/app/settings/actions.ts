@@ -4,7 +4,8 @@ import { refresh } from 'next/cache';
 import { z } from 'zod';
 import { normalizeDisplayName } from '@/lib/display-name';
 import { setEmailsLiveStarted, setListsFollowedOnTop } from '@/lib/follows';
-import { setDisplayName } from '@/lib/profiles';
+import { normalizeHandle } from '@/lib/handle';
+import { setDisplayName, setHandle } from '@/lib/profiles';
 import {
   deletePushSubscription,
   hasPushSubscription,
@@ -67,6 +68,21 @@ export async function setDisplayNameAction(
   const result = normalizeDisplayName(String(form.get('name') ?? ''));
   if (!result.ok) return { error: result.error, saved: false };
   await setDisplayName(userId, result.name);
+  refresh();
+  return { error: null, saved: true };
+}
+
+/** ハンドルの欄の結果。使えないハンドルなら理由を出す */
+export type HandleState = { error: string | null; saved: boolean };
+
+export async function setHandleAction(_: HandleState, form: FormData): Promise<HandleState> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  const result = normalizeHandle(String(form.get('handle') ?? ''));
+  if (!result.ok) return { error: result.error, saved: false };
+  if ((await setHandle(userId, result.handle)) === 'taken') {
+    return { error: 'このハンドルはほかの人が使っています', saved: false };
+  }
   refresh();
   return { error: null, saved: true };
 }

@@ -3,11 +3,23 @@ import { batchesOf, EMAILS_PER_BATCH, liveStartedEmails } from '@/lib/live-email
 
 const base = {
   channelId: 'abc123',
+  handle: null,
   siteUrl: 'https://liveeen.example',
   from: 'Liveeen <notice@liveeen.example>',
 };
 
 describe('liveStartedEmails', () => {
+  it('ハンドルがあれば、配信の住所は /@ハンドル', () => {
+    const [email] = liveStartedEmails({
+      ...base,
+      handle: 'piro',
+      displayName: 'テスト配信者',
+      to: [{ email: 'a@example.com', unsubscribeToken: 'tok-a' }],
+    });
+    expect(email.text).toContain('https://liveeen.example/@piro');
+    expect(email.text).not.toContain('https://liveeen.example/abc123');
+  });
+
   it('送り先ごとに1通作り、配信と設定の住所を入れる', () => {
     const emails = liveStartedEmails({
       ...base,

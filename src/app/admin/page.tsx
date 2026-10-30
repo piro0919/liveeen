@@ -5,6 +5,7 @@ import { banAction, stopStreamAction, unbanAction } from './actions';
 import { ConfirmButton } from '@/components/confirm-button';
 import { bannedChannels, isAdmin } from '@/lib/admin';
 import { DELIST_THRESHOLD, streamKey } from '@/lib/delist';
+import { channelPath } from '@/lib/handle';
 import { liveRegisteredChannels } from '@/lib/live';
 import { reportersOf } from '@/lib/reports';
 
@@ -41,7 +42,10 @@ export default async function AdminPage() {
           <ul className="flex flex-col gap-2">
             {byReports.map((channel) => (
               <li key={channel.channelId} className="flex flex-wrap items-center gap-2">
-                <Link href={`/${channel.channelId}`} className="underline">
+                <Link
+                  href={channelPath({ id: channel.channelId, handle: channel.handle })}
+                  className="underline"
+                >
                   {channel.displayName ?? channel.channelId}
                 </Link>
                 <span className="text-sm text-gray-500">
@@ -71,7 +75,7 @@ export default async function AdminPage() {
           <ul className="flex flex-col gap-2">
             {banned.map((channel) => (
               <li key={channel.id} className="flex flex-wrap items-center gap-2">
-                <Link href={`/${channel.id}`} className="underline">
+                <Link href={channelPath(channel)} className="underline">
                   {channel.displayName ?? channel.id}
                 </Link>
                 <span className="text-sm text-gray-500">

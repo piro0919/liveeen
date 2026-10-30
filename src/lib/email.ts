@@ -1,6 +1,7 @@
 import 'server-only';
 import { db } from './db';
 import { batchesOf, liveStartedEmails } from './live-email';
+import type { LiveStarted } from './push-message';
 import { signUnsubscribeToken } from './unsubscribe-token';
 import { env } from '@/env';
 
@@ -24,7 +25,7 @@ export function emailEnabled(): boolean {
  * チャンネルが配信を始めたことを、フォローしてメールを入れた人へ送る。送り先はログインに使った Google のメールアドレス。
  * 一括送信の1回に100通まで。1秒に10回までなので、1回ずつ順に送る
  */
-export async function sendLiveEmails(channelId: string, displayName: string | null): Promise<void> {
+export async function sendLiveEmails(started: LiveStarted): Promise<void> {
   const secret = env.BETTER_AUTH_SECRET;
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.BETTER_AUTH_URL || !secret) return;
   const { rows } = await db().query<{ userId: string; email: string }>(
@@ -33,11 +34,10 @@ export async function sendLiveEmails(channelId: string, displayName: string | nu
      join notification_setting on notification_setting.user_id = follow.user_id
      join "user" on "user".id = follow.user_id
      where follow.channel_id = $1 and notification_setting.email`,
-    [channelId],
+    [started.channelId],
   );
   const emails = liveStartedEmails({
-    channelId,
-    displayName,
+    ...started,
     siteUrl: env.BETTER_AUTH_URL,
     from: env.EMAIL_FROM,
     to: rows.map((row) => ({
