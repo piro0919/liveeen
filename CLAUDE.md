@@ -168,8 +168,9 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
   - A stream leaves the top page (the フォロー中 group too) once **3 different signed-in users** have reported it (`DELIST_THRESHOLD`, `src/lib/delist.ts`). The watch page still works by its URL
   - Only signed-in users can report, one report per person per stream. Without sign-in one person could report again and again and remove someone else's stream
   - Reports count per stream: a stream is told apart by its start time (MediaMTX `readyTime`). Starting a new stream starts from zero and puts it back on the list. Stopping a streamer for good is left to the owner's admin screen
-- A 通報する button sits next to フォローする on the watch page. It asks for confirmation; signed-out viewers are sent to sign-in; the streamer sees no button. A report while nothing is live is refused (配信していないので通報できません)
-- No reason is asked for (not decided; the admin screen may want one)
+- A 通報する button sits next to フォローする on the watch page. It opens a choice of reasons with 通報する and やめる (choosing and sending replaces the old confirmation dialog); signed-out viewers are sent to sign-in; the streamer sees no button. A report while nothing is live is refused (配信していないので通報できません)
+- The reporter picks one reason (the owner chose this on 2026-10-31): 性的な内容, 暴力・危険な行為, 嫌がらせ・差別, その他 (`src/lib/report-reason.ts`, `report.reason`; the list and wording are provisional). Reports made before this have no reason. The admin screen shows the counts per reason after the total, e.g. 通報 2（性的な内容 1・その他 1）
+- Checked 2026-10-31 in Chrome with local users: the four reasons show, sending without a reason keeps the choice open, やめる closes it, the button stays 通報しました after a reload, and the admin screen showed 通報 2（性的な内容 1・その他 1）
 - Checked 2026-10-31 in Chrome with two local test channels live and three local users: the stream stayed listed after the first and second reports and left the list after the third; reporting twice counts once; the owner sees no button; after restarting the stream it was listed again
 
 ## The admin screen (`/admin`)

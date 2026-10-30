@@ -7,7 +7,8 @@ import { bannedChannels, isAdmin } from '@/lib/admin';
 import { DELIST_THRESHOLD, streamKey } from '@/lib/delist';
 import { channelPath } from '@/lib/handle';
 import { liveRegisteredChannels } from '@/lib/live';
-import { reportersOf } from '@/lib/reports';
+import { reasonSummary } from '@/lib/report-reason';
+import { reportReasonsOf, reportersOf } from '@/lib/reports';
 
 export const metadata: Metadata = { title: '管理 | Liveeen' };
 
@@ -28,7 +29,10 @@ export default async function AdminPage() {
   if (!(await isAdmin())) notFound();
   const live = await liveRegisteredChannels();
   const reporters = await reportersOf(live);
+  const reasons = await reportReasonsOf(live);
   const countOf = (channel: (typeof live)[number]) => reporters.get(streamKey(channel)) ?? 0;
+  const reasonsOf = (channel: (typeof live)[number]) =>
+    reasonSummary(reasons.get(streamKey(channel)) ?? new Map());
   const byReports = [...live].sort((a, b) => countOf(b) - countOf(a));
   const banned = await bannedChannels();
   return (
@@ -50,6 +54,7 @@ export default async function AdminPage() {
                 </Link>
                 <span className="text-sm text-gray-500">
                   {timeFormat.format(channel.startedAt)} から ・ 通報 {countOf(channel)}
+                  {reasonsOf(channel) && `（${reasonsOf(channel)}）`}
                   {countOf(channel) >= DELIST_THRESHOLD && '（一覧から外した）'}
                 </span>
                 <ConfirmButton

@@ -8,6 +8,7 @@ import { signCommentToken } from '@/lib/comment-token';
 import { normalizeDisplayName } from '@/lib/display-name';
 import { follow, unfollow } from '@/lib/follows';
 import { liveStream, publishing } from '@/lib/live';
+import { isReportReason } from '@/lib/report-reason';
 import { report } from '@/lib/reports';
 import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
@@ -25,13 +26,14 @@ export async function setFollowingAction(channelId: string, on: boolean): Promis
 /** 通報の結果。配信していなければ数える配信が無い */
 export type ReportResult = 'reported' | 'offline';
 
-/** いまの配信を通報する（CLAUDE.md）。ログインが要る。配信1回に1人1件 */
-export async function reportAction(channelId: string): Promise<ReportResult> {
+/** いまの配信を通報する（CLAUDE.md）。ログインが要る。配信1回に1人1件。理由は選んでもらう */
+export async function reportAction(channelId: string, reason: string): Promise<ReportResult> {
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
+  if (!isReportReason(reason)) throw new Error(`通報の理由が違います: ${reason}`);
   const live = await liveStream(channelId);
   if (!live) return 'offline';
-  await report(userId, live);
+  await report(userId, live, reason);
   return 'reported';
 }
 
