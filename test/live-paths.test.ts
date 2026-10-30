@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { livePathsOf } from '@/lib/live-paths';
+import { livePathsOf, splitFollowed } from '@/lib/live-paths';
 
 function path(name: string, ready: boolean, readyTime: string | null) {
   return { name, ready, readyTime, confName: 'all_others', readers: [] };
@@ -24,5 +24,15 @@ describe('livePathsOf', () => {
   it('形の合わない応答は空の一覧にする', () => {
     expect(livePathsOf(null)).toEqual([]);
     expect(livePathsOf({ error: 'unauthorized' })).toEqual([]);
+  });
+});
+
+describe('splitFollowed', () => {
+  it('フォローしているものを分け、どちらも元の並びのままにする', () => {
+    const at = new Date('2026-10-30T10:00:00Z');
+    const live = ['a', 'b', 'c', 'd'].map((channelId) => ({ channelId, startedAt: at }));
+    const { followed, others } = splitFollowed(live, new Set(['c', 'a', 'x']));
+    expect(followed.map((channel) => channel.channelId)).toEqual(['a', 'c']);
+    expect(others.map((channel) => channel.channelId)).toEqual(['b', 'd']);
   });
 });

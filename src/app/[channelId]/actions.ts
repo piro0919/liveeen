@@ -1,12 +1,23 @@
 'use server';
 
 import { randomUUID } from 'node:crypto';
+import { refresh } from 'next/cache';
 import { channelById } from '@/lib/channels';
 import { signCommentToken } from '@/lib/comment-token';
 import { normalizeDisplayName } from '@/lib/display-name';
+import { follow, unfollow } from '@/lib/follows';
 import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
+
+/** フォローする（on）／やめる。ログインが要る */
+export async function setFollowingAction(channelId: string, on: boolean): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  if (on) await follow(userId, channelId);
+  else await unfollow(userId, channelId);
+  refresh();
+}
 
 /**
  * コメントの中継につなぐための札（src/lib/comment-token.ts）。

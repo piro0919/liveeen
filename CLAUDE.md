@@ -118,6 +118,13 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Checked 2026-10-31 in Chrome: the checkbox starts off and stays on after a reload; with it on, a signed-out window picks a name, its comment reaches the signed-in window, and the name is remembered after a reload; after turning it off and reloading, the signed-out window shows the sign-in prompt and no input
 - Not built yet: the streamer blocking someone, IP blocking, reporting comments
 
+## Follow
+
+- A button under the player on `/<channel id>` (フォローする / フォロー中). Signed-out viewers get the button too; pressing it starts sign-in. Your own channel has no button, and the DB insert also refuses following yourself
+- Of the three ways to hear that someone you follow went live, only "listed at the top" is built. On the top page, followed channels that are live get their own フォロー中 group under the 配信中 heading, above the rest
+- `/settings` has the switch for it (`notification_setting.list_on_top`). On by default (Claude's call); a user with no row gets the default. Browser notifications and email are not built: they need a sending service, which is not chosen
+- Checked 2026-10-31 in Chrome with two local test channels live and a viewer user: following moves that channel into フォロー中 and the button stays フォロー中 after a reload; turning the switch off puts it back in the plain list; the owner sees no button; signed-out viewers see フォローする; unfollowing puts it back
+
 ## What the local MediaMTX showed (2026-10-30, v1.21.2)
 
 - RTMP in (ffmpeg standing in for OBS, 720p H264 + AAC) → HLS out: plays in the browser
