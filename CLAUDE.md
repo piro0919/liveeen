@@ -89,7 +89,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - The streamer picks the latency on `/broadcast` (`channel.latency_mode`: `hls` default, or `low`). It applies to viewers from their next connection
 - The watch screen plays `low` with WebRTC (WHEP) and `hls` with HLS (hls.js; Safari plays HLS natively). No sign-in. When nothing is live it shows 配信していません and retries every 5 s
 - The streamer's URL is `/<channel id>` for now (random id). Handles or nicer URLs are not decided
-- Checked 2026-10-30 in Chrome with ffmpeg over RTMP: HLS and WebRTC both play 1280×720; HLS notices a stream starting and ending within seconds. WebRTC took about 16 s after the stream ended to show 配信していません (the connection has to fail first). Over RTMP, WebRTC viewers get no sound (AAC; see below). Not checked in Safari or on a phone
+- Checked 2026-10-30 in Chrome with ffmpeg over RTMP: HLS and WebRTC both play 1280×720; HLS notices a stream starting and ending within seconds. WebRTC took about 16 s after the stream ended to show 配信していません (the connection has to fail first); since 2026-10-31 the page asks the server when Chrome reports `disconnected` (the same rule as the broadcast screen, `src/lib/whep.ts`), and it showed 配信していません 6.8 s after ffmpeg ended (measured locally). Over RTMP, WebRTC viewers get no sound (AAC; see below). Not checked in Safari or on a phone
 
 ## The top page (`/`)
 
@@ -169,6 +169,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 ## What the local MediaMTX showed (2026-10-30, v1.21.2)
 
 - RTMP in (ffmpeg standing in for OBS, 720p H264 + AAC) → HLS out: plays in the browser
+- RTMP in → WebRTC out: H264 with B-frames is refused (`WebRTC doesn't support H264 streams with B-frames`, seen 2026-10-31 with ffmpeg's libx264 defaults; test with `-bf 0`). Whether OBS's default x264 settings use B-frames is not checked; if they do, OBS over RTMP cannot be watched in low-latency mode at all
 - RTMP in → WebRTC out: video only. MediaMTX logs `skipping track 2 (MPEG-4 Audio)`; it does not transcode, and WebRTC cannot carry AAC. For the low-latency mode, OBS users need OBS's WHIP output (Opus), or the server transcodes the audio. Not decided
 - Browser in (WHIP) → HLS out: plays. MediaMTX's built-in publish page picks AV1 by default; our publish page asks for H264 (see the broadcast screen)
 

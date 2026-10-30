@@ -6,7 +6,7 @@ import { channelById } from '@/lib/channels';
 import { signCommentToken } from '@/lib/comment-token';
 import { normalizeDisplayName } from '@/lib/display-name';
 import { follow, unfollow } from '@/lib/follows';
-import { liveStream } from '@/lib/live';
+import { liveStream, publishing } from '@/lib/live';
 import { report } from '@/lib/reports';
 import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
@@ -60,4 +60,12 @@ export async function commentTokenAction(
   // 未ログインの人には決まった id が無い。札ごとに振る
   const guest = { userId: `guest:${randomUUID()}`, displayName: name.name };
   return signCommentToken(secret, channelId, guest, Date.now());
+}
+
+/**
+ * その配信が、いま配信サーバーに届いているか。分からなければ null。見るのにログインは要らないので、誰でも聞ける。
+ * WebRTC の視聴のつながりが揺れたときに、配信が終わったのかを確かめる
+ */
+export async function channelPublishingAction(channelId: string): Promise<boolean | null> {
+  return publishing(channelId);
 }

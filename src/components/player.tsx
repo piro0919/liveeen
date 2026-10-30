@@ -3,6 +3,7 @@
 import Hls from 'hls.js';
 import { useEffect, useRef, useState } from 'react';
 import type { LatencyMode } from '@/lib/latency';
+import { channelPublishingAction } from '@/app/[channelId]/actions';
 import { playWhep } from '@/lib/whep';
 
 /** 配信していないとき、もう一度つなぎに行くまでの間 */
@@ -66,14 +67,14 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
 
     async function connectWebrtc(el: HTMLVideoElement) {
       try {
-        const session = await playWhep(
-          `${webrtcUrl}/${channelId}/whep`,
-          (stream) => {
+        const session = await playWhep(`${webrtcUrl}/${channelId}/whep`, {
+          onStream: (stream) => {
             el.srcObject = stream;
             setStatus('live');
           },
-          scheduleRetry,
-        );
+          onEnded: scheduleRetry,
+          stillPublishing: () => channelPublishingAction(channelId),
+        });
         if (cancelled) {
           session.stop();
           return;
