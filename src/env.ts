@@ -19,6 +19,8 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
     // ブラウザからの配信に渡す札の署名の鍵（src/lib/media-token.ts）。無ければブラウザからは配信できない
     MEDIA_TOKEN_SECRET: z.string().min(SECRET_MIN).optional(),
+    // 配信サーバー（MediaMTX）の API。トップの配信中の一覧を読む（src/lib/live.ts）
+    MEDIA_API_URL: z.url(),
   },
   client: {
     // 配信サーバー（MediaMTX）の住所。手元は compose.yaml
@@ -36,6 +38,7 @@ export const env = createEnv({
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     MEDIA_TOKEN_SECRET: process.env.MEDIA_TOKEN_SECRET,
+    MEDIA_API_URL: process.env.MEDIA_API_URL,
     NEXT_PUBLIC_MEDIA_RTMP_URL: process.env.NEXT_PUBLIC_MEDIA_RTMP_URL,
     NEXT_PUBLIC_MEDIA_WEBRTC_URL: process.env.NEXT_PUBLIC_MEDIA_WEBRTC_URL,
     NEXT_PUBLIC_MEDIA_HLS_URL: process.env.NEXT_PUBLIC_MEDIA_HLS_URL,

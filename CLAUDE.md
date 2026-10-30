@@ -90,6 +90,14 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - The streamer's URL is `/<channel id>` for now (random id). Handles or nicer URLs are not decided
 - Checked 2026-10-30 in Chrome with ffmpeg over RTMP: HLS and WebRTC both play 1280×720; HLS notices a stream starting and ending within seconds. WebRTC took about 16 s after the stream ended to show 配信していません (the connection has to fail first). Over RTMP, WebRTC viewers get no sound (AAC; see below). Not checked in Safari or on a phone
 
+## The top page (`/`)
+
+- Lists the channels that are live now, newest first, each linking to `/<channel id>`. The label is the channel id and the start time in Japan time, because a display name is not decided (the Google account name is often a real name, so it is not shown)
+- Whether a channel is live comes from MediaMTX's API (`GET /v3/paths/list`, `ready: true`) on every request (`src/lib/live.ts`, `MEDIA_API_URL`), not from a table. Claude's call: it cannot drift from what is really streaming. Paths that are not registered channels are dropped
+- If MediaMTX does not answer within 3 s, the page shows the empty list (いま配信している人はいません)
+- In production the web app on Vercel has to reach MediaMTX's API on Akamai. How to protect it is not decided (locally `authHTTPExclude` lets the API through without asking the site)
+- Checked locally on 2026-10-30 with ffmpeg over RTMP: the channel appears while streaming, the empty message shows after it stops, and the page still opens when MediaMTX is stopped
+
 ## What the local MediaMTX showed (2026-10-30, v1.21.2)
 
 - RTMP in (ffmpeg standing in for OBS, 720p H264 + AAC) → HLS out: plays in the browser
@@ -103,6 +111,8 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - The report threshold for automatic delisting
 - OBS over RTMP in low-latency mode: ask for WHIP, or transcode the audio on the server
 - Whether liveeen.app / .live are free; trademarks
+- The streamer's display name on the top page and the watch screen
+- How the production web app authenticates to MediaMTX's API
 
 Sources:
 
