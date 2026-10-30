@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { startRelay } from '../relay/relay';
-import { guestId, type RelayMessage, TOKEN_EXPIRED } from '@/lib/comment';
+import { BLOCKED, guestId, type RelayMessage, TOKEN_EXPIRED } from '@/lib/comment';
 import { COMMENT_TOKEN_TTL_MS, signCommentToken } from '@/lib/comment-token';
 
 const SECRET = 'relay-secret';
@@ -41,8 +41,13 @@ async function connect(channelId: string, token?: string) {
   return { socket, received, nth };
 }
 
-function tokenFor(name: string, channelId = CHANNEL) {
-  return signCommentToken(SECRET, channelId, { userId: `id-${name}`, displayName: name }, clock);
+function tokenFor(
+  name: string,
+  channelId = CHANNEL,
+  { ipKey = `ip-${name}`, owner = false }: { ipKey?: string | null; owner?: boolean } = {},
+) {
+  const commenter = { userId: `id-${name}`, displayName: name, ipKey, owner };
+  return signCommentToken(SECRET, channelId, commenter, clock);
 }
 
 describe('コメントの中継', () => {
@@ -66,7 +71,12 @@ describe('コメントの中継', () => {
     const guestToken = signCommentToken(
       SECRET,
       CHANNEL,
-      { userId: guestId('00000000-0000-4000-8000-000000000000'), displayName: 'ぴろ' },
+      {
+        userId: guestId('00000000-0000-4000-8000-000000000000'),
+        displayName: 'ぴろ',
+        ipKey: null,
+        owner: false,
+      },
       clock,
     );
     const writer = await connect(CHANNEL, guestToken);
@@ -124,6 +134,101 @@ describe('コメントの中継', () => {
     expect(await writer.nth(2)).toMatchObject({ type: 'error' });
     expect(await closed).toBe(TOKEN_EXPIRED);
     expect(viewer.received).toHaveLength(1);
+  });
+
+  it('書いた人の札は配信者にだけ付ける', async () => {
+    const owner = await connect(CHANNEL, tokenFor('配信者', CHANNEL, { owner: true }));
+    const viewer = await connect(CHANNEL);
+    const writer = await connect(CHANNEL, tokenFor('荒らし'));
+    writer.socket.send(JSON.stringify({ text: 'やあ' }));
+    const toOwner = await owner.nth(2);
+    const toViewer = await viewer.nth(2);
+    expect(toOwner).toMatchObject({ type: 'comment', comment: { author: expect.any(String) } });
+    expect(toViewer).toMatchObject({ type: 'comment' });
+    expect(toViewer.type === 'comment' && toViewer.comment.author).toBeUndefined();
+  });
+
+  it('配信者がブロックすると、その人のコメントを消し、つなぎを閉じ、前の札では書かせない', async () => {
+    const owner = await connect(CHANNEL, tokenFor('配信者', CHANNEL, { owner: true }));
+    const viewer = await connect(CHANNEL);
+    const trollToken = tokenFor('荒らし');
+    const troll = await connect(CHANNEL, trollToken);
+    troll.socket.send(JSON.stringify({ text: '荒らす' }));
+    const comment = await owner.nth(2);
+    await viewer.nth(2);
+    const closed = new Promise<number>((resolve) => troll.socket.once('close', resolve));
+    const author = comment.type === 'comment' ? comment.comment.author : undefined;
+    owner.socket.send(JSON.stringify({ block: author }));
+    const removedId = comment.type === 'comment' ? comment.comment.id : '';
+    expect(await viewer.nth(3)).toEqual({ type: 'remove', ids: [removedId] });
+    expect(await closed).toBe(BLOCKED);
+
+    const again = await connect(CHANNEL, trollToken);
+    expect(await again.nth(1)).toEqual({ type: 'history', comments: [] });
+    again.socket.send(JSON.stringify({ text: 'まだいる' }));
+    expect(await again.nth(2)).toMatchObject({ type: 'error' });
+  });
+
+  it('同じ IP の別の札も止め、ブロックの後に作られた札は通す', async () => {
+    const owner = await connect(CHANNEL, tokenFor('配信者', CHANNEL, { owner: true }));
+    const troll = await connect(CHANNEL, tokenFor('荒らし', CHANNEL, { ipKey: 'ip-x' }));
+    const sameIp = tokenFor('別名', CHANNEL, { ipKey: 'ip-x' });
+    troll.socket.send(JSON.stringify({ text: '荒らす' }));
+    const comment = await owner.nth(2);
+    const author = comment.type === 'comment' ? comment.comment.author : undefined;
+    owner.socket.send(JSON.stringify({ block: author }));
+    await owner.nth(3);
+
+    const renamed = await connect(CHANNEL, sameIp);
+    renamed.socket.send(JSON.stringify({ text: '名前を変えた' }));
+    expect(await renamed.nth(2)).toMatchObject({ type: 'error' });
+
+    // 戻したあとにサイトが出した札。止めた時刻より後に作られている
+    clock += 1000;
+    const later = await connect(CHANNEL, tokenFor('別名', CHANNEL, { ipKey: 'ip-x' }));
+    later.socket.send(JSON.stringify({ text: '戻った' }));
+    expect(await later.nth(2)).toMatchObject({ type: 'comment', comment: { text: '戻った' } });
+  });
+
+  it('配信者でない人のブロックは聞かない', async () => {
+    const owner = await connect(CHANNEL, tokenFor('配信者', CHANNEL, { owner: true }));
+    const writer = await connect(CHANNEL, tokenFor('見る人'));
+    const other = await connect(CHANNEL, tokenFor('別の人'));
+    writer.socket.send(JSON.stringify({ text: 'やあ' }));
+    const comment = await owner.nth(2);
+    await other.nth(2);
+    const author = comment.type === 'comment' ? comment.comment.author : undefined;
+    other.socket.send(JSON.stringify({ block: author }));
+    clock += 1000;
+    writer.socket.send(JSON.stringify({ text: 'まだ書ける' }));
+    expect(await writer.nth(3)).toMatchObject({
+      type: 'comment',
+      comment: { text: 'まだ書ける' },
+    });
+  });
+
+  it('配信者と同じ IP の人は、IP では止めない', async () => {
+    const owner = await connect(
+      CHANNEL,
+      tokenFor('配信者', CHANNEL, { owner: true, ipKey: 'ip-home' }),
+    );
+    const family = await connect(CHANNEL, tokenFor('家族', CHANNEL, { ipKey: 'ip-home' }));
+    const neighbor = await connect(CHANNEL, tokenFor('同じ家', CHANNEL, { ipKey: 'ip-home' }));
+    family.socket.send(JSON.stringify({ text: 'やあ' }));
+    const comment = await owner.nth(2);
+    await neighbor.nth(2);
+    const author = comment.type === 'comment' ? comment.comment.author : undefined;
+    owner.socket.send(JSON.stringify({ block: author }));
+    await owner.nth(3);
+    clock += 1000;
+    neighbor.socket.send(JSON.stringify({ text: '書ける' }));
+    expect(await neighbor.nth(4)).toMatchObject({ type: 'comment', comment: { text: '書ける' } });
+    clock += 1000;
+    owner.socket.send(JSON.stringify({ text: '配信者も書ける' }));
+    expect(await owner.nth(5)).toMatchObject({
+      type: 'comment',
+      comment: { text: '配信者も書ける' },
+    });
   });
 
   it('形の合わない名前のチャンネルにはつながせない', async () => {

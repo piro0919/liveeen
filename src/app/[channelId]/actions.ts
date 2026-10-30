@@ -2,9 +2,11 @@
 
 import { randomUUID } from 'node:crypto';
 import { refresh } from 'next/cache';
-import { channelById } from '@/lib/channels';
+import { blockCommenter, commenterBlocked } from '@/lib/blocks';
+import { channelById, channelOf } from '@/lib/channels';
 import { guestId } from '@/lib/comment';
-import { signCommentToken } from '@/lib/comment-token';
+import { signCommentToken, verifyAuthor } from '@/lib/comment-token';
+import { requestIpKey } from '@/lib/request-ip';
 import { normalizeDisplayName } from '@/lib/display-name';
 import { follow, unfollow } from '@/lib/follows';
 import { liveStream, publishing } from '@/lib/live';
@@ -37,32 +39,61 @@ export async function reportAction(channelId: string, reason: string): Promise<R
   return 'reported';
 }
 
+/** コメントの札。token が null なら読むだけでつなぐ。blocked は配信者に止められていること */
+export type CommentTokenResult = { token: string | null; blocked: boolean };
+
+const READ_ONLY: CommentTokenResult = { token: null, blocked: false };
+
 /**
  * コメントの中継につなぐための札（src/lib/comment-token.ts）。
  * ログインして名前を付けた人には、その名前で出す。
  * ログインしていない人には、配信者が許していて（db/migrations/0006_guest_comments.sql）、その場で入れた名前があるときだけ出す。
- * どれでもなければ null で、読むだけでつなぐ
+ * 配信者が止めた人には出さない（src/lib/blocks.ts）。配信者自身は止められない
  */
 export async function commentTokenAction(
   channelId: string,
   guestName: string | null,
-): Promise<string | null> {
+): Promise<CommentTokenResult> {
   const secret = env.COMMENT_TOKEN_SECRET;
-  if (!secret) return null;
+  if (!secret) return READ_ONLY;
+  const ipKey = await requestIpKey(secret);
   const userId = await currentUserId();
   if (userId) {
     const displayName = await displayNameOf(userId);
-    if (!displayName) return null;
-    return signCommentToken(secret, channelId, { userId, displayName }, Date.now());
+    if (!displayName) return READ_ONLY;
+    const owner = (await channelOf(userId))?.id === channelId;
+    if (!owner && (await commenterBlocked(channelId, userId, ipKey))) {
+      return { token: null, blocked: true };
+    }
+    const commenter = { userId, displayName, ipKey, owner };
+    return { token: signCommentToken(secret, channelId, commenter, Date.now()), blocked: false };
   }
-  if (!guestName) return null;
+  if (!guestName) return READ_ONLY;
   const name = normalizeDisplayName(guestName);
-  if (!name.ok) return null;
+  if (!name.ok) return READ_ONLY;
   const channel = await channelById(channelId);
-  if (!channel?.guestComments) return null;
+  if (!channel?.guestComments) return READ_ONLY;
+  if (await commenterBlocked(channelId, null, ipKey)) return { token: null, blocked: true };
   // 未ログインの人には決まった id が無い。札ごとに振る
-  const guest = { userId: guestId(randomUUID()), displayName: name.name };
-  return signCommentToken(secret, channelId, guest, Date.now());
+  const guest = { userId: guestId(randomUUID()), displayName: name.name, ipKey, owner: false };
+  return { token: signCommentToken(secret, channelId, guest, Date.now()), blocked: false };
+}
+
+/**
+ * コメントした人を止める。配信者だけができる。author は中継がコメントに付けた札（src/lib/comment-token.ts）。
+ * 中継にも見る画面から知らせ、その場で書けなくする（relay/relay.ts）
+ */
+export async function blockCommenterAction(channelId: string, author: string): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  if ((await channelOf(userId))?.id !== channelId)
+    throw new Error('自分のチャンネルではありません');
+  const secret = env.COMMENT_TOKEN_SECRET;
+  if (!secret) throw new Error('COMMENT_TOKEN_SECRET がありません');
+  const verified = verifyAuthor(secret, author, channelId);
+  if (!verified) throw new Error('書いた人の札が合いません');
+  if (verified.userId === userId) throw new Error('自分は止められません');
+  await blockCommenter(channelId, verified, await requestIpKey(secret));
 }
 
 /**

@@ -1,8 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { commentTokenAction } from '@/app/[channelId]/actions';
-import { type Comment, COMMENT_MAX, type RelayMessage, TOKEN_EXPIRED } from '@/lib/comment';
+import { blockCommenterAction, commentTokenAction } from '@/app/[channelId]/actions';
+import {
+  BLOCKED,
+  type Comment,
+  COMMENT_MAX,
+  type RelayMessage,
+  TOKEN_EXPIRED,
+} from '@/lib/comment';
 import { COMMENT_TOKEN_TTL_MS } from '@/lib/comment-token';
 import { normalizeDisplayName } from '@/lib/display-name';
 import { DisplayNameForm } from './display-name-form';
@@ -55,6 +61,8 @@ type Props = {
   viewer: 'signed-out' | 'no-name' | 'ready';
   /** ログインしていない人も書けるか。配信者が選ぶ */
   guestComments: boolean;
+  /** 配信者が自分のチャンネルを見ている。コメントした人をブロックできる */
+  own: boolean;
 };
 
 /**
@@ -62,13 +70,15 @@ type Props = {
  * 書けるのは、ログインして名前を付けた人と、配信者が許していればログインしていない人（その場で名前を入れる）。
  * つなぐたびにサーバーから札をもらい、札が切れる前につなぎ直す
  */
-export function Comments({ channelId, relayUrl, viewer, guestComments }: Props) {
+export function Comments({ channelId, relayUrl, viewer, guestComments, own }: Props) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('');
   // 覚えておいた名前は、画面が開いてから読む（サーバーでは読めない）
   const guestName = useSyncExternalStore(subscribeGuestName, readGuestName, () => null);
   const [editingGuestName, setEditingGuestName] = useState(false);
+  // 配信者に止められていれば、書く欄を出さない
+  const [blocked, setBlocked] = useState(false);
   const socket = useRef<WebSocket | null>(null);
   const list = useRef<HTMLOListElement>(null);
 
@@ -81,17 +91,21 @@ export function Comments({ channelId, relayUrl, viewer, guestComments }: Props) 
     let refresh: ReturnType<typeof setTimeout> | undefined;
 
     async function connect() {
-      const token = writer
+      const result = writer
         ? await commentTokenAction(channelId, viewer === 'ready' ? null : guestName)
         : null;
       if (cancelled) return;
+      const token = result?.token ?? null;
+      setBlocked(result?.blocked ?? false);
       const query = token ? `?token=${encodeURIComponent(token)}` : '';
       const ws = new WebSocket(`${relayUrl}/${channelId}${query}`);
       socket.current = ws;
       ws.onmessage = (event) => {
         const message = JSON.parse(String(event.data)) as RelayMessage;
         if (message.type === 'history') setComments(message.comments);
-        else if (message.type === 'comment') {
+        else if (message.type === 'remove') {
+          setComments((shown) => shown.filter((comment) => !message.ids.includes(comment.id)));
+        } else if (message.type === 'comment') {
           setComments((shown) => [...shown, message.comment].slice(-SHOWN_MAX));
         } else setError(message.message);
       };
@@ -99,8 +113,8 @@ export function Comments({ channelId, relayUrl, viewer, guestComments }: Props) 
         clearTimeout(refresh);
         if (socket.current === ws) socket.current = null;
         if (cancelled) return;
-        // 札が切れて閉じられたときは、待たずに新しい札でつなぐ
-        const wait = event.code === TOKEN_EXPIRED ? 0 : RETRY_MS;
+        // 札が切れたか、ブロックされて閉じられたときは、待たずに新しい札でつなぐ（止められていれば札は出ない）
+        const wait = event.code === TOKEN_EXPIRED || event.code === BLOCKED ? 0 : RETRY_MS;
         retry = setTimeout(() => void connect(), wait);
       };
       if (token) refresh = setTimeout(() => ws.close(), REFRESH_MS);
@@ -130,6 +144,21 @@ export function Comments({ channelId, relayUrl, viewer, guestComments }: Props) 
     setError(null);
   }
 
+  /** 配信者が、コメントした人を止める。サイトに覚えさせてから、中継にも知らせてその場で効かせる */
+  async function block(comment: Comment) {
+    const { author } = comment;
+    if (!author) return;
+    if (
+      !window.confirm(
+        `${comment.name}さんをブロックしますか？このチャンネルでコメントできなくなります`,
+      )
+    ) {
+      return;
+    }
+    await blockCommenterAction(channelId, author);
+    socket.current?.send(JSON.stringify({ block: author }));
+  }
+
   function decideGuestName(form: FormData) {
     const result = normalizeDisplayName(String(form.get('name') ?? ''));
     if (!result.ok) {
@@ -150,6 +179,18 @@ export function Comments({ channelId, relayUrl, viewer, guestComments }: Props) 
             <span className="font-bold">{comment.name}</span>
             {comment.guest && <span className="text-sm text-gray-500">（ゲスト）</span>}{' '}
             {comment.text}
+            {own && comment.author && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  className="text-sm text-gray-500 underline"
+                  onClick={() => void block(comment)}
+                >
+                  ブロック
+                </button>
+              </>
+            )}
           </li>
         ))}
       </ol>
@@ -176,7 +217,8 @@ export function Comments({ channelId, relayUrl, viewer, guestComments }: Props) 
           </button>
         </form>
       )}
-      {writer && !editingGuestName && (
+      {blocked && <p>この配信者のチャンネルではコメントできません</p>}
+      {writer && !blocked && !editingGuestName && (
         <form action={post} className="flex gap-2">
           <input
             value={text}

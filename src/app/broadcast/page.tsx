@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import { BlockList } from '@/components/block-list';
 import { BroadcastSetup } from '@/components/broadcast-setup';
 import { DisplayNameForm } from '@/components/display-name-form';
 import { HandleForm } from '@/components/handle-form';
 import { SignInButton } from '@/components/sign-in-button';
+import { blocksOf } from '@/lib/blocks';
 import { channelOf } from '@/lib/channels';
 import { displayNameOf, handleOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
@@ -27,11 +29,14 @@ export default async function BroadcastPage() {
       ) : userId && !handle ? (
         <HandleForm handle={null} />
       ) : userId ? (
-        <BroadcastSetup
-          channel={channel}
-          rtmpUrl={env.NEXT_PUBLIC_MEDIA_RTMP_URL}
-          webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
-        />
+        <>
+          <BroadcastSetup
+            channel={channel}
+            rtmpUrl={env.NEXT_PUBLIC_MEDIA_RTMP_URL}
+            webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
+          />
+          {channel && <BlockList blocks={await blocksOf(channel.id)} />}
+        </>
       ) : (
         <SignInButton />
       )}

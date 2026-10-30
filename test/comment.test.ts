@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { COMMENT_MAX, normalizeComment } from '@/lib/comment';
-import { COMMENT_TOKEN_TTL_MS, signCommentToken, verifyCommentToken } from '@/lib/comment-token';
+import {
+  COMMENT_TOKEN_TTL_MS,
+  signAuthor,
+  signCommentToken,
+  verifyAuthor,
+  verifyCommentToken,
+} from '@/lib/comment-token';
 
 const SECRET = 'comment-secret';
 const NOW = 1_800_000_000_000;
-const COMMENTER = { userId: 'u1', displayName: 'ぴろ' };
+const COMMENTER = { userId: 'u1', displayName: 'ぴろ', ipKey: 'ip-1', owner: false };
 
 describe('normalizeComment', () => {
   it('改行は空白にして1行にする', () => {
@@ -23,6 +29,7 @@ describe('コメントの札', () => {
     const token = signCommentToken(SECRET, 'ch', COMMENTER, NOW);
     expect(verifyCommentToken(SECRET, token, 'ch', NOW)).toEqual({
       ...COMMENTER,
+      issuedAt: NOW,
       expiresAt: NOW + COMMENT_TOKEN_TTL_MS,
     });
   });
@@ -41,5 +48,19 @@ describe('コメントの札', () => {
       JSON.stringify({ c: 'ch', u: 'u1', n: '運営', e: NOW + COMMENT_TOKEN_TTL_MS }),
     ).toString('base64url');
     expect(verifyCommentToken(SECRET, `${forged}.${sig}`, 'ch', NOW)).toBeNull();
+  });
+});
+
+describe('書いた人の札', () => {
+  const author = { userId: 'u1', displayName: 'ぴろ', ipKey: 'ip-1' };
+
+  it('同じ鍵・同じチャンネルなら中身を返す', () => {
+    expect(verifyAuthor(SECRET, signAuthor(SECRET, 'ch', author), 'ch')).toEqual(author);
+  });
+
+  it('ほかのチャンネル・違う鍵・コメントの札は null', () => {
+    expect(verifyAuthor(SECRET, signAuthor(SECRET, 'other', author), 'ch')).toBeNull();
+    expect(verifyAuthor(SECRET, signAuthor('other', 'ch', author), 'ch')).toBeNull();
+    expect(verifyAuthor(SECRET, signCommentToken(SECRET, 'ch', COMMENTER, NOW), 'ch')).toBeNull();
   });
 });

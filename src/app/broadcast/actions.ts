@@ -8,6 +8,7 @@ import {
   setGuestComments,
   setLatencyMode,
 } from '@/lib/channels';
+import { unblockCommenter } from '@/lib/blocks';
 import { isLatencyMode } from '@/lib/latency';
 import { publishing } from '@/lib/live';
 import { signMediaToken } from '@/lib/media-token';
@@ -60,6 +61,16 @@ export async function setGuestCommentsAction(allowed: boolean): Promise<void> {
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   await setGuestComments(userId, allowed);
+  refresh();
+}
+
+/** コメントでブロックした人を戻す（src/lib/blocks.ts）。次に札をもらうときから書ける */
+export async function unblockCommenterAction(blockId: string): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  const channel = await channelOf(userId);
+  if (!channel) throw new Error('チャンネルがありません');
+  await unblockCommenter(channel.id, blockId);
   refresh();
 }
 

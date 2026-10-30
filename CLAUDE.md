@@ -133,7 +133,23 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Comments are not saved (the owner confirmed this on 2026-10-31; decide again when reports on comments or recordings are built). Claude's calls on the details: the relay keeps the last 50 per channel in memory and sends them to whoever joins; one line, up to 200 characters (line breaks become spaces); one post per second per connection
 - Checked 2026-10-31 in Chrome with the local test user and a signed-out window: the signed-out window shows the sign-in prompt and no input, a comment reaches it with the name, a second post within a second is refused, a window opened later sees the earlier comment
 - Checked 2026-10-31 in Chrome: the checkbox starts off and stays on after a reload; with it on, a signed-out window picks a name, its comment reaches the signed-in window, and the name is remembered after a reload; after turning it off and reloading, the signed-out window shows the sign-in prompt and no input
-- Not built yet: the streamer blocking someone, IP blocking, reporting comments
+- Not built yet: reporting comments
+
+## Blocking commenters
+
+- Agreed with the owner on 2026-10-31 (Claude proposed it; the owner chose 「この案で作る」):
+  - On their own watch page the streamer sees ブロック next to each comment; it asks for confirmation first
+  - A blocked person cannot comment on that streamer's channel, but can still watch
+  - A signed-in person is blocked by account and by IP at once; a guest, who can come back under a new name, by IP
+  - It takes effect at once, and the person's earlier comments disappear from everyone's screen
+  - Nobody sees the IP, the streamer included
+  - `/broadcast` lists the blocked people (name and time) with 戻す
+  - It applies to that streamer's channel only; blocking site-wide is not built
+- Stored in `comment_block` (`db/migrations/0015_comment_block.sql`, `src/lib/blocks.ts`). The IP is kept only as an HMAC with `COMMENT_TOKEN_SECRET` (`src/lib/ip-key.ts`), IPv6 by its first 64 bits because one line gets a whole /64. The IP comes from `x-forwarded-for`, which Vercel overwrites so it cannot be spoofed (https://vercel.com/docs/headers/request-headers#x-forwarded-for)
+- How it reaches the relay (Claude's call): the comment token now carries the IP key and whether the holder is the channel's streamer. The relay attaches a signed author token to each comment for the streamer only; the streamer's page sends it to `blockCommenterAction`, which stores the block, then to the relay, which removes the person's comments (`remove`), closes their connections (code 4003) and refuses tokens made before the block for the next 10 minutes. After that, the web app gives them no token (`commentTokenAction` answers `blocked`) and the page shows この配信者のチャンネルではコメントできません (wording provisional). 戻す works from the next token
+- Someone on the same IP as the streamer is blocked by account only, both in the relay and in the table, so the streamer's household is not blocked with them. A guest on the streamer's IP therefore cannot be blocked (Claude's call)
+- IP blocking also catches others behind the same address, such as a mobile carrier's shared IPs (not measured)
+- Checked 2026-10-31 in Chrome with two local users (both on the same local IP, so the block was by account): the viewer saw no ブロック button; after the streamer blocked them, their comment disappeared from both windows, their input was replaced by the sentence, and it stayed after a reload; `/broadcast` listed 見る人 with the time; after 戻す and a reload the viewer could comment again. Blocking by IP, and guests, are covered only by the relay tests (`test/relay.test.ts`), not checked in a browser
 
 ## Follow
 

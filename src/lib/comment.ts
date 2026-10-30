@@ -10,7 +10,15 @@ const LINE_BREAKS = /[\p{Cc}\p{Zl}\p{Zp}]+/gu;
  * 中継と見る画面がやりとりするコメント。guest はログインしていない人が書いたもの。
  * 名前は重なってよいので、ログインしていない人がほかの人の名前を名乗っても見分けられるよう、画面で印を付ける
  */
-export type Comment = { id: string; name: string; text: string; at: number; guest: boolean };
+export type Comment = {
+  id: string;
+  name: string;
+  text: string;
+  at: number;
+  guest: boolean;
+  /** 書いた人の札（src/lib/comment-token.ts の signAuthor）。配信者にだけ付ける。ブロックに使う */
+  author?: string;
+};
 
 /** ログインしていない人の札に振る id の頭。札ごとに `guest:<uuid>` を振る */
 const GUEST_ID_PREFIX = 'guest:';
@@ -25,11 +33,14 @@ export function isGuestId(userId: string): boolean {
 
 /** 中継が、札の期限が切れたつなぎを閉じるときの番号（4000 番台は使う側が決めてよい） */
 export const TOKEN_EXPIRED = 4001;
+/** 中継が、配信者にブロックされた人のつなぎを閉じるときの番号。見る画面は札をもらい直し、読むだけでつなぐ */
+export const BLOCKED = 4003;
 
-/** 中継から見る画面に送るもの */
+/** 中継から見る画面に送るもの。remove はブロックされた人のコメントを画面から消す */
 export type RelayMessage =
   | { type: 'history'; comments: Comment[] }
   | { type: 'comment'; comment: Comment }
+  | { type: 'remove'; ids: string[] }
   | { type: 'error'; message: string };
 
 /** 書かれたコメントを、流してよい形にする。空か長すぎれば null */
