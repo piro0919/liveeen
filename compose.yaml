@@ -1,0 +1,34 @@
+# 手元の配信サーバー（MediaMTX）と DB。本番の配信サーバーは Akamai の東京に同じ MediaMTX を置く。
+# 設定は media/mediamtx.yml。版は本番とそろえる
+services:
+  media:
+    image: bluenviron/mediamtx:1.21.2
+    volumes:
+      - ./media/mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      # OBS などからの RTMP の受け口
+      - '1935:1935'
+      # HLS（遅れるが軽い視聴）
+      - '8888:8888'
+      # WebRTC の受け渡し（ブラウザからの配信 WHIP と、低遅延の視聴 WHEP）
+      - '8889:8889'
+      # WebRTC の映像と音声そのもの
+      - '8189:8189/udp'
+      # 配信中の一覧などを読む API
+      - '9997:9997'
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: liveeen
+      POSTGRES_PASSWORD: liveeen
+      POSTGRES_DB: liveeen
+    ports:
+      - '5435:5432'
+    volumes:
+      - db18:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'liveeen']
+      interval: 2s
+      retries: 30
+volumes:
+  db18:

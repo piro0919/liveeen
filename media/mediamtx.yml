@@ -1,0 +1,28 @@
+# 手元の MediaMTX の設定。書いていない項目は MediaMTX の既定のまま
+# （https://github.com/bluenviron/mediamtx/blob/v1.21.2/mediamtx.yml）
+
+logLevel: info
+
+# 配信と視聴のたびにサイトに聞く（src/app/api/media/auth/route.ts）。
+# 手元ではサイトの開発サーバー（pnpm dev）を Docker の外の 3000 番で動かす
+authMethod: http
+authHTTPAddress: http://host.docker.internal:3000/api/media/auth
+# API はサイトに聞かずに通す（手元だけ。本番では API の受け口を外に出さない）
+authHTTPExclude:
+  - action: api
+
+api: true
+
+# 使わない受け口は閉じる
+rtsp: false
+srt: false
+moq: false
+
+# Docker の中から見える住所はコンテナのものなので、ブラウザに渡す住所に手元を足す
+webrtcAdditionalHosts: [127.0.0.1]
+
+# 誰も見ていなくても HLS を作っておく。最初の視聴者が来てから作り始めると、見始めるまで数秒待たせる
+hlsAlwaysRemux: true
+
+paths:
+  all_others:
