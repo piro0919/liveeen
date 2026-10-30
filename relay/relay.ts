@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
-import { type Comment, normalizeComment, type RelayMessage } from '../src/lib/comment';
-import { type Commenter, verifyCommentToken } from '../src/lib/comment-token';
+import {
+  type Comment,
+  normalizeComment,
+  type RelayMessage,
+  TOKEN_EXPIRED,
+} from '../src/lib/comment';
+import { verifyCommentToken } from '../src/lib/comment-token';
 
 /** つないだ人に最初に見せる、それまでのコメントの数 */
 const HISTORY_SIZE = 50;
@@ -14,7 +19,6 @@ const MAX_PAYLOAD_BYTES = 4096;
 const PING_INTERVAL_MS = 30_000;
 /** 配信の名前として受け付ける形（src/lib/media-auth.ts と同じ） */
 const CHANNEL_PATTERN = /^\/([A-Za-z0-9_-]+)$/;
-
 type Room = { clients: Set<WebSocket>; history: Comment[] };
 
 type Options = {
@@ -46,9 +50,7 @@ export function startRelay({ port, secret, now = Date.now }: Options) {
       return;
     }
     const token = url.searchParams.get('token');
-    const commenter: Commenter | null = token
-      ? verifyCommentToken(secret, token, channelId, now())
-      : null;
+    const commenter = token ? verifyCommentToken(secret, token, channelId, now()) : null;
 
     let room = rooms.get(channelId);
     if (!room) {
@@ -78,6 +80,12 @@ export function startRelay({ port, secret, now = Date.now }: Options) {
       }
       if (!text) return;
       const at = now();
+      if (commenter.expiresAt < at) {
+        // 見る画面は閉じられたらすぐ新しい札でつなぎ直す（src/components/comments.tsx）
+        send(socket, { type: 'error', message: '時間が空いたので、もう一度送ってください' });
+        socket.close(TOKEN_EXPIRED, 'token expired');
+        return;
+      }
       if (at - lastPostAt < POST_INTERVAL_MS) {
         send(socket, { type: 'error', message: '少し待ってから書いてください' });
         return;

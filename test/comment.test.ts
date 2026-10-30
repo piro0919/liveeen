@@ -19,9 +19,12 @@ describe('normalizeComment', () => {
 });
 
 describe('コメントの札', () => {
-  it('同じ鍵・同じチャンネル・期限の内なら書く人を返す', () => {
+  it('同じ鍵・同じチャンネル・期限の内なら書く人と期限を返す', () => {
     const token = signCommentToken(SECRET, 'ch', COMMENTER, NOW);
-    expect(verifyCommentToken(SECRET, token, 'ch', NOW)).toEqual(COMMENTER);
+    expect(verifyCommentToken(SECRET, token, 'ch', NOW)).toEqual({
+      ...COMMENTER,
+      expiresAt: NOW + COMMENT_TOKEN_TTL_MS,
+    });
   });
 
   it('期限が切れていれば null', () => {

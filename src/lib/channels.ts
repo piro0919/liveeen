@@ -3,9 +3,9 @@ import { db } from './db';
 import type { LatencyMode } from './latency';
 import { hashStreamKey, newChannelId, newStreamKey } from './stream-key';
 
-export type Channel = { id: string; latencyMode: LatencyMode };
+export type Channel = { id: string; latencyMode: LatencyMode; guestComments: boolean };
 
-const CHANNEL_COLUMNS = 'id, latency_mode as "latencyMode"';
+const CHANNEL_COLUMNS = 'id, latency_mode as "latencyMode", guest_comments as "guestComments"';
 
 /** その人のチャンネル。まだ作っていなければ null */
 export async function channelOf(userId: string): Promise<Channel | null> {
@@ -52,4 +52,9 @@ export async function resetStreamKey(userId: string): Promise<string | null> {
 
 export async function setLatencyMode(userId: string, mode: LatencyMode): Promise<void> {
   await db().query('update channel set latency_mode = $2 where user_id = $1', [userId, mode]);
+}
+
+/** ログインしていない人がコメントを書けるか（db/migrations/0006_guest_comments.sql） */
+export async function setGuestComments(userId: string, allowed: boolean): Promise<void> {
+  await db().query('update channel set guest_comments = $2 where user_id = $1', [userId, allowed]);
 }

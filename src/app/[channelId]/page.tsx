@@ -28,6 +28,7 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
         channelId={channel.id}
         relayUrl={env.NEXT_PUBLIC_COMMENT_RELAY_URL}
         viewer={viewer}
+        guestComments={channel.guestComments}
       />
     </main>
   );

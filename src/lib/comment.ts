@@ -9,6 +9,9 @@ const LINE_BREAKS = /[\p{Cc}\p{Zl}\p{Zp}]+/gu;
 /** 中継と見る画面がやりとりするコメント */
 export type Comment = { id: string; name: string; text: string; at: number };
 
+/** 中継が、札の期限が切れたつなぎを閉じるときの番号（4000 番台は使う側が決めてよい） */
+export const TOKEN_EXPIRED = 4001;
+
 /** 中継から見る画面に送るもの */
 export type RelayMessage =
   | { type: 'history'; comments: Comment[] }

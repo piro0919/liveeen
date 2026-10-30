@@ -5,6 +5,7 @@ import { useActionState } from 'react';
 import { createChannelAction, resetStreamKeyAction, type KeyState } from '@/app/broadcast/actions';
 import type { Channel } from '@/lib/channels';
 import { BrowserPublisher } from './browser-publisher';
+import { GuestCommentsChoice } from './guest-comments-choice';
 import { LatencyChoice } from './latency-choice';
 
 const NO_KEY: KeyState = { key: null };
@@ -50,6 +51,7 @@ export function BroadcastSetup({ channel, rtmpUrl, webrtcUrl }: Props) {
         </Link>
       </p>
       <LatencyChoice mode={channel.latencyMode} />
+      <GuestCommentsChoice allowed={channel.guestComments} />
       <section className="flex flex-col gap-2">
         <h2 className="font-bold">ブラウザで配信</h2>
         <BrowserPublisher whipUrl={whipUrl} />

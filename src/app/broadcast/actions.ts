@@ -1,7 +1,13 @@
 'use server';
 
 import { refresh } from 'next/cache';
-import { channelOf, createChannel, resetStreamKey, setLatencyMode } from '@/lib/channels';
+import {
+  channelOf,
+  createChannel,
+  resetStreamKey,
+  setGuestComments,
+  setLatencyMode,
+} from '@/lib/channels';
 import { isLatencyMode } from '@/lib/latency';
 import { signMediaToken } from '@/lib/media-token';
 import { displayNameOf } from '@/lib/profiles';
@@ -35,6 +41,13 @@ export async function browserPublishTokenAction(): Promise<string> {
   if (!channel) throw new Error('チャンネルがありません');
   if (!env.MEDIA_TOKEN_SECRET) throw new Error('MEDIA_TOKEN_SECRET がありません');
   return signMediaToken(env.MEDIA_TOKEN_SECRET, channel.id, Date.now());
+}
+
+export async function setGuestCommentsAction(allowed: boolean): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  await setGuestComments(userId, allowed);
+  refresh();
 }
 
 export async function setLatencyModeAction(mode: string): Promise<void> {

@@ -37,13 +37,16 @@ export function signCommentToken(
   return `${body}.${signature(secret, body)}`;
 }
 
-/** 札がそのチャンネルのもので、期限の内で、署名が合えば書く人を返す。合わなければ null */
+/**
+ * 札がそのチャンネルのもので、期限の内で、署名が合えば書く人と札の期限を返す。合わなければ null。
+ * 中継は書くたびに期限も見る。配信者が未ログインのコメントを止めたら、遅くとも期限で書けなくなる
+ */
 export function verifyCommentToken(
   secret: string,
   token: string,
   channelId: string,
   now: number,
-): Commenter | null {
+): (Commenter & { expiresAt: number }) | null {
   const [body, sig, ...rest] = token.split('.');
   if (rest.length > 0 || !body || !sig) return null;
   const expected = Buffer.from(signature(secret, body));
@@ -51,5 +54,5 @@ export function verifyCommentToken(
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
   const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as Payload;
   if (payload.c !== channelId || payload.e < now) return null;
-  return { userId: payload.u, displayName: payload.n };
+  return { userId: payload.u, displayName: payload.n, expiresAt: payload.e };
 }

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { startRelay } from '../relay/relay';
-import type { RelayMessage } from '@/lib/comment';
-import { signCommentToken } from '@/lib/comment-token';
+import { type RelayMessage, TOKEN_EXPIRED } from '@/lib/comment';
+import { COMMENT_TOKEN_TTL_MS, signCommentToken } from '@/lib/comment-token';
 
 const SECRET = 'relay-secret';
 const CHANNEL = 'abc123';
@@ -93,6 +93,18 @@ describe('コメントの中継', () => {
     clock += 1000;
     writer.socket.send(JSON.stringify({ text: '3' }));
     expect(await writer.nth(4)).toMatchObject({ type: 'comment', comment: { text: '3' } });
+  });
+
+  it('つないだあとで札の期限が切れたら、書かせずに閉じる', async () => {
+    const writer = await connect(CHANNEL, tokenFor('ぴろ'));
+    const viewer = await connect(CHANNEL);
+    await viewer.nth(1);
+    const closed = new Promise<number>((resolve) => writer.socket.once('close', resolve));
+    clock += COMMENT_TOKEN_TTL_MS + 1;
+    writer.socket.send(JSON.stringify({ text: '遅れて' }));
+    expect(await writer.nth(2)).toMatchObject({ type: 'error' });
+    expect(await closed).toBe(TOKEN_EXPIRED);
+    expect(viewer.received).toHaveLength(1);
   });
 
   it('形の合わない名前のチャンネルにはつながせない', async () => {

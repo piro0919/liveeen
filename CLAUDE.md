@@ -108,11 +108,14 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 ## Comments
 
-- Shown under the player on `/<channel id>`. Everyone can read them; writing needs sign-in and a display name. Signed-out commenting waits for the per-stream setting (agreed, not built), so for now signed-out viewers only read
+- Shown under the player on `/<channel id>`. Everyone can read them. Writing needs sign-in and a display name, unless the streamer allows signed-out comments
+- Signed-out comments: a checkbox on `/broadcast` (`channel.guest_comments`, off by default; the default is Claude's call, matching what was there before). When on, a signed-out viewer types a name on the watch screen (same rules as display names), the browser remembers it, and the server gives a token with a fresh `guest:<uuid>` id. Guests are not marked differently from signed-in users (not decided)
+- Turning it off reaches viewers when they reconnect. The page reconnects with a new token a minute before the token's 10 minutes run out, and the relay checks the expiry on every post (closing with code 4001 so the page reconnects at once), so a guest already connected can write for at most about 10 minutes after it is turned off
 - The relay is `relay/` (Node and `ws`), meant to run on the Akamai server next to MediaMTX. Viewers connect to `NEXT_PUBLIC_COMMENT_RELAY_URL/<channel id>`
 - The relay has no DB and no sign-in. The web app gives signed-in viewers with a name a 10-minute signed token (`src/lib/comment-token.ts`, `COMMENT_TOKEN_SECRET`, the same value on both sides) carrying the user id and the name; the relay checks only the signature, the channel and the expiry, once when connecting. A renamed user keeps the old name until they reconnect
 - Claude's calls on the details: comments are not saved; the relay keeps the last 50 per channel in memory and sends them to whoever joins; one line, up to 200 characters (line breaks become spaces); one post per second per connection
 - Checked 2026-10-31 in Chrome with the local test user and a signed-out window: the signed-out window shows the sign-in prompt and no input, a comment reaches it with the name, a second post within a second is refused, a window opened later sees the earlier comment
+- Checked 2026-10-31 in Chrome: the checkbox starts off and stays on after a reload; with it on, a signed-out window picks a name, its comment reaches the signed-in window, and the name is remembered after a reload; after turning it off and reloading, the signed-out window shows the sign-in prompt and no input
 - Not built yet: the streamer blocking someone, IP blocking, reporting comments
 
 ## What the local MediaMTX showed (2026-10-30, v1.21.2)
