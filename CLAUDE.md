@@ -70,14 +70,24 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - MediaMTX uses `authMethod: http` and asks `/api/media/auth` on every publish and read (`src/lib/media-auth.ts`)
 - Each streamer has one channel (`channel` table). The channel id is the MediaMTX path; the stream key is stored as SHA-256
 - Publish passes only when the key matches that channel: WHIP Bearer token, RTMP `?key=` after the path, or RTMP password
+- The key is shown only when it is created or reset (Claude's call, since only the hash is stored; the owner has not seen the screen yet)
+- The browser cannot hold the key, so `/broadcast` gets a 10-minute signed token from a server action (`src/lib/media-token.ts`, `MEDIA_TOKEN_SECRET`). Credentials containing `.` are treated as tokens; stream keys never contain `.`
 - Read passes for anyone (watching needs no sign-in). Admin stop and the monthly cap are not wired in yet
-- Checked locally on 2026-10-30 with ffmpeg over RTMP: wrong key and no key get 401, the right key publishes. WHIP with a Bearer token is covered by unit tests only
+- Checked locally on 2026-10-30 with ffmpeg over RTMP: wrong key and no key get 401, the right key publishes
+
+## The broadcast screen (`/broadcast`)
+
+- Sign in → declare 18+ (checkbox) → the channel is created and the key shown → OBS settings (RTMP and WHIP) and browser streaming
+- The UI is plain and has not been shown to the owner. Wording and layout are provisional
+- Google sign-in is not set up yet (no OAuth client). `.env.local` has placeholder Google ids; local checks used a session row and a hand-signed `better-auth.session_token` cookie
+- Browser streaming asks for H264 Constrained Baseline (`42e01f`) first. With Chrome's first H264 entry (Baseline `42001f`), Chrome on this Mac encoded about 10 frames with VideoToolbox and stopped; `42e01f` and High `640034` kept going. Without any preference Chrome sends VP8, which HLS cannot carry
+- Checked 2026-10-30 in Chrome (window off screen, fake camera): create channel → stream → MediaMTX has Opus + H264 → HLS plays → stop removes the stream. HLS showed 640×360 that time although the camera gave 1280×720; Chrome lowers the size on its own, cause not checked. Not checked with a real camera, Safari, or a phone
 
 ## What the local MediaMTX showed (2026-10-30, v1.21.2)
 
 - RTMP in (ffmpeg standing in for OBS, 720p H264 + AAC) → HLS out: plays in the browser
 - RTMP in → WebRTC out: video only. MediaMTX logs `skipping track 2 (MPEG-4 Audio)`; it does not transcode, and WebRTC cannot carry AAC. For the low-latency mode, OBS users need OBS's WHIP output (Opus), or the server transcodes the audio. Not decided
-- Browser in (WHIP) → HLS out: plays. MediaMTX's built-in publish page picks AV1 by default; our publish page must ask for H264 (iPhone playback of AV1 not checked)
+- Browser in (WHIP) → HLS out: plays. MediaMTX's built-in publish page picks AV1 by default; our publish page asks for H264 (see the broadcast screen)
 
 ## Not decided or not checked
 

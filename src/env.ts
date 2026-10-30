@@ -1,7 +1,7 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
-/** Better Auth の鍵の長さの下限 */
+/** 署名の鍵の長さの下限 */
 const SECRET_MIN = 32;
 
 /**
@@ -17,14 +17,25 @@ export const env = createEnv({
     BETTER_AUTH_URL: z.url().optional(),
     GOOGLE_CLIENT_ID: z.string().min(1).optional(),
     GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+    // ブラウザからの配信に渡す札の署名の鍵（src/lib/media-token.ts）。無ければブラウザからは配信できない
+    MEDIA_TOKEN_SECRET: z.string().min(SECRET_MIN).optional(),
   },
-  client: {},
+  client: {
+    // 配信サーバー（MediaMTX）の住所。手元は compose.yaml
+    // OBS の RTMP の受け口（rtmp://…）
+    NEXT_PUBLIC_MEDIA_RTMP_URL: z.string().min(1),
+    // WebRTC の受け口（WHIP と WHEP。http(s)://…）
+    NEXT_PUBLIC_MEDIA_WEBRTC_URL: z.url(),
+  },
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    MEDIA_TOKEN_SECRET: process.env.MEDIA_TOKEN_SECRET,
+    NEXT_PUBLIC_MEDIA_RTMP_URL: process.env.NEXT_PUBLIC_MEDIA_RTMP_URL,
+    NEXT_PUBLIC_MEDIA_WEBRTC_URL: process.env.NEXT_PUBLIC_MEDIA_WEBRTC_URL,
   },
   emptyStringAsUndefined: true,
 });

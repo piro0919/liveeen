@@ -1,5 +1,6 @@
 import { allowMedia, mediaAuthRequest } from '@/lib/media-auth';
 import { db } from '@/lib/db';
+import { env } from '@/env';
 
 const ALLOWED = 200;
 const BAD_REQUEST = 400;
@@ -20,6 +21,10 @@ async function channelKeyMatches(channelId: string, streamKeyHash: string): Prom
 export async function POST(request: Request): Promise<Response> {
   const parsed = mediaAuthRequest.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return new Response(null, { status: BAD_REQUEST });
-  const allowed = await allowMedia(parsed.data, channelKeyMatches);
+  const allowed = await allowMedia(parsed.data, {
+    channelKeyMatches,
+    tokenSecret: env.MEDIA_TOKEN_SECRET,
+    now: Date.now(),
+  });
   return new Response(null, { status: allowed ? ALLOWED : DENIED });
 }

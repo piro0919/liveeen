@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { verifyMediaToken } from './media-token';
 import { hashStreamKey } from './stream-key';
 
 /**
@@ -21,33 +22,45 @@ export type MediaAuthRequest = z.infer<typeof mediaAuthRequest>;
 const PATH_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 /**
- * 配信者が渡してくる鍵。渡し方は道具ごとに違う。
- * - ブラウザと OBS の WHIP：Bearer の token
+ * 配信者が渡してくるもの。渡し方は道具ごとに違う。
+ * - OBS の WHIP：Bearer の token に配信の鍵
+ * - ブラウザ（配信の画面）：Bearer の token に期限付きの札（src/lib/media-token.ts）
  * - OBS の RTMP：配信の名前の後ろの ?key=…（OBS の「ストリームキー」欄に `<id>?key=<鍵>` と入れる）
  * - RTMP で user と pass を付ける道具：password
  */
-function streamKeyOf(request: MediaAuthRequest): string {
+function credentialOf(request: MediaAuthRequest): string {
   if (request.token) return request.token;
   const fromQuery = new URLSearchParams(request.query).get('key');
   if (fromQuery) return fromQuery;
   return request.password;
 }
 
-/** 配信の名前と鍵の組が、登録されたチャンネルのものか */
-export type ChannelKeyCheck = (channelId: string, streamKeyHash: string) => Promise<boolean>;
+export type MediaAuthDeps = {
+  /** 配信の名前と鍵の組が、登録されたチャンネルのものか */
+  channelKeyMatches: (channelId: string, streamKeyHash: string) => Promise<boolean>;
+  /** ブラウザの札の署名の鍵。無ければ札は通さない */
+  tokenSecret: string | undefined;
+  now: number;
+};
 
 /**
- * 通すかどうか。配信は鍵が合うチャンネルだけ。視聴は、形の合う名前なら誰でも（見るのにログインは要らない）。
+ * 通すかどうか。配信は鍵か札が合うチャンネルだけ。視聴は、形の合う名前なら誰でも（見るのにログインは要らない）。
  * それ以外（録画の再生・API など）は通さない
  */
 export async function allowMedia(
   request: MediaAuthRequest,
-  channelKeyMatches: ChannelKeyCheck,
+  { channelKeyMatches, tokenSecret, now }: MediaAuthDeps,
 ): Promise<boolean> {
   if (!PATH_PATTERN.test(request.path)) return false;
   if (request.action === 'read') return true;
   if (request.action !== 'publish') return false;
-  const key = streamKeyOf(request);
-  if (!key) return false;
-  return channelKeyMatches(request.path, hashStreamKey(key));
+  const credential = credentialOf(request);
+  if (!credential) return false;
+  // 配信の鍵は `.` を含まない（src/lib/stream-key.ts）ので、含むものは札として確かめる
+  if (credential.includes('.')) {
+    return (
+      tokenSecret !== undefined && verifyMediaToken(tokenSecret, credential, request.path, now)
+    );
+  }
+  return channelKeyMatches(request.path, hashStreamKey(credential));
 }
