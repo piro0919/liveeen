@@ -87,6 +87,8 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 ## Latency choice and the watch screen (`/<channel id>`)
 
 - The streamer picks the latency on `/broadcast` (`channel.latency_mode`: `hls` default, or `low`). It applies to viewers from their next connection
+- OBS over RTMP in low-latency mode is handled by telling the streamer, not by transcoding (the owner left it to Claude's recommendation on 2026-10-31; transcoding would need the video too because of B-frames, and costs server CPU). While `low` is chosen, the OBS section of `/broadcast` says to stream with WHIP from OBS 30 or later, because over RTMP viewers get no sound and, depending on the video settings, no picture (wording provisional). OBS's WHIP output sends Opus and sets B-frames to 0 itself (`plugins/obs-webrtc/whip-service.cpp`, checked 2026-10-31; WHIP arrived in OBS 30.0.0 per its release notes). Not checked with a real OBS
+- Checked 2026-10-31 in Chrome: the note shows while `low` is chosen, disappears on switching to HLS, comes back on switching to `low`, and each state stays after a reload
 - The watch screen plays `low` with WebRTC (WHEP) and `hls` with HLS (hls.js; Safari plays HLS natively). No sign-in. When nothing is live it shows 配信していません and retries every 5 s
 - The streamer's URL is `/<channel id>` for now (random id). Handles or nicer URLs are not decided
 - Checked 2026-10-30 in Chrome with ffmpeg over RTMP: HLS and WebRTC both play 1280×720; HLS notices a stream starting and ending within seconds. WebRTC took about 16 s after the stream ended to show 配信していません (the connection has to fail first); since 2026-10-31 the page asks the server when Chrome reports `disconnected` (the same rule as the broadcast screen, `src/lib/whep.ts`), and it showed 配信していません 6.8 s after ffmpeg ended (measured locally). Over RTMP, WebRTC viewers get no sound (AAC; see below). Not checked in Safari or on a phone
@@ -170,14 +172,13 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 - RTMP in (ffmpeg standing in for OBS, 720p H264 + AAC) → HLS out: plays in the browser
 - RTMP in → WebRTC out: H264 with B-frames is refused (`WebRTC doesn't support H264 streams with B-frames`, seen 2026-10-31 with ffmpeg's libx264 defaults; test with `-bf 0`). Whether OBS's default x264 settings use B-frames is not checked; if they do, OBS over RTMP cannot be watched in low-latency mode at all
-- RTMP in → WebRTC out: video only. MediaMTX logs `skipping track 2 (MPEG-4 Audio)`; it does not transcode, and WebRTC cannot carry AAC. For the low-latency mode, OBS users need OBS's WHIP output (Opus), or the server transcodes the audio. Not decided
+- RTMP in → WebRTC out: video only. MediaMTX logs `skipping track 2 (MPEG-4 Audio)`; it does not transcode, and WebRTC cannot carry AAC. For the low-latency mode, OBS users need OBS's WHIP output (Opus); `/broadcast` tells them so (see the latency section)
 - Browser in (WHIP) → HLS out: plays. MediaMTX's built-in publish page picks AV1 by default; our publish page asks for H264 (see the broadcast screen)
 
 ## Not decided or not checked
 
 - Akamai's monthly server price for the plan we need
 - How many viewers one server can serve, per latency mode (measure on the server)
-- OBS over RTMP in low-latency mode: ask for WHIP, or transcode the audio on the server
 - Whether liveeen.app / .live are free; trademarks
 - How the production web app authenticates to MediaMTX's API
 - How the comment relay is deployed and kept running on Akamai (and its `wss://` address)

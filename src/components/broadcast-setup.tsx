@@ -58,6 +58,14 @@ export function BroadcastSetup({ channel, rtmpUrl, webrtcUrl }: Props) {
       </section>
       <section className="flex flex-col gap-2">
         <h2 className="font-bold">OBS で配信</h2>
+        {channel.latencyMode === 'low' && (
+          // RTMP の AAC は WebRTC に載らず、B フレーム入りの H264 は MediaMTX が WebRTC に出さない。
+          // OBS の WHIP は Opus で送り、B フレームを 0 にする（obs-studio の plugins/obs-webrtc/whip-service.cpp）
+          <p>
+            低遅延では、OBS 30 以降の WHIP で配信してください。RTMP
+            では見ている人に音が届かず、映像の設定によっては映像も届きません。
+          </p>
+        )}
         <dl className="flex flex-col gap-1">
           <dt>RTMP のサーバー</dt>
           <dd className="mb-2 font-mono break-all">{rtmpUrl}</dd>
