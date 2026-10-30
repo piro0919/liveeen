@@ -1,5 +1,7 @@
+import { after } from 'next/server';
 import { allowMedia, mediaAuthRequest } from '@/lib/media-auth';
 import { db } from '@/lib/db';
+import { notifyLiveStarted } from '@/lib/push';
 import { env } from '@/env';
 
 const ALLOWED = 200;
@@ -35,5 +37,11 @@ export async function POST(request: Request): Promise<Response> {
     tokenSecret: env.MEDIA_TOKEN_SECRET,
     now: Date.now(),
   });
+  // 配信が通ったら、フォローした人へ知らせる。MediaMTX を待たせないよう、答えを返してから送る。
+  // MediaMTX の公式の箱には curl などが無く、配信が始まったときに命令を走らせる仕組み（runOnReady）からはサイトを呼べないので、ここで拾う
+  if (allowed && parsed.data.action === 'publish') {
+    const channelId = parsed.data.path;
+    after(() => notifyLiveStarted(channelId));
+  }
   return new Response(null, { status: allowed ? ALLOWED : DENIED });
 }

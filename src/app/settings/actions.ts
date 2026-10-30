@@ -1,9 +1,16 @@
 'use server';
 
 import { refresh } from 'next/cache';
+import { z } from 'zod';
 import { normalizeDisplayName } from '@/lib/display-name';
 import { setListsFollowedOnTop } from '@/lib/follows';
 import { setDisplayName } from '@/lib/profiles';
+import {
+  deletePushSubscription,
+  hasPushSubscription,
+  type PushSubscriptionInput,
+  savePushSubscription,
+} from '@/lib/push';
 import { currentUserId } from '@/lib/session';
 
 export async function setListsFollowedOnTopAction(on: boolean): Promise<void> {
@@ -11,6 +18,34 @@ export async function setListsFollowedOnTopAction(on: boolean): Promise<void> {
   if (!userId) throw new Error('ログインしていません');
   await setListsFollowedOnTop(userId, on);
   refresh();
+}
+
+/** 送り口の形。ブラウザから来るものなので、DB に入れる前に確かめる */
+const pushSubscriptionInput = z.object({
+  endpoint: z.url().startsWith('https://'),
+  p256dh: z.string().min(1),
+  auth: z.string().min(1),
+});
+
+/** このブラウザでブラウザ通知を受け取る */
+export async function savePushSubscriptionAction(input: PushSubscriptionInput): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  await savePushSubscription(userId, pushSubscriptionInput.parse(input));
+}
+
+/** このブラウザでブラウザ通知を受け取るのをやめる */
+export async function deletePushSubscriptionAction(endpoint: string): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  await deletePushSubscription(userId, endpoint);
+}
+
+/** このブラウザの送り口が、ログインしている人のものとして覚えてあるか */
+export async function hasPushSubscriptionAction(endpoint: string): Promise<boolean> {
+  const userId = await currentUserId();
+  if (!userId) return false;
+  return hasPushSubscription(userId, endpoint);
 }
 
 /** 名前の欄の結果。使えない名前なら理由を出す */

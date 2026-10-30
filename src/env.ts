@@ -26,6 +26,10 @@ export const env = createEnv({
     COMMENT_TOKEN_SECRET: z.string().min(SECRET_MIN).optional(),
     // 管理画面（/admin）を開ける人の Google のメールアドレス。カンマで区切る。無ければ誰も開けない
     ADMIN_EMAILS: z.string().optional(),
+    // ブラウザ通知（Web Push）の VAPID の秘密の鍵と、送り口に名乗る連絡先（mailto:…）。
+    // NEXT_PUBLIC_VAPID_PUBLIC_KEY と組で作る（web-push generate-vapid-keys）。無ければ通知は送らない
+    VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+    VAPID_SUBJECT: z.string().startsWith('mailto:').optional(),
   },
   client: {
     // 配信サーバー（MediaMTX）の住所。手元は compose.yaml
@@ -37,6 +41,8 @@ export const env = createEnv({
     NEXT_PUBLIC_MEDIA_HLS_URL: z.url(),
     // コメントの中継（relay/）の住所（ws(s)://…）。手元は pnpm relay
     NEXT_PUBLIC_COMMENT_RELAY_URL: z.url(),
+    // ブラウザ通知（Web Push）の VAPID の公開の鍵。無ければ設定に通知の切り替えを出さない
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().min(1).optional(),
   },
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -48,6 +54,9 @@ export const env = createEnv({
     MEDIA_API_URL: process.env.MEDIA_API_URL,
     COMMENT_TOKEN_SECRET: process.env.COMMENT_TOKEN_SECRET,
     ADMIN_EMAILS: process.env.ADMIN_EMAILS,
+    VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
+    VAPID_SUBJECT: process.env.VAPID_SUBJECT,
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     NEXT_PUBLIC_COMMENT_RELAY_URL: process.env.NEXT_PUBLIC_COMMENT_RELAY_URL,
     NEXT_PUBLIC_MEDIA_RTMP_URL: process.env.NEXT_PUBLIC_MEDIA_RTMP_URL,
     NEXT_PUBLIC_MEDIA_WEBRTC_URL: process.env.NEXT_PUBLIC_MEDIA_WEBRTC_URL,

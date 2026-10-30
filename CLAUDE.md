@@ -122,8 +122,18 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 ## Follow
 
 - A button under the player on `/<channel id>` (フォローする / フォロー中). Signed-out viewers get the button too; pressing it starts sign-in. Your own channel has no button, and the DB insert also refuses following yourself
-- Of the three ways to hear that someone you follow went live, only "listed at the top" is built. On the top page, followed channels that are live get their own フォロー中 group under the 配信中 heading, above the rest
-- `/settings` has the switch for it (`notification_setting.list_on_top`). On by default (Claude's call); a user with no row gets the default. Browser notifications and email are not built: they need a sending service, which is not chosen
+- Of the three ways to hear that someone you follow went live, "listed at the top" and browser notifications are built; email is not (it needs a sending service, which is not chosen). On the top page, followed channels that are live get their own フォロー中 group under the 配信中 heading, above the rest
+- `/settings` has the switch for it (`notification_setting.list_on_top`). On by default (Claude's call); a user with no row gets the default
+
+## Browser notifications
+
+- Web Push with VAPID (`web-push`), no third-party service. Checked 2026-10-31 on the official pages: Firebase lists Cloud Messaging (Chrome's push service) as "No-cost" (https://firebase.google.com/pricing); WebKit says "You don't need to join the Apple Developer Program to send Web Push notifications" (https://webkit.org/blog/12945/meet-web-push/)
+- `/settings` has このブラウザに通知する. It is per browser, off until turned on (the browser asks for permission). Turning it on registers `public/sw.js` and stores the browser's push endpoint in `push_subscription`; turning it off deletes it. If the browser blocks notifications or has no Web Push, the switch is replaced by a sentence saying so
+- Sent when a publish passes `/api/media/auth`, after the response (`after()`), to followers with an endpoint (`src/lib/push.ts`). MediaMTX's `runOnReady` cannot be used: the official image holds only the `mediamtx` binary and its config (checked 2026-10-31), so it has no curl to call the site
+- Not resent if the channel was notified less than 10 minutes before (`channel.notified_at`; Claude's call), so OBS reconnecting does not notify again. Endpoints that answer 404 or 410 are deleted
+- The text is 〈name〉 さんが配信を始めました / タップして見る (provisional); clicking opens `/<channel id>`
+- Needs `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`mailto:…`). Without them the switch is hidden and nothing is sent. Production needs a key pair made with `npx web-push generate-vapid-keys` and the owner's contact address; locally `.env.local` has a pair and a placeholder address
+- Checked 2026-10-31 in Chrome (window off screen, persistent profile, real FCM): turning it on stores the endpoint and stays on after a reload; a publish (ffmpeg over RTMP, and a direct call to the auth endpoint) shows the notification with the streamer's name; a second publish within 10 minutes shows none; turning it off removes the endpoint. When Chrome lost the permission, FCM refused the endpoint and it was deleted. Not checked: Safari, Firefox, iPhone home-screen apps (iPhone may also need a web app manifest; not checked), clicking the notification
 - Checked 2026-10-31 in Chrome with two local test channels live and a viewer user: following moves that channel into フォロー中 and the button stays フォロー中 after a reload; turning the switch off puts it back in the plain list; the owner sees no button; signed-out viewers see フォローする; unfollowing puts it back
 
 ## Reports and automatic delisting

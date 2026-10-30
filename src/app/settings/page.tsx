@@ -5,6 +5,7 @@ import { SignInButton } from '@/components/sign-in-button';
 import { listsFollowedOnTop } from '@/lib/follows';
 import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
+import { env } from '@/env';
 
 export const metadata: Metadata = { title: '設定 | Liveeen' };
 
@@ -17,7 +18,10 @@ export default async function SettingsPage() {
       {userId ? (
         <>
           <DisplayNameForm name={await displayNameOf(userId)} />
-          <FollowNoticeChoice listOnTop={await listsFollowedOnTop(userId)} />
+          <FollowNoticeChoice
+            listOnTop={await listsFollowedOnTop(userId)}
+            pushPublicKey={env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+          />
         </>
       ) : (
         <SignInButton />
