@@ -125,6 +125,16 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - `/settings` has the switch for it (`notification_setting.list_on_top`). On by default (Claude's call); a user with no row gets the default. Browser notifications and email are not built: they need a sending service, which is not chosen
 - Checked 2026-10-31 in Chrome with two local test channels live and a viewer user: following moves that channel into フォロー中 and the button stays フォロー中 after a reload; turning the switch off puts it back in the plain list; the owner sees no button; signed-out viewers see フォローする; unfollowing puts it back
 
+## Reports and automatic delisting
+
+- The owner left the threshold to Claude on 2026-10-31 (「まかせる」). What Claude chose:
+  - A stream leaves the top page (the フォロー中 group too) once **3 different signed-in users** have reported it (`DELIST_THRESHOLD`, `src/lib/delist.ts`). The watch page still works by its URL
+  - Only signed-in users can report, one report per person per stream. Without sign-in one person could report again and again and remove someone else's stream
+  - Reports count per stream: a stream is told apart by its start time (MediaMTX `readyTime`). Starting a new stream starts from zero and puts it back on the list. Stopping a streamer for good is left to the owner's admin screen (not built)
+- A 通報する button sits next to フォローする on the watch page. It asks for confirmation; signed-out viewers are sent to sign-in; the streamer sees no button. A report while nothing is live is refused (配信していないので通報できません)
+- No reason is asked for (not decided; the admin screen may want one)
+- Checked 2026-10-31 in Chrome with two local test channels live and three local users: the stream stayed listed after the first and second reports and left the list after the third; reporting twice counts once; the owner sees no button; after restarting the stream it was listed again
+
 ## What the local MediaMTX showed (2026-10-30, v1.21.2)
 
 - RTMP in (ffmpeg standing in for OBS, 720p H264 + AAC) → HLS out: plays in the browser
@@ -135,7 +145,6 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 - Akamai's monthly server price for the plan we need
 - How many viewers one server can serve, per latency mode (measure on the server)
-- The report threshold for automatic delisting
 - OBS over RTMP in low-latency mode: ask for WHIP, or transcode the audio on the server
 - Whether liveeen.app / .live are free; trademarks
 - How the production web app authenticates to MediaMTX's API
