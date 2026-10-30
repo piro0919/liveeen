@@ -129,7 +129,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Turning it off reaches viewers when they reconnect. The page reconnects with a new token a minute before the token's 10 minutes run out, and the relay checks the expiry on every post (closing with code 4001 so the page reconnects at once), so a guest already connected can write for at most about 10 minutes after it is turned off
 - The relay is `relay/` (Node and `ws`), run on the Akamai server next to MediaMTX (see the production media server). Viewers connect to `NEXT_PUBLIC_COMMENT_RELAY_URL/<channel id>`
 - The relay has no DB and no sign-in. The web app gives signed-in viewers with a name a 10-minute signed token (`src/lib/comment-token.ts`, `COMMENT_TOKEN_SECRET`, the same value on both sides) carrying the user id and the name; the relay checks only the signature, the channel and the expiry, once when connecting. A renamed user keeps the old name until they reconnect
-- Claude's calls on the details: comments are not saved; the relay keeps the last 50 per channel in memory and sends them to whoever joins; one line, up to 200 characters (line breaks become spaces); one post per second per connection
+- Comments are not saved (the owner confirmed this on 2026-10-31; decide again when reports on comments or recordings are built). Claude's calls on the details: the relay keeps the last 50 per channel in memory and sends them to whoever joins; one line, up to 200 characters (line breaks become spaces); one post per second per connection
 - Checked 2026-10-31 in Chrome with the local test user and a signed-out window: the signed-out window shows the sign-in prompt and no input, a comment reaches it with the name, a second post within a second is refused, a window opened later sees the earlier comment
 - Checked 2026-10-31 in Chrome: the checkbox starts off and stays on after a reload; with it on, a signed-out window picks a name, its comment reaches the signed-in window, and the name is remembered after a reload; after turning it off and reloading, the signed-out window shows the sign-in prompt and no input
 - Not built yet: the streamer blocking someone, IP blocking, reporting comments
@@ -205,7 +205,6 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Akamai's monthly server price for the plan we need
 - How many viewers one server can serve, per latency mode (measure on the server)
 - Whether liveeen.app / .live are free; trademarks
-- Whether comments should be saved (for reports on comments, or for recordings later)
 
 Sources:
 
