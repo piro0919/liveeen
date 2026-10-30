@@ -12,7 +12,10 @@ describe('liveStartedEmails', () => {
     const emails = liveStartedEmails({
       ...base,
       displayName: 'テスト配信者',
-      to: ['a@example.com', 'b@example.com'],
+      to: [
+        { email: 'a@example.com', unsubscribeToken: 'tok-a' },
+        { email: 'b@example.com', unsubscribeToken: 'tok-b' },
+      ],
     });
     expect(emails.map((email) => email.to)).toEqual(['a@example.com', 'b@example.com']);
     expect(emails[0].subject).toBe('テスト配信者 さんが配信を始めました');
@@ -20,8 +23,33 @@ describe('liveStartedEmails', () => {
     expect(emails[0].text).toContain('https://liveeen.example/settings');
   });
 
+  it('送り先ごとの札で、1回で止められる List-Unsubscribe を付ける（RFC 8058）', () => {
+    const emails = liveStartedEmails({
+      ...base,
+      displayName: null,
+      to: [
+        { email: 'a@example.com', unsubscribeToken: 'tok-a' },
+        { email: 'b@example.com', unsubscribeToken: 'tok-b' },
+      ],
+    });
+    expect(emails.map((email) => email.headers)).toEqual([
+      {
+        'List-Unsubscribe': '<https://liveeen.example/api/email/unsubscribe?token=tok-a>',
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
+      {
+        'List-Unsubscribe': '<https://liveeen.example/api/email/unsubscribe?token=tok-b>',
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
+    ]);
+  });
+
   it('名前の無いチャンネルは id を名前の代わりにする', () => {
-    const [email] = liveStartedEmails({ ...base, displayName: null, to: ['a@example.com'] });
+    const [email] = liveStartedEmails({
+      ...base,
+      displayName: null,
+      to: [{ email: 'a@example.com', unsubscribeToken: 'tok-a' }],
+    });
     expect(email.subject).toBe('abc123 さんが配信を始めました');
   });
 });
