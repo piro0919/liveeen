@@ -4,6 +4,7 @@ import { refresh } from 'next/cache';
 import { channelOf, createChannel, resetStreamKey, setLatencyMode } from '@/lib/channels';
 import { isLatencyMode } from '@/lib/latency';
 import { signMediaToken } from '@/lib/media-token';
+import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
 
@@ -14,6 +15,7 @@ export async function createChannelAction(_: KeyState, form: FormData): Promise<
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   if (form.get('adult') !== 'yes') throw new Error('18歳以上の申告がありません');
+  if (!(await displayNameOf(userId))) throw new Error('名前がありません');
   const key = await createChannel(userId);
   refresh();
   return { key };

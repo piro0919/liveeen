@@ -23,7 +23,7 @@ export default async function Home() {
           {channels.map((channel) => (
             <li key={channel.channelId}>
               <Link href={`/${channel.channelId}`} className="underline">
-                {channel.channelId}
+                {channel.displayName ?? channel.channelId}
               </Link>{' '}
               <span className="text-sm text-gray-500">
                 {startedAtFormat.format(channel.startedAt)} から

@@ -92,11 +92,19 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 ## The top page (`/`)
 
-- Lists the channels that are live now, newest first, each linking to `/<channel id>`. The label is the channel id and the start time in Japan time, because a display name is not decided (the Google account name is often a real name, so it is not shown)
+- Lists the channels that are live now, newest first, each linking to `/<channel id>`. The label is the streamer's display name (the channel id for channels made before names existed) and the start time in Japan time
 - Whether a channel is live comes from MediaMTX's API (`GET /v3/paths/list`, `ready: true`) on every request (`src/lib/live.ts`, `MEDIA_API_URL`), not from a table. Claude's call: it cannot drift from what is really streaming. Paths that are not registered channels are dropped
 - If MediaMTX does not answer within 3 s, the page shows the empty list (いま配信している人はいません)
 - In production the web app on Vercel has to reach MediaMTX's API on Akamai. How to protect it is not decided (locally `authHTTPExclude` lets the API through without asking the site)
 - Checked locally on 2026-10-30 with ffmpeg over RTMP: the channel appears while streaming, the empty message shows after it stops, and the page still opens when MediaMTX is stopped
+
+## Display names
+
+- Everyone picks the name shown on the live list and on comments; the owner chose this on 2026-10-31. The Google account name is never shown, because it is often a real name
+- Stored in the `profile` table, not in Better Auth's `user` table. Names need not be unique
+- Up to 20 characters counted as they look (an emoji sequence is one), no line breaks or control characters (`src/lib/display-name.ts`; Claude's call)
+- `/broadcast` asks for a name before anything else when there is none. `/settings` changes it (it holds only the name for now)
+- Checked 2026-10-31 in Chrome with the local test user: 21 characters is refused, a valid name opens the broadcast setup, and the top page lists the stream under that name
 
 ## What the local MediaMTX showed (2026-10-30, v1.21.2)
 
@@ -111,7 +119,6 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - The report threshold for automatic delisting
 - OBS over RTMP in low-latency mode: ask for WHIP, or transcode the audio on the server
 - Whether liveeen.app / .live are free; trademarks
-- The streamer's display name on the top page and the watch screen
 - How the production web app authenticates to MediaMTX's API
 
 Sources:
