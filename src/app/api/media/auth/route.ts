@@ -1,7 +1,7 @@
 import { after } from 'next/server';
 import { allowMedia, mediaAuthRequest } from '@/lib/media-auth';
 import { db } from '@/lib/db';
-import { notifyLiveStarted } from '@/lib/push';
+import { notifyLiveStarted } from '@/lib/notify';
 import { env } from '@/env';
 
 const ALLOWED = 200;

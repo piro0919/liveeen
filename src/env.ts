@@ -30,6 +30,11 @@ export const env = createEnv({
     // NEXT_PUBLIC_VAPID_PUBLIC_KEY と組で作る（web-push generate-vapid-keys）。無ければ通知は送らない
     VAPID_PRIVATE_KEY: z.string().min(1).optional(),
     VAPID_SUBJECT: z.string().startsWith('mailto:').optional(),
+    // 配信の始まりを知らせるメール（src/lib/email.ts）。Resend の API の鍵と、送り主（`Liveeen <…@…>`）。
+    // 送り主のドメインは Resend で確かめておく。どちらか無ければメールは送らず、設定にも切り替えを出さない。
+    // メールの中の住所は BETTER_AUTH_URL（サイトの住所）から作る
+    RESEND_API_KEY: z.string().min(1).optional(),
+    EMAIL_FROM: z.string().min(1).optional(),
   },
   client: {
     // 配信サーバー（MediaMTX）の住所。手元は compose.yaml
@@ -56,6 +61,8 @@ export const env = createEnv({
     ADMIN_EMAILS: process.env.ADMIN_EMAILS,
     VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
     VAPID_SUBJECT: process.env.VAPID_SUBJECT,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM: process.env.EMAIL_FROM,
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     NEXT_PUBLIC_COMMENT_RELAY_URL: process.env.NEXT_PUBLIC_COMMENT_RELAY_URL,
     NEXT_PUBLIC_MEDIA_RTMP_URL: process.env.NEXT_PUBLIC_MEDIA_RTMP_URL,

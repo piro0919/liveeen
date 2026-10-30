@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { DisplayNameForm } from '@/components/display-name-form';
 import { FollowNoticeChoice } from '@/components/follow-notice-choice';
 import { SignInButton } from '@/components/sign-in-button';
-import { listsFollowedOnTop } from '@/lib/follows';
+import { emailEnabled } from '@/lib/email';
+import { emailsLiveStarted, listsFollowedOnTop } from '@/lib/follows';
 import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
@@ -20,6 +21,8 @@ export default async function SettingsPage() {
           <DisplayNameForm name={await displayNameOf(userId)} />
           <FollowNoticeChoice
             listOnTop={await listsFollowedOnTop(userId)}
+            email={await emailsLiveStarted(userId)}
+            emailEnabled={emailEnabled()}
             pushPublicKey={env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}
           />
         </>

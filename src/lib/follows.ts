@@ -46,6 +46,23 @@ export async function listsFollowedOnTop(userId: string): Promise<boolean> {
   return rows[0]?.listOnTop ?? true;
 }
 
+/** フォローした人の配信の始まりをメールで知らせるか。設定していなければ知らせない */
+export async function emailsLiveStarted(userId: string): Promise<boolean> {
+  const { rows } = await db().query<{ email: boolean }>(
+    'select email from notification_setting where user_id = $1',
+    [userId],
+  );
+  return rows[0]?.email ?? false;
+}
+
+export async function setEmailsLiveStarted(userId: string, on: boolean): Promise<void> {
+  await db().query(
+    `insert into notification_setting (user_id, email) values ($1, $2)
+     on conflict (user_id) do update set email = excluded.email`,
+    [userId, on],
+  );
+}
+
 export async function setListsFollowedOnTop(userId: string, on: boolean): Promise<void> {
   await db().query(
     `insert into notification_setting (user_id, list_on_top) values ($1, $2)

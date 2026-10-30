@@ -4,12 +4,6 @@ import { db } from './db';
 import { liveStartedMessage, subscriptionGone } from './push-message';
 import { env } from '@/env';
 
-/**
- * 前の知らせからこれだけ経たずに始まった配信は、知らせ直さない。
- * OBS は切れるとすぐにつなぎ直すので、そのたびにフォローした人へ通知が飛ばないようにする。長さは Claude が決めた
- */
-const RENOTIFY_AFTER_MINUTES = 10;
-
 /** 届かなかったときに送り口が持っておく長さ。配信の始まりの知らせは、遅れて届いても意味が薄い */
 const TTL_SECONDS = 600;
 
@@ -48,26 +42,17 @@ export async function hasPushSubscription(userId: string, endpoint: string): Pro
 
 /**
  * チャンネルが配信を始めたことを、フォローしてブラウザ通知を入れた人へ送る。
- * 前の知らせから RENOTIFY_AFTER_MINUTES 経っていなければ送らない。VAPID の鍵が無い環境でも送らない
+ * VAPID の鍵が無い環境では送らない
  */
-export async function notifyLiveStarted(channelId: string): Promise<void> {
+export async function sendLivePushes(channelId: string, displayName: string | null): Promise<void> {
   if (!env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY || !env.VAPID_SUBJECT) return;
-  // 知らせた時刻を先に進める。2つの問い合わせが同時に来ても、送るのは片方だけ
-  const { rows: claimed } = await db().query<{ displayName: string | null }>(
-    `update channel set notified_at = now()
-     where id = $1 and banned_at is null
-       and (notified_at is null or notified_at < now() - make_interval(mins => $2))
-     returning (select display_name from profile where profile.user_id = channel.user_id) as "displayName"`,
-    [channelId, RENOTIFY_AFTER_MINUTES],
-  );
-  if (claimed.length === 0) return;
   const { rows: subscriptions } = await db().query<PushSubscriptionInput>(
     `select push_subscription.endpoint, push_subscription.p256dh, push_subscription.auth
      from push_subscription join follow on follow.user_id = push_subscription.user_id
      where follow.channel_id = $1`,
     [channelId],
   );
-  const payload = JSON.stringify(liveStartedMessage(channelId, claimed[0].displayName));
+  const payload = JSON.stringify(liveStartedMessage(channelId, displayName));
   const vapidDetails = {
     subject: env.VAPID_SUBJECT,
     publicKey: env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,

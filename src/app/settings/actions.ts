@@ -3,7 +3,7 @@
 import { refresh } from 'next/cache';
 import { z } from 'zod';
 import { normalizeDisplayName } from '@/lib/display-name';
-import { setListsFollowedOnTop } from '@/lib/follows';
+import { setEmailsLiveStarted, setListsFollowedOnTop } from '@/lib/follows';
 import { setDisplayName } from '@/lib/profiles';
 import {
   deletePushSubscription,
@@ -17,6 +17,13 @@ export async function setListsFollowedOnTopAction(on: boolean): Promise<void> {
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   await setListsFollowedOnTop(userId, on);
+  refresh();
+}
+
+export async function setEmailsLiveStartedAction(on: boolean): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  await setEmailsLiveStarted(userId, on);
   refresh();
 }
 

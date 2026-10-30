@@ -122,19 +122,29 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 ## Follow
 
 - A button under the player on `/<channel id>` (フォローする / フォロー中). Signed-out viewers get the button too; pressing it starts sign-in. Your own channel has no button, and the DB insert also refuses following yourself
-- Of the three ways to hear that someone you follow went live, "listed at the top" and browser notifications are built; email is not (it needs a sending service, which is not chosen). On the top page, followed channels that are live get their own フォロー中 group under the 配信中 heading, above the rest
+- All three ways to hear that someone you follow went live are built: listed at the top, browser notifications, email. On the top page, followed channels that are live get their own フォロー中 group under the 配信中 heading, above the rest
 - `/settings` has the switch for it (`notification_setting.list_on_top`). On by default (Claude's call); a user with no row gets the default
 
 ## Browser notifications
 
 - Web Push with VAPID (`web-push`), no third-party service. Checked 2026-10-31 on the official pages: Firebase lists Cloud Messaging (Chrome's push service) as "No-cost" (https://firebase.google.com/pricing); WebKit says "You don't need to join the Apple Developer Program to send Web Push notifications" (https://webkit.org/blog/12945/meet-web-push/)
 - `/settings` has このブラウザに通知する. It is per browser, off until turned on (the browser asks for permission). Turning it on registers `public/sw.js` and stores the browser's push endpoint in `push_subscription`; turning it off deletes it. If the browser blocks notifications or has no Web Push, the switch is replaced by a sentence saying so
-- Sent when a publish passes `/api/media/auth`, after the response (`after()`), to followers with an endpoint (`src/lib/push.ts`). MediaMTX's `runOnReady` cannot be used: the official image holds only the `mediamtx` binary and its config (checked 2026-10-31), so it has no curl to call the site
-- Not resent if the channel was notified less than 10 minutes before (`channel.notified_at`; Claude's call), so OBS reconnecting does not notify again. Endpoints that answer 404 or 410 are deleted
+- Sent when a publish passes `/api/media/auth`, after the response (`after()`), to followers with an endpoint (`src/lib/notify.ts`, `src/lib/push.ts`). MediaMTX's `runOnReady` cannot be used: the official image holds only the `mediamtx` binary and its config (checked 2026-10-31), so it has no curl to call the site
+- Not resent if the channel was notified less than 10 minutes before (`channel.notified_at`; Claude's call), so OBS reconnecting does not notify again. This covers email too. Endpoints that answer 404 or 410 are deleted
 - The text is 〈name〉 さんが配信を始めました / タップして見る (provisional); clicking opens `/<channel id>`
 - Needs `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`mailto:…`). Without them the switch is hidden and nothing is sent. Production needs a key pair made with `npx web-push generate-vapid-keys` and the owner's contact address; locally `.env.local` has a pair and a placeholder address
 - Checked 2026-10-31 in Chrome (window off screen, persistent profile, real FCM): turning it on stores the endpoint and stays on after a reload; a publish (ffmpeg over RTMP, and a direct call to the auth endpoint) shows the notification with the streamer's name; a second publish within 10 minutes shows none; turning it off removes the endpoint. When Chrome lost the permission, FCM refused the endpoint and it was deleted. Not checked: Safari, Firefox, iPhone home-screen apps (iPhone may also need a web app manifest; not checked), clicking the notification
 - Checked 2026-10-31 in Chrome with two local test channels live and a viewer user: following moves that channel into フォロー中 and the button stays フォロー中 after a reload; turning the switch off puts it back in the plain list; the owner sees no button; signed-out viewers see フォローする; unfollowing puts it back
+
+## Email when someone you follow goes live
+
+- Sent through **Resend**, on the owner's existing account (team kk-web, Pro plan: $20 a month for 50,000 emails, checked on the billing screen 2026-10-31). The owner chose it on 2026-10-31 because the account already exists. Compared with Amazon SES ($0.10 per 1,000) on the official pricing pages
+- `/settings` has メールで知らせる (`notification_setting.email`). **Off by default** (Claude's call: no email nobody asked for). It goes to the Google address used to sign in
+- Sent at the same moment as browser notifications and under the same 10-minute rule (`src/lib/email.ts`). Plain text only: subject 〈name〉 さんが配信を始めました, the stream's URL, and how to stop it with the link to `/settings` (wording provisional). Resend's batch API, 100 per request, one request at a time (the default limit is 10 requests per second per team)
+- Needs `RESEND_API_KEY`, `EMAIL_FROM` and `BETTER_AUTH_URL` (the links are made from it). Without them the switch is hidden and nothing is sent. `EMAIL_FROM` contains `<` `>`, so quote it in `.env.local`
+- Locally `.env.local` has a sending-only key named `liveeen local`, limited to kkweb.io, and sends from `Liveeen <liveeen@kkweb.io>`. **Production needs its own sending domain verified in Resend**; Liveeen has no domain yet. The other domains on the account follow a `<app>.kkweb.io` pattern (shodolog, onigiri), which is an option but not decided
+- No one-click unsubscribe (`List-Unsubscribe` header) yet; the email links to `/settings`, which needs sign-in
+- Checked 2026-10-31: turning the switch on stays on after a reload; a publish sent one email that reached piro.haniwa@gmail.com's inbox (not spam). Local test users have `@example.invalid` addresses; one email went to `u2@example.invalid` by mistake during the check, so point a test user at a real address before turning email on for it
 
 ## Reports and automatic delisting
 
