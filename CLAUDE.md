@@ -82,7 +82,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - The UI is plain and has not been shown to the owner. Wording and layout are provisional
 - Google sign-in is not set up yet (no OAuth client). `.env.local` has placeholder Google ids; local checks used a session row and a hand-signed `better-auth.session_token` cookie
 - Browser streaming asks for H264 Constrained Baseline (`42e01f`) first. With Chrome's first H264 entry (Baseline `42001f`), Chrome on this Mac encoded about 10 frames with VideoToolbox and stopped; `42e01f` and High `640034` kept going. Without any preference Chrome sends VP8, which HLS cannot carry
-- Checked 2026-10-30 in Chrome (window off screen, fake camera): create channel → stream → MediaMTX has Opus + H264 → HLS plays → stop removes the stream. HLS showed 640×360 that time although the camera gave 1280×720; Chrome lowers the size on its own, cause not checked. Not checked with a real camera, Safari, or a phone
+- Checked 2026-10-30 in Chrome (window off screen, fake camera): create channel → stream → MediaMTX has Opus + H264 → HLS plays → stop removes the stream. HLS showed 640×360 that time although the camera gave 1280×720. Measured again 2026-10-31 (fake camera, stats every 5 s for 40 s): Chrome sends 640×360 for the first ~5 s with `qualityLimitationReason: bandwidth` while it is still estimating the bandwidth, then 1280×720 with no limitation for the rest. This is WebRTC's normal start, so nothing was changed. Not checked with a real camera, Safari, or a phone
 
 ## Latency choice and the watch screen (`/<channel id>`)
 
@@ -98,7 +98,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Lists the channels that are live now, newest first, each linking to `/<channel id>`. The label is the streamer's display name (the channel id for channels made before names existed) and the start time in Japan time
 - Whether a channel is live comes from MediaMTX's API (`GET /v3/paths/list`, `ready: true`) on every request (`src/lib/live.ts`, `MEDIA_API_URL`), not from a table. Claude's call: it cannot drift from what is really streaming. Paths that are not registered channels are dropped
 - If MediaMTX does not answer within 3 s, the page shows the empty list (いま配信している人はいません)
-- In production the web app on Vercel has to reach MediaMTX's API on Akamai. How to protect it is not decided (locally `authHTTPExclude` lets the API through without asking the site)
+- In production the web app on Vercel reaches MediaMTX's API through Caddy, which asks for `MEDIA_API_SECRET` as a Bearer token (see the production media server). Locally `authHTTPExclude` lets the API through and no secret is needed
 - Checked locally on 2026-10-30 with ffmpeg over RTMP: the channel appears while streaming, the empty message shows after it stops, and the page still opens when MediaMTX is stopped
 
 ## Display names
@@ -114,7 +114,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Shown under the player on `/<channel id>`. Everyone can read them. Writing needs sign-in and a display name, unless the streamer allows signed-out comments
 - Signed-out comments: a checkbox on `/broadcast` (`channel.guest_comments`, off by default; the default is Claude's call, matching what was there before). When on, a signed-out viewer types a name on the watch screen (same rules as display names), the browser remembers it, and the server gives a token with a fresh `guest:<uuid>` id. Guests are not marked differently from signed-in users (not decided)
 - Turning it off reaches viewers when they reconnect. The page reconnects with a new token a minute before the token's 10 minutes run out, and the relay checks the expiry on every post (closing with code 4001 so the page reconnects at once), so a guest already connected can write for at most about 10 minutes after it is turned off
-- The relay is `relay/` (Node and `ws`), meant to run on the Akamai server next to MediaMTX. Viewers connect to `NEXT_PUBLIC_COMMENT_RELAY_URL/<channel id>`
+- The relay is `relay/` (Node and `ws`), run on the Akamai server next to MediaMTX (see the production media server). Viewers connect to `NEXT_PUBLIC_COMMENT_RELAY_URL/<channel id>`
 - The relay has no DB and no sign-in. The web app gives signed-in viewers with a name a 10-minute signed token (`src/lib/comment-token.ts`, `COMMENT_TOKEN_SECRET`, the same value on both sides) carrying the user id and the name; the relay checks only the signature, the channel and the expiry, once when connecting. A renamed user keeps the old name until they reconnect
 - Claude's calls on the details: comments are not saved; the relay keeps the last 50 per channel in memory and sends them to whoever joins; one line, up to 200 characters (line breaks become spaces); one post per second per connection
 - Checked 2026-10-31 in Chrome with the local test user and a signed-out window: the signed-out window shows the sign-in prompt and no input, a comment reaches it with the name, a second post within a second is refused, a window opened later sees the earlier comment
@@ -175,13 +175,21 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - RTMP in → WebRTC out: video only. MediaMTX logs `skipping track 2 (MPEG-4 Audio)`; it does not transcode, and WebRTC cannot carry AAC. For the low-latency mode, OBS users need OBS's WHIP output (Opus); `/broadcast` tells them so (see the latency section)
 - Browser in (WHIP) → HLS out: plays. MediaMTX's built-in publish page picks AV1 by default; our publish page asks for H264 (see the broadcast screen)
 
+## The production media server (`deploy/`)
+
+- Written 2026-10-31 when the owner said to handle the open items (「全部対応を」). The layout is Claude's call. Not deployed: no Akamai server exists yet, and the media host name waits on the domain
+- One Akamai server runs `deploy/compose.yaml`: MediaMTX (same version as local), the comment relay, and Caddy, all with `network_mode: host` so WebRTC's UDP needs no port mapping, all `restart: unless-stopped`. Values go in `deploy/.env` (`deploy/.env.example`): `MEDIA_HOST`, `SITE_URL`, `MEDIA_API_SECRET`, `COMMENT_TOKEN_SECRET`. Start with `docker compose up -d --build` in `deploy/`
+- Open to the internet directly: RTMP (1935) and WebRTC media (UDP 8189). HLS, WHIP/WHEP, the API and the relay listen on 127.0.0.1 behind Caddy, which takes TLS for `MEDIA_HOST` (Let's Encrypt) and routes by request: `/v3/*` → API only with `Authorization: Bearer <MEDIA_API_SECRET>` (else 401); WebSocket upgrades → relay; `/<id>/whip` and `/<id>/whep` (and what follows) → WebRTC; everything else → HLS. Routing by path prefix was avoided because MediaMTX answers WHIP/WHEP with a `Location` starting at `/`
+- Why Caddy checks the API secret rather than MediaMTX's `authMethod: http`: that would add a round trip from MediaMTX to the site on every API call, and the top page calls the API on every request
+- The relay is bundled into one file by `pnpm relay:build` (esbuild, CommonJS; the ESM bundle fails on `ws`'s `require('events')`) inside `deploy/relay.Dockerfile`. `RELAY_HOST` sets the listen address
+- The web app then needs `MEDIA_API_URL=https://<MEDIA_HOST>`, `MEDIA_API_SECRET`, `NEXT_PUBLIC_MEDIA_HLS_URL` and `NEXT_PUBLIC_MEDIA_WEBRTC_URL` = `https://<MEDIA_HOST>`, `NEXT_PUBLIC_COMMENT_RELAY_URL=wss://<MEDIA_HOST>`, `NEXT_PUBLIC_MEDIA_RTMP_URL=rtmp://<MEDIA_HOST>:1935`
+- Checked 2026-10-31 on this Mac (Caddy in Docker with `MEDIA_HOST=localhost` and `UPSTREAM_HOST=host.docker.internal` in front of the local MediaMTX and relay): the API gave 401 without or with a wrong secret and 200 with it; HLS played an ffmpeg stream; WHEP decoded frames and its `Location` DELETE answered 200; the WebSocket got the relay's history. `deploy/mediamtx.yml` loaded in MediaMTX 1.21.2 without errors. Not checked: on Linux with host networking, real certificates, the web app calling the API with the secret end to end, RTMP from outside
+
 ## Not decided or not checked
 
 - Akamai's monthly server price for the plan we need
 - How many viewers one server can serve, per latency mode (measure on the server)
 - Whether liveeen.app / .live are free; trademarks
-- How the production web app authenticates to MediaMTX's API
-- How the comment relay is deployed and kept running on Akamai (and its `wss://` address)
 - Whether comments should be saved (for reports on comments, or for recordings later)
 
 Sources:

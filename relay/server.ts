@@ -11,8 +11,11 @@ if (!secret || secret.length < SECRET_MIN) {
   throw new Error(`COMMENT_TOKEN_SECRET を${SECRET_MIN}文字以上で入れてください`);
 }
 const port = Number(process.env.RELAY_PORT ?? DEFAULT_PORT);
-const relay = startRelay({ port, secret });
-console.log(`コメントの中継: ws://localhost:${relay.port()}`);
+const host = process.env.RELAY_HOST;
+const relay = startRelay({ port, host, secret });
+void relay.listening.then(() =>
+  console.log(`コメントの中継: ws://${host ?? 'localhost'}:${relay.port()}`),
+);
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => void relay.close().then(() => process.exit(0)));

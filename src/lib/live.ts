@@ -15,12 +15,19 @@ const ITEMS_PER_PAGE = 1000;
 /** 配信中のチャンネル。名前は配信者が付けたもの。名前より先に作られたチャンネルは null */
 export type LiveChannel = LivePath & { displayName: string | null };
 
+/** 配信サーバー（MediaMTX）の API を呼ぶ。合言葉があれば付ける（本番の Caddy が求める。deploy/Caddyfile） */
+function mediaFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(`${env.MEDIA_API_URL}${path}`, {
+    ...init,
+    cache: 'no-store',
+    headers: env.MEDIA_API_SECRET ? { Authorization: `Bearer ${env.MEDIA_API_SECRET}` } : {},
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
+  });
+}
+
 /** 配信サーバー（MediaMTX）の API を読む。答えなければ null */
 async function mediaApi(path: string): Promise<unknown> {
-  return fetch(`${env.MEDIA_API_URL}${path}`, {
-    cache: 'no-store',
-    signal: AbortSignal.timeout(API_TIMEOUT_MS),
-  })
+  return mediaFetch(path)
     .then(async (response) => (response.ok ? ((await response.json()) as unknown) : null))
     .catch(() => null);
 }
@@ -64,10 +71,9 @@ const NOT_FOUND = 404;
  * 配信していない名前には、MediaMTX は 404 を返す
  */
 export async function publishing(channelId: string): Promise<boolean | null> {
-  const response = await fetch(
-    `${env.MEDIA_API_URL}/v3/paths/get/${encodeURIComponent(channelId)}`,
-    { cache: 'no-store', signal: AbortSignal.timeout(API_TIMEOUT_MS) },
-  ).catch(() => null);
+  const response = await mediaFetch(`/v3/paths/get/${encodeURIComponent(channelId)}`).catch(
+    () => null,
+  );
   if (response?.status === NOT_FOUND) return false;
   if (!response?.ok) return null;
   return livePathsOf({ items: [await response.json()] }).length > 0;
@@ -88,9 +94,6 @@ export async function kickStream(channelId: string): Promise<boolean> {
   const source = parsed.success ? parsed.data.source : null;
   const path = source ? kickPath(source) : null;
   if (!path) return false;
-  const response = await fetch(`${env.MEDIA_API_URL}${path}`, {
-    method: 'POST',
-    signal: AbortSignal.timeout(API_TIMEOUT_MS),
-  }).catch(() => null);
+  const response = await mediaFetch(path, { method: 'POST' }).catch(() => null);
   return response?.ok ?? false;
 }

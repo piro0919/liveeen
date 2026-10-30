@@ -27,6 +27,8 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // コメントの中継の束（pnpm relay:build）
+    'dist/**',
     // 別のセッションの作業用のコピー（git worktree）
     '.claude/**',
     '.playwright-mcp/**',

@@ -1,0 +1,31 @@
+# 本番（Akamai の東京）の MediaMTX の設定。手元の media/mediamtx.yml との違いは、外から直接つなぐ口を RTMP と
+# WebRTC の映像と音声（UDP）だけにし、HLS・WHIP/WHEP・API は Caddy の後ろ（127.0.0.1）に置くところ。
+# サーバーごとに違う値は deploy/compose.yaml の環境変数（MTX_…）で入れる
+logLevel: info
+
+# 配信と視聴のたびにサイトに聞く（src/lib/media-auth.ts）。住所は MTX_AUTHHTTPADDRESS
+authMethod: http
+# API は 127.0.0.1 でしか待たず、外からは Caddy が合言葉を確かめてから通す（deploy/Caddyfile）
+authHTTPExclude:
+  - action: api
+
+api: true
+apiAddress: 127.0.0.1:9997
+
+rtmpAddress: :1935
+
+hlsAddress: 127.0.0.1:8888
+hlsAlwaysRemux: true
+hlsTrustedProxies: [127.0.0.1]
+
+webrtcAddress: 127.0.0.1:8889
+webrtcLocalUDPAddress: :8189
+webrtcTrustedProxies: [127.0.0.1]
+# サーバーの外向きの住所は MTX_WEBRTCADDITIONALHOSTS
+
+rtsp: false
+srt: false
+moq: false
+
+paths:
+  all_others:

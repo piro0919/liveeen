@@ -23,6 +23,8 @@ type Room = { clients: Set<WebSocket>; history: Comment[] };
 
 type Options = {
   port: number;
+  /** 待ち受ける住所。本番は Caddy だけが中継につなぐので 127.0.0.1（deploy/compose.yaml）。無ければすべて */
+  host?: string;
   /** コメントの札の署名の鍵（src/lib/comment-token.ts） */
   secret: string;
   now?: () => number;
@@ -37,9 +39,9 @@ function send(socket: WebSocket, message: RelayMessage): void {
  * `ws://…/<チャンネルの id>?token=<札>` でつなぐ。札が無ければ読むだけ。
  * コメントは保存しない。チャンネルごとに直近のものだけを覚えておき、あとから来た人に見せる
  */
-export function startRelay({ port, secret, now = Date.now }: Options) {
+export function startRelay({ port, host, secret, now = Date.now }: Options) {
   const rooms = new Map<string, Room>();
-  const server = new WebSocketServer({ port, maxPayload: MAX_PAYLOAD_BYTES });
+  const server = new WebSocketServer({ port, host, maxPayload: MAX_PAYLOAD_BYTES });
   const alive = new WeakSet<WebSocket>();
 
   server.on('connection', (socket, request) => {
@@ -114,6 +116,8 @@ export function startRelay({ port, secret, now = Date.now }: Options) {
   }, PING_INTERVAL_MS);
 
   return {
+    /** 待ち受けを始めたら解ける。住所（host）を渡すと、待ち受けは後から始まる */
+    listening: new Promise<void>((resolve) => server.once('listening', () => resolve())),
     /** 実際に開いた番号。0 を渡したときに空いている番号が入る */
     port: () => (server.address() as AddressInfo).port,
     close: () =>

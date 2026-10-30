@@ -1,0 +1,37 @@
+# 本番の配信サーバー（Akamai の東京）。MediaMTX・コメントの中継・入口の Caddy を1台で動かす。
+# 値は同じフォルダの .env に置く（deploy/.env.example）。`docker compose up -d --build` で起こす。
+# どれも落ちたら起こし直し、サーバーが再起動しても起き上がる（restart: unless-stopped）。
+# WebRTC の UDP をそのまま受けるため、どれもサーバーのネットワークをそのまま使う（network_mode: host）
+services:
+  media:
+    # 手元（compose.yaml）と同じ版
+    image: bluenviron/mediamtx:1.21.2
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    environment:
+      MTX_AUTHHTTPADDRESS: ${SITE_URL}/api/media/auth
+      MTX_WEBRTCADDITIONALHOSTS: ${MEDIA_HOST}
+  relay:
+    build:
+      context: ..
+      dockerfile: deploy/relay.Dockerfile
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      COMMENT_TOKEN_SECRET: ${COMMENT_TOKEN_SECRET}
+      RELAY_HOST: 127.0.0.1
+      RELAY_PORT: '8090'
+  caddy:
+    image: caddy:2.10.2-alpine
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    environment:
+      MEDIA_HOST: ${MEDIA_HOST}
+      MEDIA_API_SECRET: ${MEDIA_API_SECRET}
+volumes:
+  caddy-data:
