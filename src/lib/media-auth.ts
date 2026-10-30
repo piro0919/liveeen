@@ -40,6 +40,8 @@ export type MediaAuthDeps = {
   channelKeyMatches: (channelId: string, streamKeyHash: string) => Promise<boolean>;
   /** 運営が止めた配信者のチャンネルか（db/migrations/0009_ban.sql）。止めたチャンネルは鍵が合っても通さない */
   channelBanned: (channelId: string) => Promise<boolean>;
+  /** 今月の配信の費用が上限に届いたか（src/lib/transfer.ts）。届いたら新しい視聴を通さない */
+  viewingCapReached: () => Promise<boolean>;
   /** ブラウザの札の署名の鍵。無ければ札は通さない */
   tokenSecret: string | undefined;
   now: number;
@@ -47,15 +49,16 @@ export type MediaAuthDeps = {
 
 /**
  * 通すかどうか。配信は鍵か札が合い、運営が止めていないチャンネルだけ。
- * 視聴は、形の合う名前なら誰でも（見るのにログインは要らない）。
+ * 視聴は、形の合う名前なら誰でも（見るのにログインは要らない）。ただし月の上限に届いたら通さない。
+ * MediaMTX が聞いてくるのは見始めるときだけなので、見ている人は切れない。
  * それ以外（録画の再生・API など）は通さない
  */
 export async function allowMedia(
   request: MediaAuthRequest,
-  { channelKeyMatches, channelBanned, tokenSecret, now }: MediaAuthDeps,
+  { channelKeyMatches, channelBanned, viewingCapReached, tokenSecret, now }: MediaAuthDeps,
 ): Promise<boolean> {
   if (!PATH_PATTERN.test(request.path)) return false;
-  if (request.action === 'read') return true;
+  if (request.action === 'read') return !(await viewingCapReached());
   if (request.action !== 'publish') return false;
   const credential = credentialOf(request);
   if (!credential) return false;

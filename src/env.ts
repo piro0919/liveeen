@@ -38,6 +38,12 @@ export const env = createEnv({
     // メールの中の住所は BETTER_AUTH_URL（サイトの住所）から作る
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(1).optional(),
+    // 月の上限（src/lib/transfer.ts）。Akamai の API の鍵（読むのは account の転送量だけ）、配信サーバーの月の料金（ドル）、
+    // 1ドルの円。どれか無ければ上限を確かめない。AKAMAI_REGION は転送量を地域ごとに数える地域のとき、その id
+    AKAMAI_API_TOKEN: z.string().min(1).optional(),
+    AKAMAI_REGION: z.string().min(1).optional(),
+    MEDIA_SERVER_FEE_USD: z.coerce.number().nonnegative().optional(),
+    YEN_PER_USD: z.coerce.number().positive().optional(),
   },
   client: {
     // 配信サーバー（MediaMTX）の住所。手元は compose.yaml
@@ -67,6 +73,10 @@ export const env = createEnv({
     VAPID_SUBJECT: process.env.VAPID_SUBJECT,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     EMAIL_FROM: process.env.EMAIL_FROM,
+    AKAMAI_API_TOKEN: process.env.AKAMAI_API_TOKEN,
+    AKAMAI_REGION: process.env.AKAMAI_REGION,
+    MEDIA_SERVER_FEE_USD: process.env.MEDIA_SERVER_FEE_USD,
+    YEN_PER_USD: process.env.YEN_PER_USD,
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     NEXT_PUBLIC_COMMENT_RELAY_URL: process.env.NEXT_PUBLIC_COMMENT_RELAY_URL,
     NEXT_PUBLIC_MEDIA_RTMP_URL: process.env.NEXT_PUBLIC_MEDIA_RTMP_URL,

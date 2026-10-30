@@ -2,6 +2,7 @@ import { after } from 'next/server';
 import { allowMedia, mediaAuthRequest } from '@/lib/media-auth';
 import { db } from '@/lib/db';
 import { notifyLiveStarted } from '@/lib/notify';
+import { viewingCapReached } from '@/lib/transfer';
 import { env } from '@/env';
 
 const ALLOWED = 200;
@@ -34,6 +35,7 @@ export async function POST(request: Request): Promise<Response> {
   const allowed = await allowMedia(parsed.data, {
     channelKeyMatches,
     channelBanned,
+    viewingCapReached,
     tokenSecret: env.MEDIA_TOKEN_SECRET,
     now: Date.now(),
   });

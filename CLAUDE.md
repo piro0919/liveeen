@@ -74,7 +74,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - The key is shown only when it is created or reset (Claude's call, since only the hash is stored; the owner has not seen the screen yet)
 - The browser cannot hold the key, so `/broadcast` gets a 10-minute signed token from a server action (`src/lib/media-token.ts`, `MEDIA_TOKEN_SECRET`). Credentials containing `.` are treated as tokens; stream keys never contain `.`
 - Publish is refused for a channel the owner has banned, whatever the key or token (`channel.banned_at`)
-- Read passes for anyone (watching needs no sign-in). The monthly cap is not wired in yet
+- Read passes for anyone (watching needs no sign-in) until the monthly cap is reached (see the monthly cap)
 - Checked locally on 2026-10-30 with ffmpeg over RTMP: wrong key and no key get 401, the right key publishes
 
 ## The broadcast screen (`/broadcast`)
@@ -198,8 +198,19 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Open to the internet directly: RTMP (1935) and WebRTC media (UDP 8189). HLS, WHIP/WHEP, the API and the relay listen on 127.0.0.1 behind Caddy, which takes TLS for `MEDIA_HOST` (Let's Encrypt) and routes by request: `/v3/*` → API only with `Authorization: Bearer <MEDIA_API_SECRET>` (else 401); WebSocket upgrades → relay; `/<id>/whip` and `/<id>/whep` (and what follows) → WebRTC; everything else → HLS. Routing by path prefix was avoided because MediaMTX answers WHIP/WHEP with a `Location` starting at `/`
 - Why Caddy checks the API secret rather than MediaMTX's `authMethod: http`: that would add a round trip from MediaMTX to the site on every API call, and the top page calls the API on every request
 - The relay is bundled into one file by `pnpm relay:build` (esbuild, CommonJS; the ESM bundle fails on `ws`'s `require('events')`) inside `deploy/relay.Dockerfile`. `RELAY_HOST` sets the listen address
-- The web app then needs `MEDIA_API_URL=https://<MEDIA_HOST>`, `MEDIA_API_SECRET`, `NEXT_PUBLIC_MEDIA_HLS_URL` and `NEXT_PUBLIC_MEDIA_WEBRTC_URL` = `https://<MEDIA_HOST>`, `NEXT_PUBLIC_COMMENT_RELAY_URL=wss://<MEDIA_HOST>`, `NEXT_PUBLIC_MEDIA_RTMP_URL=rtmp://<MEDIA_HOST>:1935`
+- The web app then needs `MEDIA_API_URL=https://<MEDIA_HOST>`, `MEDIA_API_SECRET`, `NEXT_PUBLIC_MEDIA_HLS_URL` and `NEXT_PUBLIC_MEDIA_WEBRTC_URL` = `https://<MEDIA_HOST>`, `NEXT_PUBLIC_COMMENT_RELAY_URL=wss://<MEDIA_HOST>`, `NEXT_PUBLIC_MEDIA_RTMP_URL=rtmp://<MEDIA_HOST>:1935`, and for the monthly cap `AKAMAI_API_TOKEN`, `MEDIA_SERVER_FEE_USD`, `YEN_PER_USD` (and `AKAMAI_REGION` if Tokyo keeps its own pool)
 - Checked 2026-10-31 on this Mac (Caddy in Docker with `MEDIA_HOST=localhost` and `UPSTREAM_HOST=host.docker.internal` in front of the local MediaMTX and relay): the API gave 401 without or with a wrong secret and 200 with it; HLS played an ffmpeg stream; WHEP decoded frames and its `Location` DELETE answered 200; the WebSocket got the relay's history. `deploy/mediamtx.yml` loaded in MediaMTX 1.21.2 without errors. Not checked: on Linux with host networking, real certificates, the web app calling the API with the secret end to end, RTMP from outside
+
+## The monthly cap
+
+- Built 2026-10-31 after the owner said 「続きを」. How the month's cost is measured is Claude's call:
+  - This month's cost = the media server's monthly fee + the transfer billed beyond the included pool × $0.005 per GB, converted to yen (`src/lib/view-cap.ts`). Once it reaches ¥50,000, `/api/media/auth` refuses every new read; publishing still passes
+  - The billed transfer is `billable` from Akamai's API (`GET /v4/account/transfer`, in GB, https://techdocs.akamai.com/linode-api/reference/get-transfer). With `AKAMAI_REGION` set, the entry for that region is used instead, since some newer regions keep their own pool (https://techdocs.akamai.com/cloud-computing/docs/network-transfer-usage-and-costs). Which pool the Tokyo server will use is not checked
+  - The last value is kept in `transfer_usage` (one row) and read again from Akamai when it is older than 5 minutes; if Akamai does not answer, the old value is used. If none was ever read, the cap is not applied
+  - Needs `AKAMAI_API_TOKEN` (read access to the account is enough), `MEDIA_SERVER_FEE_USD` and `YEN_PER_USD`. Without any of them the cap is not checked (as locally). The fee waits on the server plan, and the exchange rate is a value the owner sets
+- MediaMTX asks only when someone starts watching, so people already watching are not cut. The watch page shows 今月の視聴の上限に達したため、いまは見られません instead of the player (wording provisional)
+- How often Akamai updates `billable` is not stated in its docs, so the cap can lag behind the real transfer by that much (not measured)
+- Checked 2026-10-31 locally with a hand-written `transfer_usage` row and placeholder values in `.env.local`: under the cap a read got 200 and over it 401, while publish got 200; an HLS viewer (ffmpeg) watching when the cap was reached kept receiving all 45 s; a new HLS viewer got 401 (200 again after going back under); a new WHEP viewer got 401 instead of passing the check. Not checked against Akamai's real API
 
 ## Not decided or not checked
 

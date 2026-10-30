@@ -13,6 +13,7 @@ const deps: MediaAuthDeps = {
   channelKeyMatches: async (channelId, streamKeyHash) =>
     channelId === CHANNEL && streamKeyHash === hashStreamKey(KEY),
   channelBanned: async () => false,
+  viewingCapReached: async () => false,
   tokenSecret: SECRET,
   now: NOW,
 };
@@ -97,6 +98,14 @@ describe('allowMedia', () => {
 
   it('視聴は鍵なしで通す', async () => {
     expect(await allowMedia(req({ action: 'read', path: CHANNEL }), deps)).toBe(true);
+  });
+
+  it('月の上限に届いたら視聴を断り、配信は通す', async () => {
+    const capped = { ...deps, viewingCapReached: async () => true };
+    expect(await allowMedia(req({ action: 'read', path: CHANNEL }), capped)).toBe(false);
+    expect(await allowMedia(req({ action: 'publish', path: CHANNEL, token: KEY }), capped)).toBe(
+      true,
+    );
   });
 
   it('形の合わない名前は視聴も断る', async () => {

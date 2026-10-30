@@ -11,6 +11,7 @@ import { liveStream } from '@/lib/live';
 import { displayNameOf } from '@/lib/profiles';
 import { hasReported } from '@/lib/reports';
 import { currentUserId } from '@/lib/session';
+import { viewingCapReached } from '@/lib/transfer';
 import { env } from '@/env';
 
 export const metadata: Metadata = { title: 'Liveeen' };
@@ -33,14 +34,20 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
   const following = userId ? await isFollowing(userId, channel.id) : null;
   const live = userId && !own ? await liveStream(channel.id) : null;
   const reported = userId ? (live ? await hasReported(userId, live) : false) : null;
+  // 上限に届くと配信サーバーが視聴を断るので、つなぎに行かずに理由を出す
+  const capReached = await viewingCapReached();
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4">
-      <Player
-        channelId={channel.id}
-        latencyMode={channel.latencyMode}
-        hlsUrl={env.NEXT_PUBLIC_MEDIA_HLS_URL}
-        webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
-      />
+      {capReached ? (
+        <p>今月の視聴の上限に達したため、いまは見られません</p>
+      ) : (
+        <Player
+          channelId={channel.id}
+          latencyMode={channel.latencyMode}
+          hlsUrl={env.NEXT_PUBLIC_MEDIA_HLS_URL}
+          webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
+        />
+      )}
       {!own && (
         <div className="flex flex-wrap items-center gap-2">
           <FollowButton channelId={channel.id} following={following} />
