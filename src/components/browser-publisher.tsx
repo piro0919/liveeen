@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { browserPublishTokenAction } from '@/app/broadcast/actions';
+import { browserPublishTokenAction, publishingAction } from '@/app/broadcast/actions';
 import { captureCamera, publishWhip, type WhipSession } from '@/lib/whip';
 
 type Status = 'idle' | 'starting' | 'live' | 'error';
@@ -30,7 +30,10 @@ export function BrowserPublisher({ whipUrl }: { whipUrl: string }) {
       stream.current = await captureCamera();
       if (video.current) video.current.srcObject = stream.current;
       const token = await browserPublishTokenAction();
-      session.current = await publishWhip(whipUrl, token, stream.current);
+      session.current = await publishWhip(whipUrl, token, stream.current, {
+        onEnded: () => void stop().then(() => setError('配信が切れました')),
+        stillPublishing: publishingAction,
+      });
       setStatus('live');
     } catch (e) {
       await stop();

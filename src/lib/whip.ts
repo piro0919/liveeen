@@ -70,15 +70,53 @@ export function waitForIceGathering(pc: RTCPeerConnection): Promise<void> {
 export type WhipSession = { stop: () => Promise<void> };
 
 /**
+ * 配信のつながりの状態が変わったとき、どうするか。
+ * failed は戻らないので終わり。disconnected は回線の揺れでも起きて戻ることがあるので、配信サーバーに聞く。
+ * Chrome は切られてから約7秒で disconnected、さらに約10秒で failed になった（2026-10-31、手元で測った）。
+ * 聞けば failed を待つより10秒ほど早く気づける
+ */
+export function afterConnectionChange(state: RTCPeerConnectionState): 'ended' | 'ask' | 'keep' {
+  if (state === 'failed') return 'ended';
+  if (state === 'disconnected') return 'ask';
+  return 'keep';
+}
+
+/**
  * WHIP で配信を始める（MediaMTX の `<WebRTC の受け口>/<チャンネルの id>/whip`）。
- * 札（token）は Bearer で渡し、MediaMTX がサイトに確かめる（src/lib/media-auth.ts）
+ * 札（token）は Bearer で渡し、MediaMTX がサイトに確かめる（src/lib/media-auth.ts）。
+ * 始めた後に配信サーバーの側から切られたら（運営が止めた、回線が切れたなど）、onEnded を一度だけ呼ぶ
  */
 export async function publishWhip(
   url: string,
   token: string,
   stream: MediaStream,
+  {
+    onEnded,
+    stillPublishing,
+  }: {
+    onEnded: () => void;
+    /** 配信サーバーに配信が届いているか。分からなければ null */
+    stillPublishing: () => Promise<boolean | null>;
+  },
 ): Promise<WhipSession> {
   const pc = new RTCPeerConnection();
+  let ended = false;
+  const end = () => {
+    if (ended) return;
+    ended = true;
+    onEnded();
+  };
+  pc.addEventListener('connectionstatechange', () => {
+    const next = afterConnectionChange(pc.connectionState);
+    if (next === 'ended') end();
+    if (next === 'ask') {
+      void stillPublishing()
+        .then((live) => {
+          if (live === false) end();
+        })
+        .catch(() => undefined);
+    }
+  });
   for (const track of stream.getTracks()) {
     const transceiver = pc.addTransceiver(track, {
       direction: 'sendonly',

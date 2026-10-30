@@ -57,6 +57,22 @@ export async function liveChannels(): Promise<LiveChannel[]> {
   return withoutDelisted(channels, await reportersOf(channels));
 }
 
+const NOT_FOUND = 404;
+
+/**
+ * そのチャンネルの配信が、いま配信サーバーに届いているか。配信サーバーが答えなければ null（分からない）。
+ * 配信していない名前には、MediaMTX は 404 を返す
+ */
+export async function publishing(channelId: string): Promise<boolean | null> {
+  const response = await fetch(
+    `${env.MEDIA_API_URL}/v3/paths/get/${encodeURIComponent(channelId)}`,
+    { cache: 'no-store', signal: AbortSignal.timeout(API_TIMEOUT_MS) },
+  ).catch(() => null);
+  if (response?.status === NOT_FOUND) return false;
+  if (!response?.ok) return null;
+  return livePathsOf({ items: [await response.json()] }).length > 0;
+}
+
 const pathSource = z.object({
   source: z.object({ type: z.string(), id: z.string() }).nullable(),
 });

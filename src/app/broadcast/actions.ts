@@ -9,6 +9,7 @@ import {
   setLatencyMode,
 } from '@/lib/channels';
 import { isLatencyMode } from '@/lib/latency';
+import { publishing } from '@/lib/live';
 import { signMediaToken } from '@/lib/media-token';
 import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
@@ -41,6 +42,18 @@ export async function browserPublishTokenAction(): Promise<string> {
   if (!channel) throw new Error('チャンネルがありません');
   if (!env.MEDIA_TOKEN_SECRET) throw new Error('MEDIA_TOKEN_SECRET がありません');
   return signMediaToken(env.MEDIA_TOKEN_SECRET, channel.id, Date.now());
+}
+
+/**
+ * 自分の配信が、いま配信サーバーに届いているか。分からなければ null。
+ * ブラウザの配信のつながりが揺れたときに、配信サーバーの側で終わっているかを確かめる
+ */
+export async function publishingAction(): Promise<boolean | null> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  const channel = await channelOf(userId);
+  if (!channel) throw new Error('チャンネルがありません');
+  return publishing(channel.id);
 }
 
 export async function setGuestCommentsAction(allowed: boolean): Promise<void> {

@@ -164,7 +164,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
   - 配信者を止める: sets `channel.banned_at` and cuts the stream. Publishing is refused from then on, and the channel leaves the live list
 - 止めた配信者 lists banned channels with 戻す, which clears `banned_at`
 - Checked 2026-10-31 locally: a non-admin gets 404; 配信を止める cut an RTMP stream (ffmpeg) and a browser (WHIP) stream, and ffmpeg could reconnect afterwards; 配信者を止める cut the stream, publishing again was refused, and after 戻す it was accepted
-- Not handled: after the cut, the streamer's `/broadcast` still showed 配信を終える 3 s later; the page does not notice that the server closed the stream
+- When the server closes a browser (WHIP) stream, `/broadcast` stops the camera, goes back to ブラウザで配信する and shows 配信が切れました (wording provisional; `src/lib/whip.ts`). Chrome reports the connection `disconnected` about 7 s after the cut and `failed` about 10 s after that (measured 2026-10-31). On `disconnected` the page asks the server whether the stream is still on MediaMTX (`publishingAction`); if it is not, it ends then. If the server cannot tell, it waits for `failed`, so a brief network wobble does not end the stream. Measured locally: noticed 7.3 s and 7.8 s after 配信を止める's kick. Not checked: a real network wobble that recovers, Safari, phones. OBS streams are not affected (OBS shows its own state)
 
 ## What the local MediaMTX showed (2026-10-30, v1.21.2)
 
