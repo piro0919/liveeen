@@ -147,7 +147,9 @@ export function Comments({ channelId, relayUrl, viewer, guestComments }: Props) 
       <ol ref={list} className="flex h-64 flex-col gap-1 overflow-y-auto rounded border p-2">
         {comments.map((comment) => (
           <li key={comment.id} className="wrap-break-word">
-            <span className="font-bold">{comment.name}</span> {comment.text}
+            <span className="font-bold">{comment.name}</span>
+            {comment.guest && <span className="text-sm text-gray-500">（ゲスト）</span>}{' '}
+            {comment.text}
           </li>
         ))}
       </ol>

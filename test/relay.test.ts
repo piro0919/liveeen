@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { startRelay } from '../relay/relay';
-import { type RelayMessage, TOKEN_EXPIRED } from '@/lib/comment';
+import { guestId, type RelayMessage, TOKEN_EXPIRED } from '@/lib/comment';
 import { COMMENT_TOKEN_TTL_MS, signCommentToken } from '@/lib/comment-token';
 
 const SECRET = 'relay-secret';
@@ -54,9 +54,28 @@ describe('コメントの中継', () => {
     await viewer.nth(1);
     writer.socket.send(JSON.stringify({ text: ' こんにちは ' }));
     const got = await viewer.nth(2);
-    expect(got).toMatchObject({ type: 'comment', comment: { name: 'ぴろ', text: 'こんにちは' } });
+    expect(got).toMatchObject({
+      type: 'comment',
+      comment: { name: 'ぴろ', text: 'こんにちは', guest: false },
+    });
     expect(await writer.nth(2)).toEqual(got);
     expect(elsewhere.received).toEqual([{ type: 'history', comments: [] }]);
+  });
+
+  it('ログインしていない人の札で書いたコメントには guest の印が付く', async () => {
+    const guestToken = signCommentToken(
+      SECRET,
+      CHANNEL,
+      { userId: guestId('00000000-0000-4000-8000-000000000000'), displayName: 'ぴろ' },
+      clock,
+    );
+    const writer = await connect(CHANNEL, guestToken);
+    await writer.nth(1);
+    writer.socket.send(JSON.stringify({ text: 'なりすまし' }));
+    expect(await writer.nth(2)).toMatchObject({
+      type: 'comment',
+      comment: { name: 'ぴろ', guest: true },
+    });
   });
 
   it('あとから来た人には、それまでのコメントを先に見せる', async () => {

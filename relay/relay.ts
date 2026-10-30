@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 import {
   type Comment,
+  isGuestId,
   normalizeComment,
   type RelayMessage,
   TOKEN_EXPIRED,
@@ -93,7 +94,13 @@ export function startRelay({ port, host, secret, now = Date.now }: Options) {
         return;
       }
       lastPostAt = at;
-      const comment: Comment = { id: randomUUID(), name: commenter.displayName, text, at };
+      const comment: Comment = {
+        id: randomUUID(),
+        name: commenter.displayName,
+        text,
+        at,
+        guest: isGuestId(commenter.userId),
+      };
       joined.history = [...joined.history, comment].slice(-HISTORY_SIZE);
       for (const client of joined.clients) send(client, { type: 'comment', comment });
     });

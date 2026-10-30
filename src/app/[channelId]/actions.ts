@@ -3,6 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { refresh } from 'next/cache';
 import { channelById } from '@/lib/channels';
+import { guestId } from '@/lib/comment';
 import { signCommentToken } from '@/lib/comment-token';
 import { normalizeDisplayName } from '@/lib/display-name';
 import { follow, unfollow } from '@/lib/follows';
@@ -58,7 +59,7 @@ export async function commentTokenAction(
   const channel = await channelById(channelId);
   if (!channel?.guestComments) return null;
   // 未ログインの人には決まった id が無い。札ごとに振る
-  const guest = { userId: `guest:${randomUUID()}`, displayName: name.name };
+  const guest = { userId: guestId(randomUUID()), displayName: name.name };
   return signCommentToken(secret, channelId, guest, Date.now());
 }
 
