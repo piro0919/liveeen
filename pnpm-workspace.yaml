@@ -1,0 +1,11 @@
+allowBuilds:
+  esbuild: true
+  lefthook: true
+  sharp: false
+  unrs-resolver: false
+
+# 出てから3日たっていない版は入れない（vocafy と同じ待ち）。乗っ取られた版は
+# たいてい数時間から数日で取り下げられる。単位は分。持ち主が自分で出している包みは待たない
+minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - eslint-plugin-hollow-tests

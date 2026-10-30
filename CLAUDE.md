@@ -42,28 +42,53 @@ Nothing is built yet. Everything below was agreed with the owner in a sounding-b
 
 What was compared on 2026-10-30 (unit prices from each vendor's official pages; the per-viewer-hour column is Claude's calculation assuming about 1.1 GB per viewer-hour, not measured):
 
-| Option | Ingest | Delivery | Per viewer-hour |
-|---|---|---|---|
-| Cloudflare Stream | free | $1 per 1,000 minutes | $0.06 |
-| Mux | $0.03125 per minute | 100,000 min/month free, then $0.001/min | $0.06 |
-| AWS IVS | $0.20–2.00 per hour | HD in Japan $0.092/hour | $0.092 |
-| Akamai (Linode), Tokyo/Osaka | — | overage $0.005/GB | ~$0.0055 |
-| Hetzner, Singapore | — | 0.5–5 TB included, then $8.49/TB | ~$0.009 |
-| Vultr, Tokyo | — | overage $0.01/GB | ~$0.011 |
-| DigitalOcean, Singapore | — | overage $0.01/GiB | ~$0.011 |
-| OVHcloud, Singapore | — | no overage; throttled to 10 Mbps after the monthly quota (quota differs by source) | capped |
+| Option                       | Ingest              | Delivery                                                                           | Per viewer-hour |
+| ---------------------------- | ------------------- | ---------------------------------------------------------------------------------- | --------------- |
+| Cloudflare Stream            | free                | $1 per 1,000 minutes                                                               | $0.06           |
+| Mux                          | $0.03125 per minute | 100,000 min/month free, then $0.001/min                                            | $0.06           |
+| AWS IVS                      | $0.20–2.00 per hour | HD in Japan $0.092/hour                                                            | $0.092          |
+| Akamai (Linode), Tokyo/Osaka | —                   | overage $0.005/GB                                                                  | ~$0.0055        |
+| Hetzner, Singapore           | —                   | 0.5–5 TB included, then $8.49/TB                                                   | ~$0.009         |
+| Vultr, Tokyo                 | —                   | overage $0.01/GB                                                                   | ~$0.011         |
+| DigitalOcean, Singapore      | —                   | overage $0.01/GiB                                                                  | ~$0.011         |
+| OVHcloud, Singapore          | —                   | no overage; throttled to 10 Mbps after the monthly quota (quota differs by source) | capped          |
 
 At ¥150 per dollar (not checked), ¥50,000 is about 5,500 viewer-hours on Cloudflare Stream, or about 60,000 viewer-hours of Akamai transfer before the server's own monthly fee.
+
+## Where things run
+
+Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
+
+- Web app: Next.js on Vercel, functions in **sin1**. Same setup as vocafy (Better Auth with Google, `pg`)
+- DB: Neon, **Singapore** (no Tokyo region; the region cannot be changed later)
+- Media: MediaMTX on Akamai Tokyo
+- Live comments: a small WebSocket relay on the same Akamai server, because Vercel functions cannot hold long-lived connections
+- Locally, `compose.yaml` runs MediaMTX (same version as production) and Postgres. Run `pnpm db:up`, `pnpm migrate`, then `pnpm dev` on port 3000 (MediaMTX asks it about every publish and read)
+
+## How publishing is checked
+
+- MediaMTX uses `authMethod: http` and asks `/api/media/auth` on every publish and read (`src/lib/media-auth.ts`)
+- Each streamer has one channel (`channel` table). The channel id is the MediaMTX path; the stream key is stored as SHA-256
+- Publish passes only when the key matches that channel: WHIP Bearer token, RTMP `?key=` after the path, or RTMP password
+- Read passes for anyone (watching needs no sign-in). Admin stop and the monthly cap are not wired in yet
+- Checked locally on 2026-10-30 with ffmpeg over RTMP: wrong key and no key get 401, the right key publishes. WHIP with a Bearer token is covered by unit tests only
+
+## What the local MediaMTX showed (2026-10-30, v1.21.2)
+
+- RTMP in (ffmpeg standing in for OBS, 720p H264 + AAC) → HLS out: plays in the browser
+- RTMP in → WebRTC out: video only. MediaMTX logs `skipping track 2 (MPEG-4 Audio)`; it does not transcode, and WebRTC cannot carry AAC. For the low-latency mode, OBS users need OBS's WHIP output (Opus), or the server transcodes the audio. Not decided
+- Browser in (WHIP) → HLS out: plays. MediaMTX's built-in publish page picks AV1 by default; our publish page must ask for H264 (iPhone playback of AV1 not checked)
 
 ## Not decided or not checked
 
 - Akamai's monthly server price for the plan we need
 - How many viewers one server can serve, per latency mode (measure on the server)
 - The report threshold for automatic delisting
-- The web app's stack and where it runs (Japanese users: keep functions and DB in the same region near Japan; see the owner's global rules)
+- OBS over RTMP in low-latency mode: ask for WHIP, or transcode the audio on the server
 - Whether liveeen.app / .live are free; trademarks
 
 Sources:
+
 - https://developers.cloudflare.com/stream/pricing/
 - https://www.mux.com/pricing
 - https://aws.amazon.com/ivs/pricing/
