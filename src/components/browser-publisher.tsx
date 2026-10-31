@@ -60,8 +60,10 @@ export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, 
   }
 
   async function stop() {
-    await session.current?.stop();
+    // 先に手元から外す。止める途中にもう一度呼ばれても、同じつなぎを2度止めない
+    const current = session.current;
     session.current = null;
+    await current?.stop();
     release();
     setStatus('idle');
   }
@@ -69,7 +71,13 @@ export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, 
   async function capture(): Promise<MediaStream> {
     if (source === 'camera') return captureCamera();
     const microphone = await captureMicrophone();
-    still.current = stillImageStream(image, name);
+    try {
+      still.current = stillImageStream(image, name);
+    } catch (error) {
+      // 画像の映像を作れなければ、取ったマイクも放す
+      microphone.getTracks().forEach((track) => track.stop());
+      throw error;
+    }
     return new MediaStream([
       ...still.current.stream.getVideoTracks(),
       ...microphone.getAudioTracks(),
@@ -80,19 +88,29 @@ export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, 
     setStatus('starting');
     setError(null);
     try {
-      stream.current = await capture();
-      // カメラやマイクがほかのアプリに取られたり、端末に止められたりしたら、配信を終えて知らせる
-      for (const track of stream.current.getTracks()) {
-        track.addEventListener(
-          'ended',
-          () => void stop().then(() => setError('カメラかマイクが止まったため、配信を終えました')),
-        );
+      const captured = await capture();
+      stream.current = captured;
+      // カメラやマイクがほかのアプリに取られたり、端末に止められたりしたら、配信を終えて知らせる。
+      // 映像と音の両方が止まっても、終えるのは1度だけ
+      let endedByDevice = false;
+      for (const track of captured.getTracks()) {
+        track.addEventListener('ended', () => {
+          if (endedByDevice) return;
+          endedByDevice = true;
+          void stop().then(() => setError('カメラかマイクが止まったため、配信を終えました'));
+        });
       }
       const token = await browserPublishTokenAction();
-      session.current = await publishWhip(whipUrl, token, stream.current, {
+      const started = await publishWhip(whipUrl, token, captured, {
         onEnded: () => void stop().then(() => setError('配信が切れました')),
         stillPublishing: publishingAction,
       });
+      // つないでいるあいだにカメラやマイクが止まって終えていたら、つないだ分も切る
+      if (stream.current !== captured) {
+        await started.stop();
+        return;
+      }
+      session.current = started;
       setStatus('live');
     } catch (e) {
       await stop();

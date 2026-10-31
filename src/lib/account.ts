@@ -40,12 +40,12 @@ export async function deleteAccount(
 
 /**
  * ログインのクッキーを消す。セッションの行は消えても、控え（cookieCache）が5分残るため。
- * 本番では名前に __Secure- が付く
+ * 本番では名前に __Secure- が付く。その名前のクッキーは Secure を付けて書かないとブラウザが受け取らず、消えない
  */
 export async function clearAuthCookies(): Promise<void> {
   const jar = await cookies();
   for (const { name } of jar.getAll()) {
-    if (name.startsWith('better-auth.') || name.startsWith('__Secure-better-auth.'))
-      jar.delete(name);
+    const secure = name.startsWith('__Secure-better-auth.');
+    if (secure || name.startsWith('better-auth.')) jar.delete({ name, path: '/', secure });
   }
 }

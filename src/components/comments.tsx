@@ -212,7 +212,7 @@ export function Comments({
       )}
       <ol
         ref={list}
-        className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-2 ${overlay ? 'stack-bottom' : ''}`}
+        className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 py-2 ${overlay ? 'stack-bottom' : ''}`}
       >
         {comments.map((comment) => (
           <li key={comment.id} className="flex gap-3 text-sm">

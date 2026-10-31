@@ -98,7 +98,8 @@ export async function deleteAccountAction(): Promise<DeleteAccountResult> {
   const result = await deleteAccount(userId);
   if (!result.deleted) return 'banned';
   // 消したチャンネルの配信が続いていれば切る。MediaMTX は配信を始めたときにしか聞かないため
-  if (result.channelId) await kickStream(result.channelId);
+  // チャンネルが消えると管理画面から止められなくなるので、切れなければもう1度だけ頼む（配信していなくても false が返る）
+  if (result.channelId && !(await kickStream(result.channelId))) await kickStream(result.channelId);
   await clearAuthCookies();
   return 'deleted';
 }

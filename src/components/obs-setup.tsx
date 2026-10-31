@@ -42,7 +42,9 @@ export function ObsSetup({ channelId, latencyMode, rtmpUrl, whipUrl }: Props) {
         <dt>WHIP の Bearer トークン</dt>
         <dd className="mb-2 font-mono break-all">{key ?? '（鍵）'}</dd>
       </dl>
-      <p>鍵は作ったときにだけ表示します。分からなくなったら作り直してください。</p>
+      <p>
+        鍵は作り直したときにだけ表示します。初めて使うときや分からなくなったときは、作り直してください。
+      </p>
       <form action={resetKey}>
         <button type="submit" className={ui.primaryButton} disabled={resetting}>
           鍵を作り直す
