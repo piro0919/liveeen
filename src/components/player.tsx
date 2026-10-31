@@ -6,6 +6,7 @@ import type { LatencyMode } from '@/lib/latency';
 import { channelPublishingAction } from '@/app/[channelId]/actions';
 import { ui } from '@/lib/ui';
 import { playWhep } from '@/lib/whep';
+import { setPlaying } from './viewer-count';
 
 /** 配信していないとき、もう一度つなぎに行くまでの間 */
 const RETRY_MS = 5000;
@@ -25,6 +26,9 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
   const video = useRef<HTMLVideoElement>(null);
   // 開いた直後は、つなぎに行っている間に「配信していません」を出さない
   const [status, setStatus] = useState<'connecting' | 'live' | 'offline'>('connecting');
+
+  // 見ている人の数は、映像が流れているときだけ出す（src/components/viewer-count.tsx）
+  useEffect(() => setPlaying(channelId, status === 'live'), [channelId, status]);
 
   useEffect(() => {
     const element = video.current;

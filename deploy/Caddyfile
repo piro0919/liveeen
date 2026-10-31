@@ -27,6 +27,12 @@
 		reverse_proxy {$UPSTREAM_HOST:127.0.0.1}:8090
 	}
 
+	# チャンネルごとの見ている人の数。コメントの中継が数えて返す（relay/relay.ts）。トップの一覧が読む
+	@viewers path /viewers
+	handle @viewers {
+		reverse_proxy {$UPSTREAM_HOST:127.0.0.1}:8090
+	}
+
 	# ブラウザの配信に混ぜる BGM の曲（src/lib/bgm.ts）。曲はリポジトリに入れず、サーバーの deploy/bgm に置く。
 	# サイトは Web Audio で曲を読むので、サイトからの読み込みを許す。許さないと無音になる
 	@bgm path /bgm/*

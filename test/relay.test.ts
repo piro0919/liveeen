@@ -15,13 +15,15 @@ import {
 
 const SECRET = 'relay-secret';
 const CHANNEL = 'abc123';
+const HOUR_MS = 3_600_000;
 
 let relay: ReturnType<typeof startRelay>;
 let clock: number;
 
 beforeEach(() => {
   clock = 1_800_000_000_000;
-  relay = startRelay({ port: 0, secret: SECRET, now: () => clock });
+  // 見ている人の数は、届く順番を乱さないよう流さない（別の describe で確かめる）
+  relay = startRelay({ port: 0, secret: SECRET, now: () => clock, viewersDelayMs: HOUR_MS });
 });
 
 afterEach(async () => {
@@ -387,5 +389,70 @@ describe('中継の縮小画像', () => {
     );
     expect(JSON.parse(first)).toEqual({ type: 'history', comments: [] });
     socket.close();
+  });
+});
+
+describe('見ている人の数', () => {
+  // 3人がつなぎ終わるまでに流れないだけの長さ
+  const DELAY_MS = 200;
+  let counted: ReturnType<typeof startRelay>;
+
+  beforeEach(() => {
+    counted = startRelay({ port: 0, secret: SECRET, now: () => clock, viewersDelayMs: DELAY_MS });
+  });
+
+  afterEach(async () => {
+    await counted.close();
+  });
+
+  /** 次の viewers が届くまで待つ */
+  function nextViewers(socket: WebSocket) {
+    return new Promise<number>((resolve) => {
+      const listen = (data: unknown) => {
+        const message = JSON.parse(String(data)) as RelayMessage;
+        if (message.type === 'viewers') {
+          socket.off('message', listen);
+          resolve(message.count);
+        }
+      };
+      socket.on('message', listen);
+    });
+  }
+
+  async function open(token?: string) {
+    const query = token ? `?token=${encodeURIComponent(token)}` : '';
+    const socket = new WebSocket(`ws://localhost:${counted.port()}/${CHANNEL}${query}`);
+    const first = nextViewers(socket);
+    await new Promise<void>((resolve) => socket.once('open', () => resolve()));
+    return { socket, first };
+  }
+
+  it('出入りのたびに、配信者を除いた人数を部屋の全員に流す', async () => {
+    const owner = await open(tokenFor('配信者', CHANNEL, { owner: true }));
+    const viewer = await open();
+    const writer = await open(tokenFor('ぴろ'));
+    expect(await owner.first).toBe(2);
+    expect(await viewer.first).toBe(2);
+    expect(await writer.first).toBe(2);
+    const afterLeave = nextViewers(owner.socket);
+    viewer.socket.close();
+    expect(await afterLeave).toBe(1);
+    owner.socket.close();
+    writer.socket.close();
+  });
+
+  it('チャンネルごとの人数を HTTP で返す。誰もいないチャンネルは載せない', async () => {
+    const base = `http://localhost:${counted.port()}`;
+    const owner = await open(tokenFor('配信者', CHANNEL, { owner: true }));
+    const viewer = await open();
+    await owner.first;
+    const response = await fetch(`${base}/viewers`);
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(await response.json()).toEqual({ [CHANNEL]: 1 });
+    const left = nextViewers(owner.socket);
+    viewer.socket.close();
+    await left;
+    expect(await (await fetch(`${base}/viewers`)).json()).toEqual({});
+    owner.socket.close();
   });
 });

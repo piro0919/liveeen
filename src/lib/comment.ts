@@ -47,6 +47,8 @@ export type RelayMessage =
   | { type: 'remove'; ids: string[] }
   /** 運営の消す札を受け取った知らせ。送ってきたつなぎ（サイトのサーバー）にだけ返す */
   | { type: 'removed'; id: string }
+  /** いまその配信を開いている人の数。配信者自身は数えない（relay/relay.ts） */
+  | { type: 'viewers'; count: number }
   | { type: 'error'; message: string };
 
 /** 書かれたコメントを、流してよい形にする。空か長すぎれば null */

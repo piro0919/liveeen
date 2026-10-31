@@ -20,6 +20,7 @@ import { ui } from '@/lib/ui';
 import { Avatar } from './avatar';
 import { DisplayNameForm } from './display-name-form';
 import { SignInButton } from './sign-in-button';
+import { setViewers } from './viewer-count';
 
 /** 中継が切れたとき、もう一度つなぎに行くまでの間 */
 const RETRY_MS = 3000;
@@ -160,7 +161,7 @@ export function Comments({
         } else if (message.type === 'error') {
           setError(message.message);
           restore(outbox.current.refused());
-        }
+        } else if (message.type === 'viewers') setViewers(channelId, message.count);
       };
       ws.onclose = (event) => {
         clearTimeout(refresh);
@@ -174,7 +175,11 @@ export function Comments({
         // 札を取り替えるとき、札が切れたか、ブロックされて閉じられたときは、待たずに新しい札でつなぐ（止められていれば札は出ない）
         const wait =
           refreshing || event.code === TOKEN_EXPIRED || event.code === BLOCKED ? 0 : RETRY_MS;
-        if (wait > 0) setUnreachable(true);
+        if (wait > 0) {
+          setUnreachable(true);
+          // つながらない間の人数は分からない。札の取り替えのときは、すぐつなぎ直すので消さない
+          setViewers(channelId, null);
+        }
         retry = setTimeout(() => void connect(), wait);
       };
       if (token) {
@@ -195,6 +200,7 @@ export function Comments({
       socket.current?.close();
       socket.current = null;
       setConnected(false);
+      setViewers(channelId, null);
     };
   }, [channelId, relayUrl, viewer, writer, guestName]);
 

@@ -15,6 +15,7 @@ import { captureCamera, captureMicrophone, publishWhip, type WhipSession } from 
 import { ui } from '@/lib/ui';
 import { BgmPicker } from './bgm-picker';
 import { Comments } from './comments';
+import { ViewerCount } from './viewer-count';
 
 type Status = 'idle' | 'starting' | 'live';
 /** 映すもの。カメラか、1枚の画像（声はマイク） */
@@ -247,7 +248,10 @@ export function BrowserPublisher({
           className="absolute inset-0 size-full object-contain"
         />
         <div className="relative flex items-center justify-between p-4 pt-safe-top">
-          <span className={ui.liveTag}>ライブ</span>
+          <div className="flex items-center gap-2">
+            <span className={ui.liveTag}>ライブ</span>
+            <ViewerCount channelId={channelId} className={`text-sm ${ui.overlayComments}`} />
+          </div>
           <div className="flex gap-2">
             {bgmUrl && (
               <button

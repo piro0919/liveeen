@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { Comments } from '@/components/comments';
 import { ObsSetup } from '@/components/obs-setup';
 import { StreamTitleForm } from '@/components/stream-title-form';
+import { ViewerCount } from '@/components/viewer-count';
 import { channelOf } from '@/lib/channels';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
@@ -38,6 +39,7 @@ export default async function ObsPage() {
         rtmpUrl={env.NEXT_PUBLIC_MEDIA_RTMP_URL}
         whipUrl={`${env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}/${channel.id}/whip`}
       />
+      <ViewerCount channelId={channel.id} className={ui.note} />
       {/* 配信しながらコメントを読む。高さを決め、増えたら中で流す */}
       <div className="flex h-96">
         <Comments

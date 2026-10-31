@@ -8,6 +8,8 @@ import { type LiveChannel, liveChannels } from '@/lib/live';
 import { splitFollowed } from '@/lib/live-paths';
 import { currentUserId } from '@/lib/session';
 import { thumbnailUrl } from '@/lib/thumbnail';
+import { viewersLabel } from '@/lib/viewer-label';
+import { viewerCounts } from '@/lib/viewers';
 import { ui } from '@/lib/ui';
 import { env } from '@/env';
 
@@ -19,10 +21,10 @@ const startedAtFormat = new Intl.DateTimeFormat('ja-JP', {
 });
 
 /**
- * 配信の札。16:9 の絵と、配信者の印・タイトル・名前・始まった時刻。
+ * 配信の札。16:9 の絵と、配信者の印・タイトル・名前・見ている人の数・始まった時刻。
  * 画像は中継が1分おきに撮る縮小画像（relay/thumbnails.ts）。まだ撮れていなければ名前の1文字を大きく出す
  */
-function LiveCard({ channel }: { channel: LiveChannel }) {
+function LiveCard({ channel, viewers }: { channel: LiveChannel; viewers: number | undefined }) {
   const name = channel.displayName ?? channel.channelId;
   const thumbnail = thumbnailUrl(env.NEXT_PUBLIC_COMMENT_RELAY_URL, channel.channelId);
   return (
@@ -56,7 +58,11 @@ function LiveCard({ channel }: { channel: LiveChannel }) {
             ) : (
               <span className="truncate font-bold group-hover:text-accent">{name}</span>
             )}
-            <span className={ui.note}>{startedAtFormat.format(channel.startedAt)} から</span>
+            <span className={ui.note}>
+              {/* 人数は中継が答えたときだけ。誰も開いていなければ載ってこない */}
+              {viewers !== undefined && `${viewersLabel(viewers)} ・ `}
+              {startedAtFormat.format(channel.startedAt)} から
+            </span>
           </div>
         </div>
       </Link>
@@ -64,11 +70,21 @@ function LiveCard({ channel }: { channel: LiveChannel }) {
   );
 }
 
-function LiveGrid({ channels }: { channels: LiveChannel[] }) {
+function LiveGrid({
+  channels,
+  viewers,
+}: {
+  channels: LiveChannel[];
+  viewers: Map<string, number>;
+}) {
   return (
     <ul className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {channels.map((channel) => (
-        <LiveCard key={channel.channelId} channel={channel} />
+        <LiveCard
+          key={channel.channelId}
+          channel={channel}
+          viewers={viewers.get(channel.channelId)}
+        />
       ))}
     </ul>
   );
@@ -81,6 +97,10 @@ function LiveGrid({ channels }: { channels: LiveChannel[] }) {
 export default async function Home() {
   await connection();
   const channels = await liveChannels();
+  const viewers =
+    channels.length > 0
+      ? await viewerCounts(env.NEXT_PUBLIC_COMMENT_RELAY_URL)
+      : new Map<string, number>();
   const userId = await currentUserId();
   const followed =
     userId && channels.length > 0 && (await listsFollowedOnTop(userId))
@@ -101,10 +121,10 @@ export default async function Home() {
       {split.followed.length > 0 && (
         <section className="flex flex-col gap-4">
           <h2 className={ui.subheading}>フォロー中</h2>
-          <LiveGrid channels={split.followed} />
+          <LiveGrid channels={split.followed} viewers={viewers} />
         </section>
       )}
-      {split.others.length > 0 && <LiveGrid channels={split.others} />}
+      {split.others.length > 0 && <LiveGrid channels={split.others} viewers={viewers} />}
     </main>
   );
 }

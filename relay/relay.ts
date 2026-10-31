@@ -35,6 +35,8 @@ const CHANNEL_PATTERN = /^\/([A-Za-z0-9_-]+)$/;
 const THUMBNAIL_PATTERN = /^\/thumbnails\/([A-Za-z0-9_-]+)\.jpg$/;
 /** 縮小画像を見る人の手元に置いてよい時間。撮り直しの間隔（relay/thumbnails.ts）より短く */
 const THUMBNAIL_MAX_AGE_S = 30;
+/** チャンネルごとの見ている人の数を返す住所 */
+const VIEWERS_PATH = '/viewers';
 
 type Writer = Commenter & { issuedAt: number; expiresAt: number };
 /** 覚えておくコメント。書いた人は、ブロックされたときに消すために持つ */
@@ -44,7 +46,13 @@ type Entry = { comment: Comment; userId: string; ipKey: string | null; author: s
  * それより前の札は COMMENT_TOKEN_TTL_MS で切れるので、それだけ覚えておけばよい
  */
 type Block = { userId: string; ipKey: string | null; at: number };
-type Room = { clients: Map<WebSocket, Writer | null>; history: Entry[]; blocks: Block[] };
+type Room = {
+  clients: Map<WebSocket, Writer | null>;
+  history: Entry[];
+  blocks: Block[];
+  /** 見ている人の数を流すまでの待ち。出入りが続いても、まとめて1度だけ流す */
+  viewersTimer?: ReturnType<typeof setTimeout>;
+};
 
 type Options = {
   port: number;
@@ -55,7 +63,19 @@ type Options = {
   /** そのチャンネルの縮小画像。無ければ undefined */
   thumbnail?: (channelId: string) => Buffer | undefined;
   now?: () => number;
+  /** 出入りがあってから、見ている人の数を流すまでの待ち */
+  viewersDelayMs?: number;
 };
+
+/** 出入りがあってから、見ている人の数を流すまでの待ち。開いてすぐ閉じる人が続いても流しすぎない */
+const VIEWERS_DELAY_MS = 1000;
+
+/** 見ている人の数。配信者自身のつなぎ（配信の画面と OBS の画面）は数えない */
+function viewerCount(room: Room): number {
+  let count = 0;
+  for (const writer of room.clients.values()) if (!writer?.owner) count += 1;
+  return count;
+}
 
 function send(socket: WebSocket, message: RelayMessage): void {
   if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
@@ -107,12 +127,30 @@ function parseMessage(
  * コメントは保存しない。チャンネルごとに直近のものだけを覚えておき、あとから来た人に見せる。
  * 同じ口で、配信の縮小画像も返す（`GET /thumbnails/<チャンネルの id>.jpg`）
  */
-export function startRelay({ port, host, secret, thumbnail, now = Date.now }: Options) {
+export function startRelay({
+  port,
+  host,
+  secret,
+  thumbnail,
+  now = Date.now,
+  viewersDelayMs = VIEWERS_DELAY_MS,
+}: Options) {
   const rooms = new Map<string, Room>();
   const web = createServer((request: IncomingMessage, response: ServerResponse) => {
-    const channelId = THUMBNAIL_PATTERN.exec(
-      new URL(request.url ?? '/', 'http://relay').pathname,
-    )?.[1];
+    const pathname = new URL(request.url ?? '/', 'http://relay').pathname;
+    // チャンネルごとの見ている人の数。トップの一覧が読む（src/lib/viewers.ts）。誰もいないチャンネルは載せない
+    if (request.method === 'GET' && pathname === VIEWERS_PATH) {
+      const counts: Record<string, number> = {};
+      for (const [channelId, room] of rooms) {
+        const count = viewerCount(room);
+        if (count > 0) counts[channelId] = count;
+      }
+      response
+        .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+        .end(JSON.stringify(counts));
+      return;
+    }
+    const channelId = THUMBNAIL_PATTERN.exec(pathname)?.[1];
     const image = request.method === 'GET' && channelId ? thumbnail?.(channelId) : undefined;
     if (!image) {
       response.writeHead(404).end();
@@ -144,6 +182,16 @@ export function startRelay({ port, host, secret, thumbnail, now = Date.now }: Op
       if (writer && !writer.owner && blockedWriter(room, writer, at))
         client.close(BLOCKED, 'blocked');
     }
+  }
+
+  /** 出入りがあった。少し待ってから、部屋の全員にいまの人数を流す */
+  function viewersChanged(room: Room): void {
+    if (room.viewersTimer) return;
+    room.viewersTimer = setTimeout(() => {
+      room.viewersTimer = undefined;
+      const count = viewerCount(room);
+      for (const client of room.clients.keys()) send(client, { type: 'viewers', count });
+    }, viewersDelayMs);
   }
 
   /** 運営が消したコメントを、覚えている分からも全員の画面からも消す */
@@ -179,6 +227,7 @@ export function startRelay({ port, host, secret, thumbnail, now = Date.now }: Op
       type: 'history',
       comments: joined.history.map((entry) => shown(entry, writer)),
     });
+    viewersChanged(joined);
 
     let lastPostAt = -Infinity;
     socket.on('pong', () => alive.add(socket));
@@ -243,6 +292,7 @@ export function startRelay({ port, host, secret, thumbnail, now = Date.now }: Op
     });
     socket.on('close', () => {
       joined.clients.delete(socket);
+      viewersChanged(joined);
       // 誰もいなくなっても、すぐには消さない。配信の途中でつなぎ直した人に流れを見せるため。
       // 配信が終わった部屋が残り続けるので、覚えておく数は HISTORY_SIZE で抑えている
     });
@@ -267,6 +317,7 @@ export function startRelay({ port, host, secret, thumbnail, now = Date.now }: Op
     close: () =>
       new Promise<void>((resolve) => {
         clearInterval(ping);
+        for (const room of rooms.values()) clearTimeout(room.viewersTimer);
         for (const socket of server.clients) socket.terminate();
         server.close();
         web.close(() => resolve());
