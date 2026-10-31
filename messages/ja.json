@@ -36,8 +36,16 @@
   },
   "browserPush": {
     "unsupported": "このブラウザではブラウザ通知を使えません",
+    "unsupportedIos": "iPhone では、このサイトをホーム画面に追加して、そこから開くと受け取れます",
     "denied": "ブラウザの設定でこのサイトの通知が止められています",
     "label": "このブラウザに通知する"
+  },
+  "installApp": {
+    "heading": "アプリ",
+    "description": "ホーム画面から Liveeen をすばやく開けます",
+    "button": "ホーム画面に追加",
+    "guideShare": "共有ボタンをタップ",
+    "guideAdd": "「ホーム画面に追加」をタップ"
   },
   "viewers": {
     "count": "{count, number}人が視聴中"

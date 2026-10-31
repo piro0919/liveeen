@@ -5,6 +5,7 @@ import { DeleteAccountButton } from '@/components/delete-account-button';
 import { DisplayNameForm } from '@/components/display-name-form';
 import { FollowNoticeChoice } from '@/components/follow-notice-choice';
 import { HandleForm } from '@/components/handle-form';
+import { InstallApp } from '@/components/install-app';
 import { SignInButton } from '@/components/sign-in-button';
 import { SignOutButton } from '@/components/sign-out-button';
 import { avatarOf } from '@/lib/avatars';
@@ -52,6 +53,7 @@ export default async function SettingsPage() {
               pushPublicKey={env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}
             />
           </div>
+          <InstallApp />
           <SignOutButton />
           <DeleteAccountButton />
         </>

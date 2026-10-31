@@ -33,7 +33,9 @@
     "pg": "^8.23.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-ios-pwa-prompt": "^2.0.6",
     "server-only": "^0.0.1",
+    "use-pwa": "^4.0.0",
     "web-push": "3.6.7",
     "ws": "^8.22.0",
     "zod": "^4.6.5"
