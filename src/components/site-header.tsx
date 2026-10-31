@@ -28,7 +28,8 @@ export async function SiteHeader() {
             <Link href="/broadcast" className={ui.tonalButton}>
               配信する
             </Link>
-            <Link href="/settings" aria-label="設定">
+            {/* 素の a のままだと中の印が文字の行に乗り、下に字の下がりの分の隙間ができて印が 3px 上にずれる */}
+            <Link href="/settings" aria-label="設定" className="flex">
               <Avatar name={name ?? '?'} src={avatar?.src} size="md" />
             </Link>
           </div>
