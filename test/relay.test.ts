@@ -1,3 +1,6 @@
+import { createServer, type IncomingMessage } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import type { Duplex } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { startRelay } from '../relay/relay';
@@ -311,6 +314,23 @@ describe('コメントの中継', () => {
       type: 'history',
       comments: [{ text: '残る' }, { text: '次' }],
     });
+  });
+
+  it('消す知らせのつなぎは Connection: Upgrade を大文字で送る（本番の Caddy は大文字小文字を見分けて中継へ振る）', async () => {
+    const server = createServer();
+    const seen = new Promise<string | undefined>((resolve) =>
+      server.once('upgrade', (request: IncomingMessage, socket: Duplex) => {
+        resolve(request.headers.connection);
+        socket.destroy();
+      }),
+    );
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const { port } = server.address() as AddressInfo;
+    const sent = removeFromRelay(`ws://localhost:${port}`, SECRET, CHANNEL, 'id').catch(() => {});
+    // deploy/Caddyfile の `header Connection *Upgrade*` と同じ見方
+    expect(await seen).toContain('Upgrade');
+    await sent;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   it('形の合わない名前のチャンネルにはつながせない', async () => {

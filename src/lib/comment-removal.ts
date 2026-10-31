@@ -1,3 +1,4 @@
+import { WebSocket } from 'ws';
 import type { RelayMessage } from './comment';
 import { signRemoval } from './comment-token';
 
@@ -9,7 +10,8 @@ const TIMEOUT_MS = 5000;
  * 中継には札なしで、そのチャンネルにつなぎ、消す札を送って、受け取った知らせ（removed）を待ってから閉じる。
  * 知らせが来なければ投げる。古い中継は消す札を知らないので、消えたことにしない。
  * 中継は書く人のほかには口を開けていない（本番は Caddy が WebSocket だけを中継へ通す。deploy/Caddyfile）ので、見る人と同じ口を使う。
- * Node に組み込みの WebSocket を使う（ws を Next の関数に束ねると動かないことがあるため）
+ * Node に組み込みの WebSocket は `Connection: upgrade` を小文字で送り、Caddy の振り分け（大文字小文字を見分ける）に乗らないので、ws を使う。
+ * ws は Next に束ねさせない（next.config.ts の serverExternalPackages）
  */
 export async function removeFromRelay(
   relayUrl: string,
@@ -26,10 +28,10 @@ export async function removeFromRelay(
         clearTimeout(timer);
         reject(error);
       };
-      socket.addEventListener('error', () => fail(new Error('コメントの中継につながりません')));
-      socket.addEventListener('open', () => socket.send(JSON.stringify({ remove: token })));
-      socket.addEventListener('message', (event) => {
-        const message = JSON.parse(String(event.data)) as RelayMessage;
+      socket.on('error', fail);
+      socket.on('open', () => socket.send(JSON.stringify({ remove: token })));
+      socket.on('message', (data) => {
+        const message = JSON.parse(String(data)) as RelayMessage;
         if (message.type === 'removed' && message.id === commentId) {
           clearTimeout(timer);
           resolve();
