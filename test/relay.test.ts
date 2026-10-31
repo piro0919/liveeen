@@ -159,6 +159,14 @@ describe('コメントの中継', () => {
     expect(toViewer.type === 'comment' && toViewer.comment.author).toBeUndefined();
   });
 
+  it('配信者自身のコメントには札を付けず mine を付ける', async () => {
+    const owner = await connect(CHANNEL, tokenFor('配信者', CHANNEL, { owner: true }));
+    owner.socket.send(JSON.stringify({ text: '自分で書く' }));
+    const toOwner = await owner.nth(2);
+    expect(toOwner).toMatchObject({ type: 'comment', comment: { mine: true } });
+    expect(toOwner.type === 'comment' && toOwner.comment.author).toBeUndefined();
+  });
+
   it('配信者がブロックすると、その人のコメントを消し、つなぎを閉じ、前の札では書かせない', async () => {
     const owner = await connect(CHANNEL, tokenFor('配信者', CHANNEL, { owner: true }));
     const viewer = await connect(CHANNEL);

@@ -75,10 +75,10 @@ function blockedWriter(room: Room, writer: Writer, now: number): boolean {
   );
 }
 
-/** 見せるコメント。書いた人の札は配信者にだけ付け、自分のコメントには mine を付ける */
+/** 見せるコメント。自分のコメントには mine を付け、ほかの人のコメントには配信者にだけ書いた人の札を付ける */
 function shown(entry: Entry, writer: Writer | null): Comment {
-  if (writer?.owner) return { ...entry.comment, author: entry.author };
   if (writer && writer.userId === entry.userId) return { ...entry.comment, mine: true };
+  if (writer?.owner) return { ...entry.comment, author: entry.author };
   return entry.comment;
 }
 
