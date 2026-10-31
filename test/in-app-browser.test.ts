@@ -31,11 +31,17 @@ describe('externalBrowserUrl', () => {
 describe('withoutExternalParam', () => {
   it('印だけを外し、ほかの ?以降は残す', () => {
     expect(
-      withoutExternalParam('https://liveeen.kkweb.io/@piro0919?x=1&openExternalBrowser=1'),
+      withoutExternalParam('https://liveeen.kkweb.io/@piro0919?x=1&openExternalBrowser=1', CHROME),
     ).toBe('https://liveeen.kkweb.io/@piro0919?x=1');
   });
 
   it('印が無ければ何もしない', () => {
-    expect(withoutExternalParam('https://liveeen.kkweb.io/@piro0919')).toBeNull();
+    expect(withoutExternalParam('https://liveeen.kkweb.io/@piro0919', CHROME)).toBeNull();
+  });
+
+  it('LINE の中に残ったときは印を外さない（外すと読み込み直すたびに外へ送り直す）', () => {
+    expect(
+      withoutExternalParam('https://liveeen.kkweb.io/?openExternalBrowser=1', LINE),
+    ).toBeNull();
   });
 });

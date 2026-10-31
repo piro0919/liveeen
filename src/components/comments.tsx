@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from 'react';
 import {
   appointModeratorAction,
   blockCommenterAction,
@@ -140,6 +140,11 @@ export function Comments({
   const guest = viewer === 'signed-out' && guestComments;
   const writer = viewer === 'ready' || (guest && guestName !== null);
 
+  // t は画面の更新（refresh）のたびに作り直される。つなぎ直しの依存に入れると、タイトルを保存しただけで切れる
+  const showRefusal = useEffectEvent((message: Extract<RelayMessage, { type: 'error' }>) => {
+    setError(message.code ? refusalText(t, message) : message.message);
+  });
+
   useEffect(() => {
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
@@ -194,7 +199,7 @@ export function Comments({
           if (message.comment.mine) outbox.current.accepted(message.comment.text);
           setComments((shown) => [...shown, message.comment].slice(-SHOWN_MAX));
         } else if (message.type === 'error') {
-          setError(message.code ? refusalText(t, message) : message.message);
+          showRefusal(message);
           restore(outbox.current.refused());
         } else if (message.type === 'viewers') setViewers(channelId, message.count);
         // 配信者が決まりを変えた。書ける人は札をもらい直し、書けるかどうかの知らせを出し直す
@@ -242,7 +247,7 @@ export function Comments({
       setConnected(false);
       setViewers(channelId, null);
     };
-  }, [channelId, relayUrl, viewer, writer, guestName, following, t]);
+  }, [channelId, relayUrl, viewer, writer, guestName, following]);
 
   // 新しいコメントが来たら下まで送る
   useEffect(() => {

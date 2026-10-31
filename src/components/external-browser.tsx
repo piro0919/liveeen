@@ -14,7 +14,7 @@ export function ExternalBrowser() {
       location.replace(external);
       return;
     }
-    const clean = withoutExternalParam(location.href);
+    const clean = withoutExternalParam(location.href, navigator.userAgent);
     if (clean) history.replaceState(history.state, '', clean);
   }, []);
   return null;

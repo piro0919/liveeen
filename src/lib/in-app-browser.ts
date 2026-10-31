@@ -16,8 +16,12 @@ export function externalBrowserUrl(href: string, agent: string): string | null {
   return url.toString();
 }
 
-/** 外のブラウザで開いたあと、住所から印を外した住所。印が無ければ null */
-export function withoutExternalParam(href: string): string | null {
+/**
+ * 外のブラウザで開いたあと、住所から印を外した住所。印が無ければ null。
+ * LINE の中に残ったとき（外へ開けなかった）は外さない。外すと、読み込み直すたびに外へ送り直す
+ */
+export function withoutExternalParam(href: string, agent: string): string | null {
+  if (LINE_AGENT.test(agent)) return null;
   const url = new URL(href);
   if (!url.searchParams.has(EXTERNAL_PARAM)) return null;
   url.searchParams.delete(EXTERNAL_PARAM);

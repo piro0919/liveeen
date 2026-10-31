@@ -27,6 +27,14 @@ const HEADING_SIZES = [
 ] as const;
 const HEADING_SIZE_MIN = 48;
 
+const graphemes = new Intl.Segmenter('ja', { granularity: 'grapheme' });
+
+/** 見出しの字の大きさ。タイトルや名前の上限と同じく、見た目の文字数で数える（絵文字は1字） */
+export function headingSize(heading: string): number {
+  const length = [...graphemes.segment(heading)].length;
+  return HEADING_SIZES.find(({ upTo }) => length <= upTo)?.size ?? HEADING_SIZE_MIN;
+}
+
 /** 色の名前 */
 type Palette = { background: string; foreground: string; muted: string; accentFill: string };
 
@@ -86,7 +94,7 @@ export async function renderOgImage(channel: {
     loadFont(heading + sub),
   ]);
   const color = darkPalette(css.toString());
-  const size = HEADING_SIZES.find(({ upTo }) => heading.length <= upTo)?.size ?? HEADING_SIZE_MIN;
+  const size = headingSize(heading);
 
   return new ImageResponse(
     <div
