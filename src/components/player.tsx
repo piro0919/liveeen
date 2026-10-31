@@ -70,6 +70,8 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
       try {
         const session = await playWhep(`${webrtcUrl}/${channelId}/whep`, {
           onStream: (stream) => {
+            // 捨てたつなぎの映像は入れない。後から届くと、いまのつなぎの映像を上書きし、閉じたまま止まる
+            if (cancelled) return;
             el.srcObject = stream;
             setStatus('live');
           },
