@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { startRelay } from '../relay/relay';
+import { removeFromRelay } from '@/lib/comment-removal';
 import { BLOCKED, guestId, type RelayMessage, TOKEN_EXPIRED } from '@/lib/comment';
-import { COMMENT_TOKEN_TTL_MS, signCommentToken } from '@/lib/comment-token';
+import {
+  COMMENT_TOKEN_TTL_MS,
+  signCommentToken,
+  signRemoval,
+  verifyCommentProof,
+} from '@/lib/comment-token';
 
 const SECRET = 'relay-secret';
 const CHANNEL = 'abc123';
@@ -63,7 +69,9 @@ describe('コメントの中継', () => {
       type: 'comment',
       comment: { name: 'ぴろ', text: 'こんにちは', guest: false },
     });
-    expect(await writer.nth(2)).toEqual(got);
+    expect(await writer.nth(2)).toEqual(
+      got.type === 'comment' && { ...got, comment: { ...got.comment, mine: true } },
+    );
     expect(elsewhere.received).toEqual([{ type: 'history', comments: [] }]);
   });
 
@@ -228,6 +236,80 @@ describe('コメントの中継', () => {
     expect(await owner.nth(5)).toMatchObject({
       type: 'comment',
       comment: { text: '配信者も書ける' },
+    });
+  });
+
+  it('コメントに中継の印を付け、自分のコメントにだけ mine を付ける', async () => {
+    const writer = await connect(CHANNEL, tokenFor('ぴろ'));
+    const other = await connect(CHANNEL, tokenFor('見る人'));
+    writer.socket.send(JSON.stringify({ text: 'やあ' }));
+    const toWriter = await writer.nth(2);
+    const toOther = await other.nth(2);
+    expect(toWriter).toMatchObject({ type: 'comment', comment: { mine: true } });
+    if (toOther.type !== 'comment') throw new Error('コメントが届いていません');
+    expect(toOther.comment.mine).toBeUndefined();
+    const { id, name, text, at, guest, proof } = toOther.comment;
+    const shown = { id, name, text, at, guest };
+    expect(verifyCommentProof(SECRET, CHANNEL, shown, proof ?? '')).toBe(true);
+    expect(verifyCommentProof(SECRET, CHANNEL, { ...shown, text: '書き換え' }, proof ?? '')).toBe(
+      false,
+    );
+    expect(verifyCommentProof(SECRET, 'other', shown, proof ?? '')).toBe(false);
+  });
+
+  it('運営の消す札で、そのコメントを全員の画面と覚えている分から消す', async () => {
+    const writer = await connect(CHANNEL, tokenFor('荒らし'));
+    const viewer = await connect(CHANNEL);
+    writer.socket.send(JSON.stringify({ text: '消される' }));
+    const comment = await viewer.nth(2);
+    const id = comment.type === 'comment' ? comment.comment.id : '';
+    const site = await connect(CHANNEL);
+    site.socket.send(JSON.stringify({ remove: signRemoval(SECRET, CHANNEL, id, clock) }));
+    expect(await viewer.nth(3)).toEqual({ type: 'remove', ids: [id] });
+    expect(await writer.nth(3)).toEqual({ type: 'remove', ids: [id] });
+    expect(await site.nth(3)).toEqual({ type: 'removed', id });
+    const late = await connect(CHANNEL);
+    expect(await late.nth(1)).toEqual({ type: 'history', comments: [] });
+  });
+
+  it('サイトのサーバーからの消す知らせは、中継が受け取ったときだけ解ける', async () => {
+    const writer = await connect(CHANNEL, tokenFor('荒らし'));
+    const viewer = await connect(CHANNEL);
+    writer.socket.send(JSON.stringify({ text: '消される' }));
+    const comment = await viewer.nth(2);
+    const id = comment.type === 'comment' ? comment.comment.id : '';
+    const url = `ws://localhost:${relay.port()}`;
+    await expect(removeFromRelay(url, 'other-secret', CHANNEL, id)).rejects.toThrow('断りました');
+    clock = Date.now();
+    await removeFromRelay(url, SECRET, CHANNEL, id);
+    expect(await viewer.nth(3)).toEqual({ type: 'remove', ids: [id] });
+  });
+
+  it('ほかのチャンネルの消す札、期限の切れた札、署名の違う札では消さない', async () => {
+    const writer = await connect(CHANNEL, tokenFor('ぴろ'));
+    writer.socket.send(JSON.stringify({ text: '残る' }));
+    const comment = await writer.nth(2);
+    const id = comment.type === 'comment' ? comment.comment.id : '';
+    const site = await connect(CHANNEL);
+    const removals = [
+      signRemoval(SECRET, 'other', id, clock),
+      signRemoval(SECRET, CHANNEL, id, clock - 61_000),
+      signRemoval('other-secret', CHANNEL, id, clock),
+    ];
+    for (const remove of removals) site.socket.send(JSON.stringify({ remove }));
+    await site.nth(4);
+    expect(site.received.slice(1).map((message) => message.type)).toEqual([
+      'error',
+      'error',
+      'error',
+    ]);
+    clock += 1000;
+    writer.socket.send(JSON.stringify({ text: '次' }));
+    expect(await writer.nth(3)).toMatchObject({ type: 'comment', comment: { text: '次' } });
+    const late = await connect(CHANNEL);
+    expect(await late.nth(1)).toMatchObject({
+      type: 'history',
+      comments: [{ text: '残る' }, { text: '次' }],
     });
   });
 

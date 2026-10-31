@@ -18,6 +18,10 @@ export type Comment = {
   guest: boolean;
   /** 書いた人の札（src/lib/comment-token.ts の signAuthor）。配信者にだけ付ける。ブロックに使う */
   author?: string;
+  /** 中継が流したそのままである印（src/lib/comment-token.ts の signCommentProof）。通報に使う */
+  proof?: string;
+  /** 見ている人が自分で書いたもの。自分のコメントには通報を出さない */
+  mine?: boolean;
 };
 
 /** ログインしていない人の札に振る id の頭。札ごとに `guest:<uuid>` を振る */
@@ -36,11 +40,13 @@ export const TOKEN_EXPIRED = 4001;
 /** 中継が、配信者にブロックされた人のつなぎを閉じるときの番号。見る画面は札をもらい直し、読むだけでつなぐ */
 export const BLOCKED = 4003;
 
-/** 中継から見る画面に送るもの。remove はブロックされた人のコメントを画面から消す */
+/** 中継から見る画面に送るもの。remove はブロックされた人や運営が消したコメントを画面から消す */
 export type RelayMessage =
   | { type: 'history'; comments: Comment[] }
   | { type: 'comment'; comment: Comment }
   | { type: 'remove'; ids: string[] }
+  /** 運営の消す札を受け取った知らせ。送ってきたつなぎ（サイトのサーバー）にだけ返す */
+  | { type: 'removed'; id: string }
   | { type: 'error'; message: string };
 
 /** 書かれたコメントを、流してよい形にする。空か長すぎれば null */

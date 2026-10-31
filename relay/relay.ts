@@ -15,8 +15,10 @@ import {
   COMMENT_TOKEN_TTL_MS,
   type Commenter,
   signAuthor,
+  signCommentProof,
   verifyAuthor,
   verifyCommentToken,
+  verifyRemoval,
 } from '../src/lib/comment-token';
 
 /** つないだ人に最初に見せる、それまでのコメントの数 */
@@ -73,17 +75,22 @@ function blockedWriter(room: Room, writer: Writer, now: number): boolean {
   );
 }
 
-/** 見せるコメント。書いた人の札は配信者にだけ付ける */
+/** 見せるコメント。書いた人の札は配信者にだけ付け、自分のコメントには mine を付ける */
 function shown(entry: Entry, writer: Writer | null): Comment {
-  return writer?.owner ? { ...entry.comment, author: entry.author } : entry.comment;
+  if (writer?.owner) return { ...entry.comment, author: entry.author };
+  if (writer && writer.userId === entry.userId) return { ...entry.comment, mine: true };
+  return entry.comment;
 }
 
-/** 届いた1通。書くコメントか、配信者のブロック */
-function parseMessage(data: unknown): { text: string } | { block: string } | null {
+/** 届いた1通。書くコメントか、配信者のブロックか、運営が消すもの */
+function parseMessage(
+  data: unknown,
+): { text: string } | { block: string } | { remove: string } | null {
   try {
     const parsed: unknown = JSON.parse(String(data));
     if (typeof parsed !== 'object' || parsed === null) return null;
     if ('block' in parsed && typeof parsed.block === 'string') return { block: parsed.block };
+    if ('remove' in parsed && typeof parsed.remove === 'string') return { remove: parsed.remove };
     if ('text' in parsed && typeof parsed.text === 'string') {
       const text = normalizeComment(parsed.text);
       return text ? { text } : null;
@@ -139,6 +146,15 @@ export function startRelay({ port, host, secret, thumbnail, now = Date.now }: Op
     }
   }
 
+  /** 運営が消したコメントを、覚えている分からも全員の画面からも消す */
+  function remove(room: Room, id: string): void {
+    const kept = room.history.filter((entry) => entry.comment.id !== id);
+    // もう覚えていないコメント（直近の分から落ちたもの）は、誰の画面にも残っていない
+    if (kept.length === room.history.length) return;
+    room.history = kept;
+    for (const client of room.clients.keys()) send(client, { type: 'remove', ids: [id] });
+  }
+
   server.on('connection', (socket, request) => {
     const url = new URL(request.url ?? '/', 'ws://relay');
     const channelId = CHANNEL_PATTERN.exec(url.pathname)?.[1];
@@ -167,11 +183,22 @@ export function startRelay({ port, host, secret, thumbnail, now = Date.now }: Op
     let lastPostAt = -Infinity;
     socket.on('pong', () => alive.add(socket));
     socket.on('message', (data) => {
+      const message = parseMessage(data);
+      // 運営が消すもの。サイトのサーバーが札なしでつなぎ、消す札を送ってくる（src/lib/comment-removal.ts）
+      if (message && 'remove' in message) {
+        const id = verifyRemoval(secret, message.remove, channelId, now());
+        if (id) {
+          remove(joined, id);
+          send(socket, { type: 'removed', id });
+        } else {
+          send(socket, { type: 'error', message: '消す札が合いません' });
+        }
+        return;
+      }
       if (!writer) {
         send(socket, { type: 'error', message: 'コメントするにはログインしてください' });
         return;
       }
-      const message = parseMessage(data);
       if (!message) return;
       if ('block' in message) {
         const author = verifyAuthor(secret, message.block, channelId);
@@ -192,14 +219,15 @@ export function startRelay({ port, host, secret, thumbnail, now = Date.now }: Op
         return;
       }
       lastPostAt = at;
+      const comment = {
+        id: randomUUID(),
+        name: writer.displayName,
+        text: message.text,
+        at,
+        guest: isGuestId(writer.userId),
+      };
       const entry: Entry = {
-        comment: {
-          id: randomUUID(),
-          name: writer.displayName,
-          text: message.text,
-          at,
-          guest: isGuestId(writer.userId),
-        },
+        comment: { ...comment, proof: signCommentProof(secret, channelId, comment) },
         userId: writer.userId,
         ipKey: writer.ipKey,
         author: signAuthor(secret, channelId, {

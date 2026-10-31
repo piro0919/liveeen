@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import type { Comment } from './comment';
 
 /**
  * コメントを書くための札の有効な長さ。札はコメントの中継につなぐときに一度だけ確かめられ、
@@ -111,4 +112,72 @@ export function verifyAuthor(secret: string, token: string, channelId: string): 
   const payload = open(secret, token) as AuthorPayload | null;
   if (!payload || payload.a !== AUTHOR_MARK || payload.c !== channelId) return null;
   return { userId: payload.u, displayName: payload.n, ipKey: payload.i ?? null };
+}
+
+/** 中継が流したそのままのコメントか。コメントの中身から作る署名で、書いた人は入れない（見る人に id を見せないため） */
+type Shown = Pick<Comment, 'id' | 'name' | 'text' | 'at' | 'guest'>;
+
+/** 札と取り違えないための印 */
+const PROOF_MARK = 'proof';
+
+function proofBody(channelId: string, comment: Shown): string {
+  return JSON.stringify([
+    PROOF_MARK,
+    channelId,
+    comment.id,
+    comment.name,
+    comment.text,
+    comment.at,
+    comment.guest,
+  ]);
+}
+
+/**
+ * コメントの印（中継が作り、コメントに付けて全員に流す）。通報するときに見る画面がサイトへ送り返し、
+ * サイトは中身が中継の流したものと同じかを確かめてから保存する。見る人が本文や名前を書き換えて通報することはできない
+ */
+export function signCommentProof(secret: string, channelId: string, comment: Shown): string {
+  return signature(secret, proofBody(channelId, comment));
+}
+
+export function verifyCommentProof(
+  secret: string,
+  channelId: string,
+  comment: Shown,
+  proof: string,
+): boolean {
+  const expected = Buffer.from(signCommentProof(secret, channelId, comment));
+  const given = Buffer.from(proof);
+  return expected.length === given.length && timingSafeEqual(expected, given);
+}
+
+/** コメントを消す札の有効な長さ。サイトが作ってすぐ中継へ送る */
+const REMOVAL_TTL_MS = MS_PER_MINUTE;
+const REMOVAL_MARK = 'remove';
+
+type RemovalPayload = { a: string; c: string; id: string; e: number };
+
+/** 運営がコメントを消す札（サイトが作り、中継へ送る）。そのチャンネルのそのコメントにだけ効く */
+export function signRemoval(secret: string, channelId: string, commentId: string, now: number) {
+  const payload: RemovalPayload = {
+    a: REMOVAL_MARK,
+    c: channelId,
+    id: commentId,
+    e: now + REMOVAL_TTL_MS,
+  };
+  return sign(secret, payload);
+}
+
+/** 消す札がそのチャンネルのもので、期限の内で、署名が合えば消すコメントの id を返す。合わなければ null */
+export function verifyRemoval(
+  secret: string,
+  token: string,
+  channelId: string,
+  now: number,
+): string | null {
+  const payload = open(secret, token) as RemovalPayload | null;
+  if (!payload || payload.a !== REMOVAL_MARK || payload.c !== channelId || payload.e < now) {
+    return null;
+  }
+  return payload.id;
 }

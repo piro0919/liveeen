@@ -4,8 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { refresh } from 'next/cache';
 import { blockCommenter, commenterBlocked } from '@/lib/blocks';
 import { channelById, channelOf } from '@/lib/channels';
-import { guestId } from '@/lib/comment';
-import { signCommentToken, verifyAuthor } from '@/lib/comment-token';
+import { type Comment, guestId } from '@/lib/comment';
+import { reportComment } from '@/lib/comment-reports';
+import { signCommentToken, verifyAuthor, verifyCommentProof } from '@/lib/comment-token';
 import { requestIpKey } from '@/lib/request-ip';
 import { normalizeDisplayName } from '@/lib/display-name';
 import { follow, unfollow } from '@/lib/follows';
@@ -102,4 +103,32 @@ export async function blockCommenterAction(channelId: string, author: string): P
  */
 export async function channelPublishingAction(channelId: string): Promise<boolean | null> {
   return publishing(channelId);
+}
+
+/** 通報するコメント。中継が流したそのまま（src/lib/comment.ts） */
+type ReportedCommentInput = Pick<Comment, 'id' | 'name' | 'text' | 'at' | 'guest' | 'proof'>;
+
+/**
+ * コメントを通報する。ログインが要る。1つのコメントに1人1件。
+ * 中身が中継の流したものと同じかを印で確かめ（src/lib/comment-token.ts）、通報されたものだけ保存する
+ */
+export async function reportCommentAction(
+  channelId: string,
+  comment: ReportedCommentInput,
+): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  const secret = env.COMMENT_TOKEN_SECRET;
+  if (!secret) throw new Error('COMMENT_TOKEN_SECRET がありません');
+  const shown = {
+    id: String(comment.id),
+    name: String(comment.name),
+    text: String(comment.text),
+    at: Number(comment.at),
+    guest: comment.guest === true,
+  };
+  if (!comment.proof || !verifyCommentProof(secret, channelId, shown, String(comment.proof))) {
+    throw new Error('コメントの印が合いません');
+  }
+  await reportComment(userId, channelId, shown);
 }

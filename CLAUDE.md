@@ -162,10 +162,23 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Turning it off reaches viewers when they reconnect. The page reconnects with a new token a minute before the token's 10 minutes run out, and the relay checks the expiry on every post (closing with code 4001 so the page reconnects at once), so a guest already connected can write for at most about 10 minutes after it is turned off
 - The relay is `relay/` (Node and `ws`), run on the Akamai server next to MediaMTX (see the production media server). Viewers connect to `NEXT_PUBLIC_COMMENT_RELAY_URL/<channel id>`
 - The relay has no DB and no sign-in. The web app gives signed-in viewers with a name a 10-minute signed token (`src/lib/comment-token.ts`, `COMMENT_TOKEN_SECRET`, the same value on both sides) carrying the user id and the name; the relay checks only the signature, the channel and the expiry, once when connecting. A renamed user keeps the old name until they reconnect
-- Comments are not saved (the owner confirmed this on 2026-10-31; decide again when reports on comments or recordings are built). Claude's calls on the details: the relay keeps the last 50 per channel in memory and sends them to whoever joins; one line, up to 200 characters (line breaks become spaces); one post per second per connection
+- Comments are not saved (the owner confirmed this on 2026-10-31), except reported ones (see Reporting comments). Claude's calls on the details: the relay keeps the last 50 per channel in memory and sends them to whoever joins; one line, up to 200 characters (line breaks become spaces); one post per second per connection
 - Checked 2026-10-31 in Chrome with the local test user and a signed-out window: the signed-out window shows the sign-in prompt and no input, a comment reaches it with the name, a second post within a second is refused, a window opened later sees the earlier comment
 - Checked 2026-10-31 in Chrome: the checkbox starts off and stays on after a reload; with it on, a signed-out window picks a name, its comment reaches the signed-in window, and the name is remembered after a reload; after turning it off and reloading, the signed-out window shows the sign-in prompt and no input
-- Not built yet: reporting comments
+
+## Reporting comments
+
+- Agreed with the owner on 2026-10-31 (Claude proposed it; the owner said 「ok」):
+  - Signed-in viewers see 通報 next to each comment. Not on their own comments, and not on the streamer's own watch page (the streamer has ブロック). Signed-out viewers and guests see none
+  - Only reported comments are saved, with the text, the name and the time
+  - The admin screen lists them, most-reported first, with 消す, which removes the comment from everyone's screen
+  - No site-wide ban of the person who wrote it
+- Stored in `reported_comment` and `comment_report` (`db/migrations/0016_comment_report.sql`, `src/lib/comment-reports.ts`); one report per person per comment. The author's id is not stored. After 消す, `removed_at` is set and the comment leaves the admin list
+- How the site knows the reported text is real (Claude's call): the relay signs each comment's id, name, text, time and guest flag with `COMMENT_TOKEN_SECRET` (`proof`, `signCommentProof` in `src/lib/comment-token.ts`) and sends it to everyone; `reportCommentAction` refuses a report whose fields do not match. The proof does not include the author's id, so viewers do not see it. The relay marks a viewer's own comments `mine`
+- 消す: the server action opens a WebSocket to the relay (`src/lib/comment-removal.ts`, Node's built-in `WebSocket` rather than `ws`, which can break when Next bundles it), the same way viewers connect, so Caddy needs no new route, and sends a 1-minute signed removal token for that channel and comment. The relay drops it from the last 50, sends `remove` to everyone in the room, and answers `removed` to the sender. The comment is marked removed only after that answer; a relay that predates this answers with an error, so 消す fails and the comment stays on the list. Comments sent by such a relay carry no `proof`, so they show no 通報 button
+- The server cannot stop someone reporting their own comment (the proof leaves out the author's id); only the button is hidden. Found in code review and left as is, since the harm is one extra entry on the admin list
+- The button asks for confirmation; there is no reason to choose (not part of the agreement). It becomes 通報しました and stays after a reload. Wording provisional
+- Checked 2026-10-31 locally in Chrome with u1 (streamer), u2 and u3 (viewers), a signed-out window and u4 (admin): u2 saw 通報 on u3's comment, u3 (its writer), u1 (ブロック only) and the signed-out window did not; after reporting it stayed 通報しました after a reload; `/admin` listed it with the text, name, time, channel and 通報 1; 消す removed it from all four windows and from what a newly opened window got, and the admin list showed ありません. Not checked in production (the relay on the server needs the update first)
 
 ## Blocking commenters
 

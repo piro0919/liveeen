@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { blockCommenterAction, commentTokenAction } from '@/app/[channelId]/actions';
+import {
+  blockCommenterAction,
+  commentTokenAction,
+  reportCommentAction,
+} from '@/app/[channelId]/actions';
 import {
   BLOCKED,
   type Comment,
@@ -65,6 +69,8 @@ type Props = {
   guestComments: boolean;
   /** 配信者が自分のチャンネルを見ている。コメントした人をブロックできる */
   own: boolean;
+  /** ログインした人が通報したコメントの id。null ならコメントを通報できない（ログインしていないか、配信者） */
+  reportedComments: string[] | null;
 };
 
 /**
@@ -72,7 +78,14 @@ type Props = {
  * 書けるのは、ログインして名前を付けた人と、配信者が許していればログインしていない人（その場で名前を入れる）。
  * つなぐたびにサーバーから札をもらい、札が切れる前につなぎ直す
  */
-export function Comments({ channelId, relayUrl, viewer, guestComments, own }: Props) {
+export function Comments({
+  channelId,
+  relayUrl,
+  viewer,
+  guestComments,
+  own,
+  reportedComments,
+}: Props) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('');
@@ -81,6 +94,8 @@ export function Comments({ channelId, relayUrl, viewer, guestComments, own }: Pr
   const [editingGuestName, setEditingGuestName] = useState(false);
   // 配信者に止められていれば、書く欄を出さない
   const [blocked, setBlocked] = useState(false);
+  // 通報したコメント。読み込み直しても「通報しました」のままにするため、サーバーから受け取った分から始める
+  const [reported, setReported] = useState(() => new Set(reportedComments ?? []));
   const socket = useRef<WebSocket | null>(null);
   const list = useRef<HTMLOListElement>(null);
 
@@ -109,7 +124,7 @@ export function Comments({ channelId, relayUrl, viewer, guestComments, own }: Pr
           setComments((shown) => shown.filter((comment) => !message.ids.includes(comment.id)));
         } else if (message.type === 'comment') {
           setComments((shown) => [...shown, message.comment].slice(-SHOWN_MAX));
-        } else setError(message.message);
+        } else if (message.type === 'error') setError(message.message);
       };
       ws.onclose = (event) => {
         clearTimeout(refresh);
@@ -161,6 +176,18 @@ export function Comments({ channelId, relayUrl, viewer, guestComments, own }: Pr
     socket.current?.send(JSON.stringify({ block: author }));
   }
 
+  /** コメントを通報する。運営が管理画面で見て、消すかを決める */
+  async function report(comment: Comment) {
+    if (!window.confirm(`${comment.name}さんのこのコメントを通報しますか？`)) return;
+    try {
+      await reportCommentAction(channelId, comment);
+    } catch {
+      setError('通報できませんでした。読み込み直してから、もう一度試してください');
+      return;
+    }
+    setReported((ids) => new Set(ids).add(comment.id));
+  }
+
   function decideGuestName(form: FormData) {
     const result = normalizeDisplayName(String(form.get('name') ?? ''));
     if (!result.ok) {
@@ -198,6 +225,22 @@ export function Comments({ channelId, relayUrl, viewer, guestComments, own }: Pr
                   >
                     ブロック
                   </button>
+                </>
+              )}
+              {reportedComments && !comment.mine && comment.proof && (
+                <>
+                  {' '}
+                  {reported.has(comment.id) ? (
+                    <span className={ui.note}>通報しました</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className={ui.textButton}
+                      onClick={() => void report(comment)}
+                    >
+                      通報
+                    </button>
+                  )}
                 </>
               )}
             </p>

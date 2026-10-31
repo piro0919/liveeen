@@ -7,6 +7,7 @@ import { Player, PlayerMessage } from '@/components/player';
 import { ReportButton } from '@/components/report-button';
 import { channelByHandle, channelById, channelOf } from '@/lib/channels';
 import { isFollowing } from '@/lib/follows';
+import { reportedCommentIdsOf } from '@/lib/comment-reports';
 import { channelPath, handleOfSegment } from '@/lib/handle';
 import { liveStream } from '@/lib/live';
 import { displayNameOf } from '@/lib/profiles';
@@ -36,6 +37,8 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
   const following = userId ? await isFollowing(userId, channel.id) : null;
   const live = userId && !own ? await liveStream(channel.id) : null;
   const reported = userId ? (live ? await hasReported(userId, live) : false) : null;
+  // コメントの通報もログインした人だけ。配信者の画面には出さない
+  const reportedComments = userId && !own ? await reportedCommentIdsOf(userId, channel.id) : null;
   // 上限に届くと配信サーバーが視聴を断るので、つなぎに行かずに理由を出す
   const capReached = await viewingCapReached();
   const name = channel.displayName ?? channel.id;
@@ -77,6 +80,7 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
             viewer={viewer}
             guestComments={channel.guestComments}
             own={own}
+            reportedComments={reportedComments}
           />
         </div>
       </aside>
