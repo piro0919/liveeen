@@ -13,9 +13,11 @@ export type Channel = {
   guestComments: boolean;
   handle: string | null;
   displayName: string | null;
+  /** 配信のタイトル（db/migrations/0017_stream_title.sql）。付けていなければ null */
+  title: string | null;
 };
 
-const SELECT_CHANNEL = `select channel.id, channel.latency_mode as "latencyMode",
+const SELECT_CHANNEL = `select channel.id, channel.latency_mode as "latencyMode", channel.title,
   channel.guest_comments as "guestComments", profile.handle, profile.display_name as "displayName"
   from channel left join profile on profile.user_id = channel.user_id`;
 
@@ -68,6 +70,11 @@ export async function resetStreamKey(userId: string): Promise<string | null> {
 
 export async function setLatencyMode(userId: string, mode: LatencyMode): Promise<void> {
   await db().query('update channel set latency_mode = $2 where user_id = $1', [userId, mode]);
+}
+
+/** 配信のタイトル。null で消す（src/lib/stream-title.ts で整えてから渡す） */
+export async function setStreamTitle(userId: string, title: string | null): Promise<void> {
+  await db().query('update channel set title = $2 where user_id = $1', [userId, title]);
 }
 
 /** ログインしていない人がコメントを書けるか（db/migrations/0006_guest_comments.sql） */

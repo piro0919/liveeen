@@ -16,7 +16,12 @@ const ITEMS_PER_PAGE = 1000;
  * 配信中のチャンネル。名前は配信者が付けたもの。名前より先に作られたチャンネルは null。
  * handle は住所に使う（src/lib/handle.ts）。まだ選んでいなければ null
  */
-export type LiveChannel = LivePath & { displayName: string | null; handle: string | null };
+export type LiveChannel = LivePath & {
+  displayName: string | null;
+  handle: string | null;
+  /** 配信のタイトル。付けていなければ null */
+  title: string | null;
+};
 
 /** 配信サーバー（MediaMTX）の API を呼ぶ。合言葉があれば付ける（本番の Caddy が求める。deploy/Caddyfile） */
 function mediaFetch(path: string, init: RequestInit = {}): Promise<Response> {
@@ -53,8 +58,9 @@ export async function liveRegisteredChannels(): Promise<LiveChannel[]> {
     id: string;
     displayName: string | null;
     handle: string | null;
+    title: string | null;
   }>(
-    `select channel.id, profile.display_name as "displayName", profile.handle
+    `select channel.id, profile.display_name as "displayName", profile.handle, channel.title
      from channel left join profile on profile.user_id = channel.user_id
      where channel.id = any($1) and channel.banned_at is null`,
     [paths.map((path) => path.channelId)],
@@ -62,7 +68,9 @@ export async function liveRegisteredChannels(): Promise<LiveChannel[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   return paths.flatMap((path) => {
     const row = byId.get(path.channelId);
-    return row ? [{ ...path, displayName: row.displayName, handle: row.handle }] : [];
+    return row
+      ? [{ ...path, displayName: row.displayName, handle: row.handle, title: row.title }]
+      : [];
   });
 }
 

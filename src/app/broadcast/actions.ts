@@ -7,7 +7,9 @@ import {
   resetStreamKey,
   setGuestComments,
   setLatencyMode,
+  setStreamTitle,
 } from '@/lib/channels';
+import { normalizeStreamTitle } from '@/lib/stream-title';
 import { unblockCommenter } from '@/lib/blocks';
 import { isLatencyMode } from '@/lib/latency';
 import { publishing } from '@/lib/live';
@@ -55,6 +57,22 @@ export async function publishingAction(): Promise<boolean | null> {
   const channel = await channelOf(userId);
   if (!channel) throw new Error('チャンネルがありません');
   return publishing(channel.id);
+}
+
+export type StreamTitleState = { error: string | null; saved: boolean };
+
+/** 配信のタイトルを付ける。空なら消す。配信中に変えても、一覧と見る画面には次に開いたときから出る */
+export async function setStreamTitleAction(
+  _: StreamTitleState,
+  form: FormData,
+): Promise<StreamTitleState> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  const result = normalizeStreamTitle(String(form.get('title') ?? ''));
+  if (!result.ok) return { error: result.error, saved: false };
+  await setStreamTitle(userId, result.title);
+  refresh();
+  return { error: null, saved: true };
 }
 
 export async function setGuestCommentsAction(allowed: boolean): Promise<void> {

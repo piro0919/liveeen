@@ -8,6 +8,7 @@ import { channelPath } from '@/lib/handle';
 import { BrowserPublisher } from './browser-publisher';
 import { GuestCommentsChoice } from './guest-comments-choice';
 import { LatencyChoice } from './latency-choice';
+import { StreamTitleForm } from './stream-title-form';
 import { ui } from '@/lib/ui';
 
 const NO_KEY: KeyState = { key: null };
@@ -43,6 +44,10 @@ export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl }: Props) 
 
   return (
     <div className="flex flex-col gap-4">
+      {/* タイトルは配信を始める前に付けるので、配信の上に置く */}
+      <div className={ui.card}>
+        <StreamTitleForm title={channel.title} />
+      </div>
       <section className={ui.card}>
         <BrowserPublisher
           whipUrl={`${webrtcUrl}/${channel.id}/whip`}

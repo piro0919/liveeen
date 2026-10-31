@@ -55,6 +55,8 @@ export default async function AdminPage() {
                 >
                   {channel.displayName ?? channel.channelId}
                 </Link>
+                {/* タイトルも通報の理由になりうるので、運営に見せる */}
+                {channel.title && <span className="wrap-break-word">{channel.title}</span>}
                 <span className={ui.note}>
                   {timeFormat.format(channel.startedAt)} から ・ 通報 {countOf(channel)}
                   {reasonsOf(channel) && `（${reasonsOf(channel)}）`}

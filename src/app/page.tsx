@@ -19,7 +19,7 @@ const startedAtFormat = new Intl.DateTimeFormat('ja-JP', {
 });
 
 /**
- * 配信の札。16:9 の絵と、配信者の印・名前・始まった時刻。
+ * 配信の札。16:9 の絵と、配信者の印・タイトル・名前・始まった時刻。
  * 画像は中継が1分おきに撮る縮小画像（relay/thumbnails.ts）。まだ撮れていなければ名前の1文字を大きく出す
  */
 function LiveCard({ channel }: { channel: LiveChannel }) {
@@ -44,8 +44,18 @@ function LiveCard({ channel }: { channel: LiveChannel }) {
         </div>
         <div className="flex gap-3">
           <Avatar name={name} />
+          {/* 手本は YouTube の札：タイトルを太字で2行まで、その下に配信者の名前。タイトルが無ければ名前を太字にする */}
           <div className="flex min-w-0 flex-col">
-            <span className="truncate font-bold group-hover:text-accent">{name}</span>
+            {channel.title ? (
+              <>
+                <span className="line-clamp-2 font-bold wrap-break-word group-hover:text-accent">
+                  {channel.title}
+                </span>
+                <span className={`truncate ${ui.note}`}>{name}</span>
+              </>
+            ) : (
+              <span className="truncate font-bold group-hover:text-accent">{name}</span>
+            )}
             <span className={ui.note}>{startedAtFormat.format(channel.startedAt)} から</span>
           </div>
         </div>

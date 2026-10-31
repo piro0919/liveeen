@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
+import { cache } from 'react';
 import { Comments } from '@/components/comments';
 import { FollowButton } from '@/components/follow-button';
 import { Avatar } from '@/components/avatar';
@@ -17,7 +18,19 @@ import { viewingCapReached } from '@/lib/transfer';
 import { ui } from '@/lib/ui';
 import { env } from '@/env';
 
-export const metadata: Metadata = { title: 'Liveeen' };
+/** 住所の一節（@ハンドルかチャンネルの id）からチャンネル。題名と画面の両方で読むので、1回の表示で1度だけ引く */
+const channelOfSegment = cache(async (segment: string) => {
+  const handle = handleOfSegment(segment);
+  return handle ? await channelByHandle(handle) : await channelById(segment);
+});
+
+/** タブの題名。タイトルがあればタイトル、無ければ配信者の名前（共有したときに何の配信か分かるように） */
+export async function generateMetadata({ params }: PageProps<'/[channelId]'>): Promise<Metadata> {
+  const channel = await channelOfSegment((await params).channelId);
+  if (!channel) return { title: 'Liveeen' };
+  // 共有したときのカードの題も、ここから Next.js が作る。openGraph を書くと全体の画像（src/app/opengraph-image.png）が外れる
+  return { title: `${channel.title ?? channel.displayName ?? channel.id} | Liveeen` };
+}
 
 /**
  * 配信者の住所。配信を見る画面。見るのにログインは要らない（CLAUDE.md）。コメントを書くにはログインと名前が要る。
@@ -26,7 +39,7 @@ export const metadata: Metadata = { title: 'Liveeen' };
 export default async function ChannelPage({ params }: PageProps<'/[channelId]'>) {
   const { channelId: segment } = await params;
   const handle = handleOfSegment(segment);
-  const channel = handle ? await channelByHandle(handle) : await channelById(segment);
+  const channel = await channelOfSegment(segment);
   if (!channel) notFound();
   // ハンドルは変えられるので、転送は恒久にしない
   if (channel.handle && handle !== channel.handle) redirect(channelPath(channel));
@@ -59,12 +72,24 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
             webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
           />
         )}
+        {/* 手本は YouTube：映像の下にタイトル、その下に配信者の行 */}
+        {channel.title && (
+          // スマホではコメントの高さを削らないよう2行で切る
+          <h1 className="line-clamp-2 px-4 text-lg font-bold wrap-break-word sm:line-clamp-none sm:px-0">
+            {channel.title}
+          </h1>
+        )}
         {/* スマホの幅でも1行に収める。名前とフォローの組が残りの幅を取り、名前は入りきらなければ省く。通報の理由を選ぶ欄だけが次の行に出る */}
         <div className="flex flex-wrap items-center gap-3 px-4 sm:px-0">
           <Avatar name={name} size="lg" />
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex min-w-0 flex-col">
-              <h1 className="truncate font-bold">{name}</h1>
+              {/* タイトルが無ければ、配信者の名前がこの画面の見出し */}
+              {channel.title ? (
+                <span className="truncate font-bold">{name}</span>
+              ) : (
+                <h1 className="truncate font-bold">{name}</h1>
+              )}
               {channel.handle && <span className={`truncate ${ui.note}`}>@{channel.handle}</span>}
             </div>
             {!own && <FollowButton channelId={channel.id} following={following} />}

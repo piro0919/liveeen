@@ -14,6 +14,7 @@ Nothing is built yet. Everything below was agreed with the owner in a sounding-b
 - Name: **Liveeen** (read ライブーン), the owner's idea. Romaji names (Utsuru, Imakoko, Mitero) were rejected because the service will go global. English-word names were also rejected: Hearth, Beamo, Wavely, Lumo, Nook, Popin, Busker, Magpie, Lantern, OpenLive, LiveNow, AnyStream. On 2026-10-30 a web search for "Liveeen" found no service with that name; liveeen .com/.io/.tv/.jp had no whois or DNS record (likely free); .app and .live could not be checked from the shell. Trademarks: on 2026-10-31 the WIPO Global Brand Database (which includes Japan's register) had no mark containing "liveeen"; "liveen" had three, none for streaming: India class 5, Korea class 45, Japan classes 29 and 30 (no. 7051439, food). J-PlatPat sent the headless browser to its maintenance page, so Japan was not checked there. Not a legal clearance. People who hear "ライブーン" may type the wrong number of e's (a guess, not checked); whether to hold the look-alike domains is open
 - Anyone can stream, video and voice
 - First version: stream, watch, comment, follow
+- Added on 2026-10-31 after Claude compared Liveeen with TwitCasting, YouTube Live and Twitch and the owner said 「1,2,3を対応で　4,5はいらないかな」: stream titles, viewer counts, and comment moderation tools (slow mode, blocked words, moderators, followers-only comments). Not wanted: streams limited to some viewers (TwitCasting's 合言葉 and group streams) and collaborative streams with several streamers
 - No tips and no paid items
 - Saving recordings comes in a later version
 - Watching needs no sign-in
@@ -97,7 +98,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Every page has the header (`src/components/site-header.tsx`): Liveeen on the left; signed out, ログイン on the right; signed in, 配信する (where YouTube has 作成) and the person's mark linking to `/settings`. ログアウト is at the bottom of `/settings` (YouTube keeps it in the account menu); it returns to the top page. Every page also has a footer (`src/components/site-footer.tsx`) linking to 利用規約 and プライバシーポリシー
 - The mark is a play triangle flying off like a paper plane with two motion lines, for "ブーン" in ライブーン. The owner picked it on 2026-10-31 from three ChatGPT drafts; Claude redrew it as vector paths. The favicon, the iPhone home screen icon, the OG image and the header logo all use it; the sources and how to re-render them are in `design/README.md`. Swapping the header's accent square for the mark was left to Claude (「まかせる」)
 - A person's mark is the first character of their display name in a circle (`src/components/avatar.tsx`), not the Google photo, which can show a face or real name (Claude's call)
-- The top page shows 16:9 cards (one column on phones, up to four on wide screens) with a ライブ tag at the top left whose dot blinks (not when the device asks for reduced motion), the mark, the name and the start time. The image is the stream thumbnail (see Stream thumbnails); until one exists the card shows the name's first character large
+- The top page shows 16:9 cards (one column on phones, up to four on wide screens) with a ライブ tag at the top left whose dot blinks (not when the device asks for reduced motion), the mark, the title (see Stream titles), the name and the start time. The image is the stream thumbnail (see Stream thumbnails); until one exists the card shows the name's first character large
 - The watch page puts the player and the streamer row (mark, name, @handle, フォローする, 通報する at the right) on the left and the comments panel on the right at the same height; on narrow screens they stack. On phones the player runs edge to edge with square corners and the comments panel fills the rest of the screen height (`h-below-header` in `globals.css`), as in the YouTube app. Not-live and over-the-cap messages show in the middle of the black player. Since 2026-10-31 the name and フォローする share the remaining width and the name is cut short, so 通報する stays on the same row at a phone width; only the report reason panel takes its own line (checked at 375 px)
 
 ## The broadcast screen (`/broadcast`)
@@ -141,11 +142,19 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 ## The top page (`/`)
 
-- Lists the channels that are live now, newest first, as cards (see Design rules), each linking to `/@<handle>`. The label is the streamer's display name (the channel id for channels made before names existed) and the start time in Japan time
+- Lists the channels that are live now, newest first, as cards (see Design rules), each linking to `/@<handle>`. The label is the title when there is one, then the streamer's display name (the channel id for channels made before names existed) and the start time in Japan time
 - Whether a channel is live comes from MediaMTX's API (`GET /v3/paths/list`, `ready: true`) on every request (`src/lib/live.ts`, `MEDIA_API_URL`), not from a table. Claude's call: it cannot drift from what is really streaming. Paths that are not registered channels are dropped
 - If MediaMTX does not answer within 3 s, the page shows the empty list (いま配信している人はいません)
 - In production the web app on Vercel reaches MediaMTX's API through Caddy, which asks for `MEDIA_API_SECRET` as a Bearer token (see the production media server). Locally `authHTTPExclude` lets the API through and no secret is needed
 - Checked locally on 2026-10-30 with ffmpeg over RTMP: the channel appears while streaming, the empty message shows after it stops, and the page still opens when MediaMTX is stopped
+
+## Stream titles
+
+- Built 2026-10-31 (see Agreed). The details are Claude's calls, following YouTube:
+  - The streamer sets one title per channel (`channel.title`, `db/migrations/0017_stream_title.sql`) at the top of `/broadcast` and on `/broadcast/obs` (where OBS streamers sit while live). It stays until changed; empty removes it. Up to 100 characters counted as they look, line breaks become spaces (`src/lib/stream-title.ts`; the limit is provisional)
+  - The top page card shows the title in bold up to two lines, then the name; without a title the name is bold as before. The watch page shows it under the player as the page's `h1` (two lines at most on phones, so the comments keep their height), and the tab and share card read `<title> | Liveeen` (`<name> | Liveeen` without one). The admin list shows it too
+  - Changing it while live shows on the next page load; the live screen of browser streaming has no title field
+- Checked 2026-10-31 locally in Chrome with an ffmpeg stream: 101 characters refused with 100文字までです, a title with a line break saved as one line and stayed after a reload, the card, the watch page heading, the tab title and `og:title` showed it, `og:image` stayed (a page-level `openGraph` would drop it, so only `title` is set), and saving it empty put the name back as the heading and the tab title. Checked at 375 px: the card cuts the title at two lines
 
 ## Stream thumbnails
 

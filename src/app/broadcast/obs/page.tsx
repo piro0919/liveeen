@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Comments } from '@/components/comments';
 import { ObsSetup } from '@/components/obs-setup';
+import { StreamTitleForm } from '@/components/stream-title-form';
 import { channelOf } from '@/lib/channels';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
@@ -27,6 +28,10 @@ export default async function ObsPage() {
         </Link>
         へ戻る
       </p>
+      {/* OBS の人は配信しながらこの画面を開いているので、ここでもタイトルを変えられるようにする */}
+      <div className={ui.card}>
+        <StreamTitleForm title={channel.title} />
+      </div>
       <ObsSetup
         channelId={channel.id}
         latencyMode={channel.latencyMode}
