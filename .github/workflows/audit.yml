@@ -1,0 +1,25 @@
+name: audit
+
+# 本番の依存に critical の脆弱性が無いかを週に1回見る（onigiri・spatto と同じ）。落ちれば GitHub からメールが届く。
+#
+# CI（ci.yml）には入れない。直す版がまだ出ていない脆弱性が1件あるだけで CI が赤のままになり、
+# Renovate の更新が全部止まる（spatto で起きた）。見る場所を分けて、気づくことだけをここでやる
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm audit --prod --audit-level=critical

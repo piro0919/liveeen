@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["sin1"],
-  "buildCommand": "pnpm exec tsx scripts/migrate.ts --check && pnpm build"
+  "buildCommand": "pnpm exec tsx scripts/migrate.ts --check && pnpm build",
+  "ignoreCommand": "sh scripts/vercel-ignore.sh"
 }
