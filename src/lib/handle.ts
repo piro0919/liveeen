@@ -6,7 +6,7 @@ export const HANDLE_MAX = 20;
 const HANDLE_PATTERN = new RegExp(`^[a-z0-9_]{${HANDLE_MIN},${HANDLE_MAX}}$`);
 
 /** サイトの道と同じ名前。紛らわしいので使わせない（CLAUDE.md） */
-const RESERVED = new Set(['admin', 'api', 'broadcast', 'settings']);
+const RESERVED = new Set(['admin', 'api', 'broadcast', 'privacy', 'settings', 'terms']);
 
 /**
  * 本人が入れたハンドルを、保存してよい形にする。前後の空白を落とし、大文字は小文字にそろえる。
