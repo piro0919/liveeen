@@ -54,13 +54,7 @@ export function BrowserPublisher({ whipUrl }: { whipUrl: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <video
-        ref={video}
-        autoPlay
-        muted
-        playsInline
-        className="aspect-video w-full rounded-xl bg-black"
-      />
+      <video ref={video} autoPlay muted playsInline className={ui.videoFrame} />
       {status === 'live' ? (
         <button type="button" className={ui.primaryButton} onClick={() => void stop()}>
           配信を終える

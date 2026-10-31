@@ -87,9 +87,9 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 ## Design rules
 
 - The model is **YouTube** (the owner on 2026-10-31: not TwitCasting, otherwise left to Claude, "simple is fine"; Claude picked YouTube over Twitch as the simpler one and looked at youtube.com's live page and a live watch page signed out). The owner said 「ok」 to the top page and watch page built from it
-- Colors are YouTube's light and dark values, as named tokens in `src/app/globals.css` (`background`, `foreground`, `muted`, `surface`, `surface-hover`, `line`, `accent`, `live`, `danger`). Light or dark follows the device. Components use the token names only, never hex values or Tailwind's palette
+- Colors are YouTube's light and dark values, as named tokens in `src/app/globals.css` (`background`, `foreground`, `muted`, `surface`, `surface-hover`, `line`, `accent`, `live`, `danger`). Light or dark follows the device. Components use the token names only, never hex values or Tailwind's palette. Black and white appear only in `src/lib/ui.ts`, for the video frame, text on it and the ライブ tag
 - Buttons, inputs, cards, headings and notes come from `src/lib/ui.ts`: pill buttons (`primaryButton` black like チャンネル登録, `tonalButton` grey like 登録済み, `signInButton` outlined blue like YouTube's ログイン), `card` for a group on `/broadcast`, `/settings` and `/admin`
-- `test/design-rules.test.ts` fails on hex colors, Tailwind palette colors, `rounded-full` outside `ui.ts` and the avatar, and the old `rounded border px-` buttons. Each check was seen failing on a planted line
+- `test/design-rules.test.ts` fails on hex colors in strings, Tailwind palette colors, black or white outside `ui.ts`, `rounded-full` outside `ui.ts` and the avatar, and the old `rounded border px-` buttons. It strips comments from a line instead of skipping the line. Each check was seen failing on a planted line, and `href="#add"` passes
 - Every page has the header (`src/components/site-header.tsx`): Liveeen on the left; signed out, ログイン on the right; signed in, 配信する (where YouTube has 作成) and the person's mark linking to `/settings`. There is no sign-out yet
 - A person's mark is the first character of their display name in a circle (`src/components/avatar.tsx`), not the Google photo, which can show a face or real name (Claude's call)
 - The top page shows 16:9 cards with a red ライブ tag, the mark, the name and the start time. There are no stream thumbnails (MediaMTX does not make images), so the card shows the name's first character large
@@ -143,7 +143,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 ## Comments
 
-- Shown under the player on `/<channel id>`. Everyone can read them. Writing needs sign-in and a display name, unless the streamer allows signed-out comments
+- Shown in a panel beside the player on the watch page (under it on narrow screens). Everyone can read them. Writing needs sign-in and a display name, unless the streamer allows signed-out comments
 - Signed-out comments: a checkbox on `/broadcast` (`channel.guest_comments`, off by default; the default is Claude's call, matching what was there before). When on, a signed-out viewer types a name on the watch screen (same rules as display names), the browser remembers it, and the server gives a token with a fresh `guest:<uuid>` id. Their comments show （ゲスト） after the name (the owner chose this on 2026-10-31, because names need not be unique and a guest could take a regular viewer's name; wording provisional). The relay sets `guest` on each comment from the token's `guest:` id (`isGuestId`, `src/lib/comment.ts`). Checked 2026-10-31 in Chrome: a guest and a signed-in viewer both named 見る人 show as 見る人（ゲスト） and 見る人 in both windows
 - Turning it off reaches viewers when they reconnect. The page reconnects with a new token a minute before the token's 10 minutes run out, and the relay checks the expiry on every post (closing with code 4001 so the page reconnects at once), so a guest already connected can write for at most about 10 minutes after it is turned off
 - The relay is `relay/` (Node and `ws`), run on the Akamai server next to MediaMTX (see the production media server). Viewers connect to `NEXT_PUBLIC_COMMENT_RELAY_URL/<channel id>`
@@ -171,7 +171,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 ## Follow
 
-- A button under the player on `/<channel id>` (フォローする / フォロー中). Signed-out viewers get the button too; pressing it starts sign-in. Your own channel has no button, and the DB insert also refuses following yourself
+- A button in the streamer row under the player on the watch page (フォローする / フォロー中). Signed-out viewers get the button too; pressing it starts sign-in. Your own channel has no button, and the DB insert also refuses following yourself
 - All three ways to hear that someone you follow went live are built: listed at the top, browser notifications, email. On the top page, followed channels that are live get their own フォロー中 group under the 配信中 heading, above the rest
 - `/settings` has the switch for it (`notification_setting.list_on_top`). On by default (Claude's call); a user with no row gets the default
 

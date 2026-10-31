@@ -39,7 +39,13 @@ export function ReportButton({ channelId, reported }: Props) {
           <legend className="mb-2 font-bold">通報の理由</legend>
           {REPORT_REASONS.map((reason) => (
             <label key={reason.value} className="flex items-center gap-2">
-              <input type="radio" name="reason" value={reason.value} required />
+              <input
+                type="radio"
+                className={ui.check}
+                name="reason"
+                value={reason.value}
+                required
+              />
               {reason.label}
             </label>
           ))}

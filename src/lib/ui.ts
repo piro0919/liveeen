@@ -32,6 +32,13 @@ export const ui = {
   check: 'size-4 accent-accent',
   /** 補いの文（時刻・状態） */
   note: 'text-sm text-muted',
+  /** 映像の黒い枠（見る画面・上限の知らせ・ブラウザの配信）。映像は端末の明るさに関係なく黒地に白 */
+  videoFrame: 'relative aspect-video w-full overflow-hidden rounded-xl bg-black',
+  /** 映像の枠の真ん中に出す知らせ */
+  videoMessage:
+    'pointer-events-none absolute inset-0 flex items-center justify-center p-4 text-center text-white',
+  /** 配信中の札。YouTube の赤い「ライブ」 */
+  liveTag: 'rounded-sm bg-live px-1 text-xs font-medium text-white',
   /** 失敗の理由 */
   error: 'text-sm text-danger',
 } as const;

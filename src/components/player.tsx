@@ -4,6 +4,7 @@ import Hls from 'hls.js';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { LatencyMode } from '@/lib/latency';
 import { channelPublishingAction } from '@/app/[channelId]/actions';
+import { ui } from '@/lib/ui';
 import { playWhep } from '@/lib/whep';
 
 /** 配信していないとき、もう一度つなぎに行くまでの間 */
@@ -103,9 +104,9 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
   }, [channelId, latencyMode, hlsUrl, webrtcUrl]);
 
   return (
-    <div className="relative overflow-hidden rounded-xl bg-black">
+    <div className={ui.videoFrame}>
       {/* 音を出すかは見る人が決める。自動で再生するために、始めは音を消しておく */}
-      <video ref={video} autoPlay muted playsInline controls className="aspect-video w-full" />
+      <video ref={video} autoPlay muted playsInline controls className="size-full" />
       {status === 'offline' && <PlayerMessage>配信していません</PlayerMessage>}
     </div>
   );
@@ -113,9 +114,5 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
 
 /** 映像の枠の真ん中に出す知らせ（配信していない・上限に届いた） */
 export function PlayerMessage({ children }: { children: ReactNode }) {
-  return (
-    <p className="pointer-events-none absolute inset-0 flex items-center justify-center p-4 text-center text-white">
-      {children}
-    </p>
-  );
+  return <p className={ui.videoMessage}>{children}</p>;
 }

@@ -44,7 +44,7 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
     <main className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row">
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         {capReached ? (
-          <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
+          <div className={ui.videoFrame}>
             <PlayerMessage>今月の視聴の上限に達したため、いまは見られません</PlayerMessage>
           </div>
         ) : (

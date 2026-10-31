@@ -1,10 +1,15 @@
-/** 名前の最初の1文字（絵文字の並びも1文字に数える） */
+/** コメントの数だけ呼ばれるので、1つを使い回す */
+const graphemes = new Intl.Segmenter('ja', { granularity: 'grapheme' });
+
+/**
+ * 名前の最初の1文字（絵文字の並びも1文字に数える）。英字は大文字にするが、
+ * 大文字にすると2文字になるもの（ß → SS）はそのまま
+ */
 export function initialOf(name: string): string {
-  const first = new Intl.Segmenter('ja', { granularity: 'grapheme' })
-    .segment(name)
-    [Symbol.iterator]()
-    .next();
-  return first.done ? '' : first.value.segment.toUpperCase();
+  const first = graphemes.segment(name)[Symbol.iterator]().next();
+  if (first.done) return '';
+  const upper = first.value.segment.toUpperCase();
+  return [...graphemes.segment(upper)].length === 1 ? upper : first.value.segment;
 }
 
 const SIZES = {

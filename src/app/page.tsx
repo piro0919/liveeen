@@ -31,9 +31,7 @@ function LiveCard({ channel }: { channel: LiveChannel }) {
           <span aria-hidden className="text-5xl font-bold text-muted">
             {initialOf(name)}
           </span>
-          <span className="absolute bottom-2 left-2 rounded-sm bg-live px-1 text-xs font-medium text-white">
-            ライブ
-          </span>
+          <span className={`absolute bottom-2 left-2 ${ui.liveTag}`}>ライブ</span>
         </div>
         <div className="flex gap-3">
           <Avatar name={name} />
@@ -79,7 +77,7 @@ export default async function Home() {
       {channels.length === 0 && <p className="text-muted">いま配信している人はいません</p>}
       {split.followed.length > 0 && (
         <section className="flex flex-col gap-4">
-          <h2 className="text-base font-bold">フォロー中</h2>
+          <h2 className={ui.subheading}>フォロー中</h2>
           <LiveGrid channels={split.followed} />
         </section>
       )}
