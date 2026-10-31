@@ -56,3 +56,7 @@ next-env.d.ts
 
 # relay の束（pnpm relay:build）
 /dist
+
+# BGM の曲（deploy/bgm）。リポジトリに入れず、配信サーバーに一度だけ送る（src/lib/bgm.ts）
+/deploy/bgm/
+/public/bgm

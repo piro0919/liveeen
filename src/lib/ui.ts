@@ -60,6 +60,22 @@ export const ui = {
   overlayName: 'text-white/70',
   /** 配信中の画面の上に重ねる、文の中の小さな操作（ブロック） */
   overlayTextButton: 'text-sm text-white/70 transition-colors hover:text-white',
+  /** 配信中の画面の上に重ねる囲み（BGM の一覧） */
+  overlayPanel: 'rounded-2xl bg-black/60 p-3 text-white backdrop-blur-md',
+  /** 音量のつまみ */
+  range: 'h-10 w-full min-w-0 accent-accent-fill sm:h-9',
+  /** BGM の一覧の1曲 */
+  bgmTrack:
+    'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-surface-hover',
+  /** BGM の一覧の流れている曲 */
+  bgmTrackPlaying:
+    'flex w-full items-center justify-between gap-2 rounded-lg bg-surface-hover px-3 py-2 text-left text-sm font-bold',
+  /** 配信中の画面に重ねる BGM の一覧の1曲 */
+  overlayBgmTrack:
+    'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm text-white transition-colors hover:bg-white/10',
+  /** 配信中の画面に重ねる BGM の一覧の流れている曲 */
+  overlayBgmTrackPlaying:
+    'flex w-full items-center justify-between gap-2 rounded-lg bg-white/15 px-3 py-2 text-left text-sm font-bold text-white',
   /** 配信中の画面の上に重ねるコメントの書く欄 */
   overlayInput:
     'h-10 min-w-0 rounded-full border border-white/30 bg-black/40 px-4 text-base text-white outline-none placeholder:text-white/60 focus:border-white/70 sm:h-9 sm:text-sm',

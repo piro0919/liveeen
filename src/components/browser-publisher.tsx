@@ -2,9 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { browserPublishTokenAction, publishingAction } from '@/app/broadcast/actions';
+import {
+  BGM_TRACKS,
+  type BgmMixer,
+  bgmTrackUrl,
+  createBgmMixer,
+  DEFAULT_BGM_VOLUME,
+  nextTrackIndex,
+} from '@/lib/bgm';
 import { loadImage, type StillImage, stillImageStream } from '@/lib/still-image';
 import { captureCamera, captureMicrophone, publishWhip, type WhipSession } from '@/lib/whip';
 import { ui } from '@/lib/ui';
+import { BgmPicker } from './bgm-picker';
 import { Comments } from './comments';
 
 type Status = 'idle' | 'starting' | 'live';
@@ -18,13 +27,22 @@ type Props = {
   guestComments: boolean;
   /** 配信者の名前。画像を選ばずに画像で配信するとき、映像に出す */
   name: string;
+  /** BGM の曲を置いた住所（`…/bgm`）。無ければ BGM を出さない */
+  bgmUrl?: string;
 };
 
 /**
  * ブラウザで配信する。カメラか、画像と声かを選ぶ。画像ならカメラの許可を求めない。
  * 配信中は映像を画面いっぱいに出し、コメントを重ねる（手本は YouTube のアプリの配信）
  */
-export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, name }: Props) {
+export function BrowserPublisher({
+  whipUrl,
+  channelId,
+  relayUrl,
+  guestComments,
+  name,
+  bgmUrl,
+}: Props) {
   const video = useRef<HTMLVideoElement>(null);
   const liveVideo = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -34,6 +52,12 @@ export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, 
   const [source, setSource] = useState<Source>('camera');
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const mixer = useRef<BgmMixer | null>(null);
+  // 曲の終わりに次の曲へ進むとき、いま流れている曲を描き直しを待たずに知るため、画面の値とは別に持つ
+  const bgmPlaying = useRef<number | null>(null);
+  const [bgm, setBgm] = useState<number | null>(null);
+  const [bgmVolume, setBgmVolume] = useState(DEFAULT_BGM_VOLUME);
+  const [bgmOpen, setBgmOpen] = useState(false);
 
   // 画像で配信するときは、始める前から見る人に映るものを出す（許可は要らない）
   useEffect(() => {
@@ -57,6 +81,48 @@ export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, 
     stream.current = null;
     still.current?.stop();
     still.current = null;
+    // 配信を終えたら曲も止める
+    mixer.current?.unmix();
+    stopBgm();
+  }
+
+  /** 混ぜる仕組みは、押した操作の中で作る（iPhone の Safari はそうしないと鳴らない） */
+  function ensureMixer(): BgmMixer {
+    mixer.current ??= createBgmMixer(() => {
+      const current = bgmPlaying.current;
+      if (current !== null) playBgm(nextTrackIndex(current));
+    });
+    return mixer.current;
+  }
+
+  function playBgm(index: number) {
+    const track = BGM_TRACKS[index];
+    if (!bgmUrl || !track) return;
+    bgmPlaying.current = index;
+    setBgm(index);
+    ensureMixer()
+      .play(bgmTrackUrl(bgmUrl, track.id))
+      .catch(() => {
+        if (bgmPlaying.current !== index) return;
+        stopBgm();
+        setError('曲を流せませんでした');
+      });
+  }
+
+  function stopBgm() {
+    bgmPlaying.current = null;
+    setBgm(null);
+    mixer.current?.stop();
+  }
+
+  function pickBgm(index: number) {
+    if (bgmPlaying.current === index) stopBgm();
+    else playBgm(index);
+  }
+
+  function changeBgmVolume(volume: number) {
+    setBgmVolume(volume);
+    ensureMixer().setVolume(volume);
   }
 
   async function stop() {
@@ -87,6 +153,8 @@ export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, 
   async function start() {
     setStatus('starting');
     setError(null);
+    // 待つ前に作る。待った後では、押した操作の中でなくなる
+    const audioMixer = bgmUrl ? ensureMixer() : null;
     try {
       const captured = await capture();
       stream.current = captured;
@@ -100,8 +168,14 @@ export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, 
           void stop().then(() => setError('カメラかマイクが止まったため、配信を終えました'));
         });
       }
+      // BGM を使えるときは、声に曲を重ねた音を送る。曲を流していなくても通しておき、配信中に曲を足せるようにする
+      const [voice] = captured.getAudioTracks();
+      const sent =
+        audioMixer && voice
+          ? new MediaStream([...captured.getVideoTracks(), audioMixer.mix(voice)])
+          : captured;
       const token = await browserPublishTokenAction();
-      const started = await publishWhip(whipUrl, token, captured, {
+      const started = await publishWhip(whipUrl, token, sent, {
         onEnded: () => void stop().then(() => setError('配信が切れました')),
         stillPublishing: publishingAction,
       });
@@ -134,6 +208,7 @@ export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, 
       void session.current?.stop();
       stream.current?.getTracks().forEach((track) => track.stop());
       still.current?.stop();
+      mixer.current?.close();
     },
     [],
   );
@@ -150,10 +225,34 @@ export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, 
         />
         <div className="relative flex items-center justify-between p-4 pt-safe-top">
           <span className={ui.liveTag}>ライブ</span>
-          <button type="button" className={ui.overlayButton} onClick={() => void stop()}>
-            配信を終える
-          </button>
+          <div className="flex gap-2">
+            {bgmUrl && (
+              <button
+                type="button"
+                className={ui.overlayButton}
+                aria-expanded={bgmOpen}
+                onClick={() => setBgmOpen((open) => !open)}
+              >
+                BGM
+              </button>
+            )}
+            <button type="button" className={ui.overlayButton} onClick={() => void stop()}>
+              配信を終える
+            </button>
+          </div>
         </div>
+        {bgmUrl && bgmOpen && (
+          <div className={`relative mx-4 flex min-h-0 flex-col ${ui.overlayPanel}`}>
+            <BgmPicker
+              playing={bgm}
+              volume={bgmVolume}
+              onPick={pickBgm}
+              onVolume={changeBgmVolume}
+              overlay
+            />
+          </div>
+        )}
+        {error && <p className={`relative mx-4 ${ui.error}`}>{error}</p>}
         {/* コメントは下の半分ほどに重ね、上の映像は見えるままにする */}
         <div className="relative mt-auto flex h-live-comments pb-safe-bottom">
           <Comments
@@ -213,6 +312,12 @@ export function BrowserPublisher({ whipUrl, channelId, relayUrl, guestComments, 
         <video ref={video} autoPlay muted playsInline className="size-full object-contain" />
         {source === 'camera' && <p className={ui.videoMessage}>始めるとカメラが映ります</p>}
       </div>
+      {bgmUrl && (
+        <section className="flex flex-col gap-2">
+          <h2 className={ui.subheading}>BGM</h2>
+          <BgmPicker playing={bgm} volume={bgmVolume} onPick={pickBgm} onVolume={changeBgmVolume} />
+        </section>
+      )}
       <p className={ui.note}>
         配信中にほかのアプリへ移ると、映像や音が止まることがあります。配信中はこの画面のままにしてください
       </p>

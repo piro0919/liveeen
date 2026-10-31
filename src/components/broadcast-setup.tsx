@@ -16,6 +16,7 @@ type Props = {
   channel: Channel | null;
   webrtcUrl: string;
   relayUrl: string;
+  bgmUrl?: string;
 };
 
 /**
@@ -23,7 +24,7 @@ type Props = {
  * あれば、スマホで使う人が多いので、ブラウザの配信をいちばん上に置き、その下に設定を並べる。
  * OBS に入れる設定は使う人が限られるので、別のページ（/broadcast/obs）に分ける
  */
-export function BroadcastSetup({ channel, webrtcUrl, relayUrl }: Props) {
+export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl }: Props) {
   const [, create, creating] = useActionState(createChannelAction, NO_KEY);
 
   if (!channel) {
@@ -49,6 +50,7 @@ export function BroadcastSetup({ channel, webrtcUrl, relayUrl }: Props) {
           relayUrl={relayUrl}
           guestComments={channel.guestComments}
           name={channel.displayName ?? channel.id}
+          bgmUrl={bgmUrl}
         />
       </section>
       <div className={ui.card}>

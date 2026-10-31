@@ -32,8 +32,11 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
+      # BGM の曲。リポジトリには入れず、サーバーに一度だけ送る（src/lib/bgm.ts）
+      - ./bgm:/srv/bgm:ro
     environment:
       MEDIA_HOST: ${MEDIA_HOST}
+      SITE_URL: ${SITE_URL}
       MEDIA_API_SECRET: ${MEDIA_API_SECRET}
 volumes:
   caddy-data:

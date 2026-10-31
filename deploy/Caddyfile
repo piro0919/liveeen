@@ -27,6 +27,16 @@
 		reverse_proxy {$UPSTREAM_HOST:127.0.0.1}:8090
 	}
 
+	# ブラウザの配信に混ぜる BGM の曲（src/lib/bgm.ts）。曲はリポジトリに入れず、サーバーの deploy/bgm に置く。
+	# サイトは Web Audio で曲を読むので、サイトからの読み込みを許す。許さないと無音になる
+	@bgm path /bgm/*
+	handle @bgm {
+		header Access-Control-Allow-Origin {$SITE_URL}
+		header Cache-Control "public, max-age=604800"
+		root * /srv
+		file_server
+	}
+
 	# ブラウザからの配信（WHIP）と低遅延の視聴（WHEP）
 	@webrtc path_regexp ^/[A-Za-z0-9_-]+/wh[ie]p(/.*)?$
 	handle @webrtc {

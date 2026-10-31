@@ -57,6 +57,8 @@ export const env = createEnv({
     NEXT_PUBLIC_COMMENT_RELAY_URL: z.url(),
     // ブラウザ通知（Web Push）の VAPID の公開の鍵。無ければ設定に通知の切り替えを出さない
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+    // ブラウザの配信に混ぜる BGM の曲を置いた住所（`https://…/bgm`、src/lib/bgm.ts）。無ければ BGM を出さない
+    NEXT_PUBLIC_BGM_URL: z.url().optional(),
   },
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -78,6 +80,7 @@ export const env = createEnv({
     MEDIA_SERVER_FEE_USD: process.env.MEDIA_SERVER_FEE_USD,
     YEN_PER_USD: process.env.YEN_PER_USD,
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    NEXT_PUBLIC_BGM_URL: process.env.NEXT_PUBLIC_BGM_URL,
     NEXT_PUBLIC_COMMENT_RELAY_URL: process.env.NEXT_PUBLIC_COMMENT_RELAY_URL,
     NEXT_PUBLIC_MEDIA_RTMP_URL: process.env.NEXT_PUBLIC_MEDIA_RTMP_URL,
     NEXT_PUBLIC_MEDIA_WEBRTC_URL: process.env.NEXT_PUBLIC_MEDIA_WEBRTC_URL,
