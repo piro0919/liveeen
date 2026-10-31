@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useActionState } from 'react';
+import { useTranslations } from 'next-intl';
 import { createChannelAction, type KeyState } from '@/app/broadcast/actions';
 import type { Channel } from '@/lib/channels';
 import { channelPath } from '@/lib/handle';
@@ -26,6 +27,7 @@ type Props = {
  * OBS に入れる設定は使う人が限られるので、別のページ（/broadcast/obs）に分ける
  */
 export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl }: Props) {
+  const t = useTranslations('broadcast.setup');
   const [, create, creating] = useActionState(createChannelAction, NO_KEY);
 
   if (!channel) {
@@ -33,10 +35,10 @@ export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl }: Props) 
       <form action={create} className={ui.card}>
         <label className="flex items-center gap-2">
           <input type="checkbox" className={ui.check} name="adult" value="yes" required />
-          18歳以上です
+          {t('adult')}
         </label>
         <button type="submit" className={ui.primaryButton} disabled={creating}>
-          チャンネルを作る
+          {t('createChannel')}
         </button>
       </form>
     );
@@ -60,7 +62,7 @@ export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl }: Props) 
       </section>
       <div className={ui.card}>
         <p>
-          配信の住所：
+          {t('address')}
           <Link href={channelPath(channel)} className={ui.link}>
             {channelPath(channel)}
           </Link>
@@ -74,11 +76,13 @@ export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl }: Props) 
       </div>
       <div className={ui.card}>
         <p>
-          パソコンの OBS から配信するときは、
-          <Link href="/broadcast/obs" className={ui.link}>
-            OBS で配信
-          </Link>
-          の設定を使ってください。
+          {t.rich('obsNote', {
+            link: (chunks) => (
+              <Link href="/broadcast/obs" className={ui.link}>
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
       </div>
     </div>

@@ -21,7 +21,7 @@ describe('normalizeHandle', () => {
 
   it('サイトの道と同じ名前は使えない', () => {
     for (const input of ['admin', 'API', 'broadcast', 'privacy', 'settings', 'terms']) {
-      expect(normalizeHandle(input)).toEqual({ ok: false, error: 'このハンドルは使えません' });
+      expect(normalizeHandle(input)).toEqual({ ok: false, error: 'reserved' });
     }
   });
 });

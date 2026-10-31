@@ -1,6 +1,7 @@
 'use client';
 
 import { useOptimistic, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { setGuestCommentsAction } from '@/app/broadcast/actions';
 import { ui } from '@/lib/ui';
 
@@ -9,12 +10,13 @@ import { ui } from '@/lib/ui';
  * 見ている人には、次につなぎ直したときから効く（遅くとも10分。src/components/comments.tsx）
  */
 export function GuestCommentsChoice({ allowed }: { allowed: boolean }) {
+  const t = useTranslations('guestComments');
   const [saving, startTransition] = useTransition();
   // 保存が終わるのを待たずに、押したほうへ印を動かす
   const [shown, setShown] = useOptimistic(allowed);
   return (
     <fieldset className="flex flex-col gap-1" disabled={saving}>
-      <legend className={`mb-1 ${ui.subheading}`}>コメント</legend>
+      <legend className={`mb-1 ${ui.subheading}`}>{t('legend')}</legend>
       <label className="flex items-center gap-2">
         <input
           type="checkbox"
@@ -28,7 +30,7 @@ export function GuestCommentsChoice({ allowed }: { allowed: boolean }) {
             });
           }}
         />
-        ログインしていない人もコメントできる
+        {t('allow')}
       </label>
     </fieldset>
   );

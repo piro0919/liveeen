@@ -2,11 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { signOut } from '@/lib/auth-client';
 import { ui } from '@/lib/ui';
 
 /** ログアウト。終わったらトップへ戻る（設定の画面はログインしていないと中身が無いため） */
 export function SignOutButton() {
+  const t = useTranslations('signOut');
   const router = useRouter();
   const [signingOut, startTransition] = useTransition();
   const [failed, setFailed] = useState(false);
@@ -28,9 +30,9 @@ export function SignOutButton() {
           })
         }
       >
-        ログアウト
+        {t('button')}
       </button>
-      {failed && <p className={ui.error}>ログアウトできませんでした。もう一度押してください</p>}
+      {failed && <p className={ui.error}>{t('failed')}</p>}
     </div>
   );
 }

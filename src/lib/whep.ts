@@ -1,3 +1,4 @@
+import { ScreenError } from './screen-error';
 import { afterConnectionChange, waitForIceGathering } from './whip';
 
 const CREATED = 201;
@@ -60,7 +61,7 @@ export async function playWhep(
       body: pc.localDescription?.sdp,
     });
     if (response.status !== CREATED)
-      throw new Error(`視聴を始められませんでした（${response.status}）`);
+      throw new ScreenError('whepFailed', { status: response.status });
     const location = response.headers.get('Location');
     await pc.setRemoteDescription({ type: 'answer', sdp: await response.text() });
     return {

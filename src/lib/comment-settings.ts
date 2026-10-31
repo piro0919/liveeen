@@ -47,18 +47,17 @@ function normalizeWord(input: string): string {
   return input.normalize('NFKC').toLowerCase().trim();
 }
 
-/** 配信者が1行に1つずつ入れた禁止語を整える。空の行と重なりは落とす。多すぎる・長すぎるときは理由を返す */
+/**
+ * 配信者が1行に1つずつ入れた禁止語を整える。空の行と重なりは落とす。
+ * 多すぎる・長すぎるときは理由の鍵を返す（文言は messages/ja.json の commentRules.errors）
+ */
 export function parseBlockedWords(
   input: string,
-): { ok: true; words: string[] } | { ok: false; error: string } {
+): { ok: true; words: string[] } | { ok: false; error: 'tooManyWords' | 'wordTooLong' } {
   const words = [...new Set(input.split(/\r?\n/).map(normalizeWord))].filter((word) => word !== '');
-  if (words.length > BLOCKED_WORDS_MAX) {
-    return { ok: false, error: `禁止語は${BLOCKED_WORDS_MAX}個までです` };
-  }
+  if (words.length > BLOCKED_WORDS_MAX) return { ok: false, error: 'tooManyWords' };
   const long = words.find((word) => [...graphemes.segment(word)].length > BLOCKED_WORD_LENGTH_MAX);
-  if (long) {
-    return { ok: false, error: `禁止語は1つ${BLOCKED_WORD_LENGTH_MAX}文字までです` };
-  }
+  if (long) return { ok: false, error: 'wordTooLong' };
   return { ok: true, words };
 }
 
@@ -80,11 +79,4 @@ export function followerMayWrite(
   const minutes = settings.followersOnlyMinutes;
   if (minutes === null) return true;
   return followedAt !== null && now - followedAt >= minutes * MS_PER_MINUTE;
-}
-
-/** フォロワー限定で書けない人に見せる文（文言は仮） */
-export function followersOnlyMessage(minutes: number): string {
-  return minutes === 0
-    ? 'この配信者をフォローしている人だけコメントできます'
-    : `この配信者をフォローして${minutes}分たつとコメントできます`;
 }

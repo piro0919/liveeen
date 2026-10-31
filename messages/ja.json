@@ -1,0 +1,288 @@
+{
+  "errorPage": {
+    "title": "うまく表示できませんでした",
+    "message": "少しおいて、もう一度お試しください",
+    "retry": "もう一度",
+    "home": "トップへ"
+  },
+  "displayName": {
+    "errors": {
+      "empty": "名前を入れてください",
+      "control": "改行などは使えません",
+      "tooLong": "{max}文字までです"
+    }
+  },
+  "handle": {
+    "errors": {
+      "format": "英小文字・数字・_ の{min}〜{max}文字にしてください",
+      "reserved": "このハンドルは使えません",
+      "taken": "このハンドルはほかの人が使っています"
+    }
+  },
+  "streamTitle": {
+    "errors": {
+      "tooLong": "{max}文字までです"
+    }
+  },
+  "avatarForm": {
+    "label": "アイコン",
+    "description": "配信の一覧とコメントで、ほかの人に見えます",
+    "pick": "画像を選ぶ",
+    "unusable": "この画像は使えません",
+    "missing": "画像を選んでください",
+    "tooLarge": "画像が大きすぎます",
+    "useGoogle": "Google の写真にする",
+    "useInitial": "名前の1文字にする"
+  },
+  "browserPush": {
+    "unsupported": "このブラウザではブラウザ通知を使えません",
+    "denied": "ブラウザの設定でこのサイトの通知が止められています",
+    "label": "このブラウザに通知する"
+  },
+  "viewers": {
+    "count": "{count, number}人が視聴中"
+  },
+  "obs": {
+    "title": "OBS で配信 | Liveeen",
+    "heading": "OBS で配信",
+    "back": "<link>配信する</link>へ戻る",
+    "lowLatencyNote": "低遅延では、OBS 30 以降の WHIP で配信してください。RTMP では見ている人に音が届かず、映像の設定によっては映像も届きません。",
+    "rtmpServer": "RTMP のサーバー",
+    "rtmpKey": "RTMP のストリームキー",
+    "whipServer": "WHIP のサーバー",
+    "whipToken": "WHIP の Bearer トークン",
+    "keyPlaceholder": "（鍵）",
+    "keyNote": "鍵は作り直したときにだけ表示します。初めて使うときや分からなくなったときは、作り直してください。",
+    "resetKey": "鍵を作り直す"
+  },
+  "commentRules": {
+    "heading": "コメントの管理",
+    "slowMode": "低速モード",
+    "slowModeDescription": "1人が続けて書けるまでの間をあけます",
+    "slowSeconds": "{seconds, plural, =0 {なし} other {#秒}}",
+    "who": "コメントできる人",
+    "anyone": "誰でも",
+    "followers": "{minutes, plural, =0 {フォローしている人だけ} other {フォローして#分以上の人だけ}}",
+    "blockedWords": "禁止語",
+    "blockedWordsDescription": "1行に1つ。含むコメントは書いた人にだけ見え、ほかの人には届きません。{max}個まで、1つ{length}文字まで",
+    "errors": {
+      "tooManyWords": "禁止語は{max}個までです",
+      "wordTooLong": "禁止語は1つ{max}文字までです"
+    }
+  },
+  "errors": {
+    "whipFailed": "配信を始められませんでした（{status}）",
+    "whepFailed": "視聴を始められませんでした（{status}）",
+    "noCanvas": "このブラウザでは画像で配信できません",
+    "imageUnreadable": "この画像は開けませんでした"
+  },
+  "home": {
+    "heading": "配信中",
+    "empty": "いま配信している人はいません",
+    "followed": "フォロー中",
+    "live": "ライブ",
+    "startedAt": "{time} から",
+    "viewersAndStartedAt": "{viewers} ・ {time} から"
+  },
+  "watch": {
+    "capReached": "今月の視聴の上限に達したため、いまは見られません"
+  },
+  "settings": {
+    "title": "設定 | Liveeen",
+    "heading": "設定"
+  },
+  "admin": {
+    "title": "管理 | Liveeen",
+    "heading": "管理",
+    "live": "配信中",
+    "noLive": "いま配信している人はいません",
+    "streamMeta": "{time} から ・ 通報 {count}",
+    "reasons": "（{reasons}）",
+    "delisted": "（一覧から外した）",
+    "stopStream": "配信を止める",
+    "confirmStopStream": "この配信を止めますか。配信者はつなぎ直せます",
+    "ban": "配信者を止める",
+    "confirmBan": "この配信者を止めますか。戻すまで配信できなくなります",
+    "reportedComments": "通報されたコメント",
+    "noComments": "ありません",
+    "commentMeta": "{name} ・ {time} ・ <link>{channel}</link> の配信 ・ 通報 {count}",
+    "removeComment": "消す",
+    "confirmRemoveComment": "このコメントを消しますか。見ている人全員の画面から消えます",
+    "banned": "止めた配信者",
+    "noBanned": "いません",
+    "bannedAt": "{time} に止めた",
+    "unban": "戻す",
+    "confirmUnban": "この配信者を戻しますか。また配信できるようになります"
+  },
+  "document": {
+    "enacted": "{date} 制定"
+  },
+  "header": {
+    "broadcast": "配信する",
+    "settings": "設定"
+  },
+  "footer": {
+    "terms": "利用規約",
+    "privacy": "プライバシーポリシー"
+  },
+  "signIn": {
+    "header": "ログイン",
+    "body": "Google でログイン"
+  },
+  "signOut": {
+    "button": "ログアウト",
+    "failed": "ログアウトできませんでした。もう一度押してください"
+  },
+  "form": {
+    "save": "保存",
+    "saved": "保存しました"
+  },
+  "displayNameForm": {
+    "label": "名前",
+    "description": "配信の一覧とコメントに出ます。{max}文字まで"
+  },
+  "handleForm": {
+    "label": "ハンドル",
+    "description": "配信の住所（/@ハンドル）になります。英小文字・数字・_ の{min}〜{max}文字",
+    "changeWarning": "。変えると前の住所は使えなくなります"
+  },
+  "streamTitleForm": {
+    "label": "タイトル",
+    "description": "配信の一覧と見る画面に出ます。{max}文字まで"
+  },
+  "deleteAccount": {
+    "button": "アカウントを消す",
+    "confirm": "アカウントを消しますか？チャンネル、フォロー、設定もすべて消え、元に戻せません",
+    "errors": {
+      "banned": "運営が配信を止めているため、ここでは消せません。プライバシーポリシーの問い合わせ先へご連絡ください",
+      "failed": "アカウントを消せませんでした。もう一度押してください"
+    }
+  },
+  "follow": {
+    "follow": "フォローする",
+    "following": "フォロー中"
+  },
+  "followNotice": {
+    "legend": "フォローした人の配信",
+    "listOnTop": "トップの上に出す",
+    "email": "メールで知らせる"
+  },
+  "guestComments": {
+    "legend": "コメント",
+    "allow": "ログインしていない人もコメントできる"
+  },
+  "latency": {
+    "legend": "遅延",
+    "hls": "遅れるが軽い（HLS）",
+    "low": "低遅延（WebRTC）"
+  },
+  "bgm": {
+    "volume": "音量",
+    "playing": "再生中"
+  },
+  "player": {
+    "offline": "配信していません"
+  },
+  "report": {
+    "button": "通報する",
+    "done": "通報しました",
+    "reasonLegend": "通報の理由",
+    "send": "通報する",
+    "cancel": "やめる",
+    "offline": "配信していないので通報できません"
+  },
+  "reportReasons": {
+    "sexual": "性的な内容",
+    "violence": "暴力・危険な行為",
+    "harassment": "嫌がらせ・差別",
+    "other": "その他",
+    "none": "理由なし"
+  },
+  "blockList": {
+    "heading": "ブロックした人",
+    "empty": "ブロックした人はいません",
+    "unblock": "戻す",
+    "confirmUnblock": "{name}さんのブロックを戻しますか？またコメントできるようになります"
+  },
+  "moderatorList": {
+    "heading": "モデレーター",
+    "description": "モデレーターはコメントした人をブロックでき、低速モード・禁止語・コメントできる人の決まりにかかりません。コメントの横の「モデレーターにする」から選べます",
+    "empty": "モデレーターはいません",
+    "noName": "（名前なし）",
+    "remove": "外す",
+    "confirmRemove": "{name}さんをモデレーターから外しますか？",
+    "confirmRemoveNoName": "この人さんをモデレーターから外しますか？"
+  },
+  "broadcast": {
+    "title": "配信する | Liveeen",
+    "heading": "配信する",
+    "setup": {
+      "adult": "18歳以上です",
+      "createChannel": "チャンネルを作る",
+      "address": "配信の住所：",
+      "obsNote": "パソコンの OBS から配信するときは、<link>OBS で配信</link>の設定を使ってください。"
+    },
+    "publisher": {
+      "live": "ライブ",
+      "stop": "配信を終える",
+      "source": "映すもの",
+      "camera": "カメラ",
+      "image": "画像と声（カメラを使わない）",
+      "pickImage": "画像を選ぶ",
+      "imageFallback": "選ばなければ、名前を映します",
+      "cameraPreview": "始めるとカメラが映ります",
+      "stayOnScreen": "配信中にほかのアプリへ移ると、映像や音が止まることがあります。配信中はこの画面のままにしてください",
+      "start": "配信を始める",
+      "errors": {
+        "bgm": "曲を流せませんでした",
+        "deviceStopped": "カメラかマイクが止まったため、配信を終えました",
+        "disconnected": "配信が切れました"
+      }
+    }
+  },
+  "liveEmail": {
+    "subject": "{name} さんが配信を始めました",
+    "body": "{name} さんが Liveeen で配信を始めました。",
+    "unsubscribe": "このメールを止めるときは、設定の「メールで知らせる」を切ってください。"
+  },
+  "livePush": {
+    "title": "{name} さんが配信を始めました",
+    "body": "タップして見る"
+  },
+  "comments": {
+    "heading": "コメント",
+    "guestMark": "（ゲスト）",
+    "block": "ブロック",
+    "appoint": "モデレーターにする",
+    "appointed": "モデレーターにしました",
+    "report": "通報",
+    "reported": "通報しました",
+    "confirmAppoint": "{name}さんをモデレーターにしますか？このチャンネルでコメントした人をブロックできるようになります",
+    "confirmBlock": "{name}さんをブロックしますか？このチャンネルでコメントできなくなります",
+    "confirmReport": "{name}さんのこのコメントを通報しますか？",
+    "signInToComment": "コメントするにはログインしてください",
+    "guestName": "名前",
+    "decideName": "決める",
+    "guestNameShown": "名前：{name}",
+    "changeName": "変える",
+    "unreachable": "コメントにつながっていません。つなぎ直しています",
+    "blocked": "この配信者のチャンネルではコメントできません",
+    "followersOnly": "{minutes, plural, =0 {この配信者をフォローしている人だけコメントできます} other {この配信者をフォローして#分たつとコメントできます}}",
+    "input": "コメント",
+    "send": "送信",
+    "errors": {
+      "tooLong": "コメントは{max}文字までです",
+      "appoint": "モデレーターにできませんでした",
+      "block": "ブロックできませんでした",
+      "report": "通報できませんでした。読み込み直してから、もう一度試してください"
+    },
+    "refusals": {
+      "badRemoval": "消す札が合いません",
+      "badCommand": "指示の札が合いません",
+      "signIn": "コメントするにはログインしてください",
+      "expired": "時間が空いたので、もう一度送ってください",
+      "tooSoon": "少し待ってから書いてください",
+      "slowMode": "低速モードです。{seconds}秒あけて書いてください"
+    }
+  }
+}

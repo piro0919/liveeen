@@ -9,7 +9,7 @@ import { channelOf } from '@/lib/channels';
 import { type Comment, guestId, isGuestId } from '@/lib/comment';
 import { commandRelay } from '@/lib/comment-removal';
 import { reportComment } from '@/lib/comment-reports';
-import { followerMayWrite, followersOnlyMessage } from '@/lib/comment-settings';
+import { followerMayWrite } from '@/lib/comment-settings';
 import {
   addModerator,
   commentContextOf,
@@ -53,17 +53,18 @@ export async function reportAction(channelId: string, reason: string): Promise<R
 
 /**
  * コメントの札。token が null なら読むだけでつなぐ。blocked は配信者に止められていること。
- * notice は、配信者の決まり（フォロワー限定）でいまは書けない人に見せる文。書く欄の代わりに出す。
+ * followersOnly は、配信者の決まり（フォロワー限定）でいまは書けない人に、書く欄の代わりに見せる知らせ。
+ * フォローしてから要る分数（0 ならフォローしているだけでよい）。
  * writableAt は、フォローしてからの時間がたって書けるようになる時刻（見る画面はそのとき札をもらい直す）
  */
 export type CommentTokenResult = {
   token: string | null;
   blocked: boolean;
-  notice: string | null;
+  followersOnly: number | null;
   writableAt?: number;
 };
 
-const READ_ONLY: CommentTokenResult = { token: null, blocked: false, notice: null };
+const READ_ONLY: CommentTokenResult = { token: null, blocked: false, followersOnly: null };
 const MS_PER_MINUTE = 60_000;
 
 /**
@@ -100,7 +101,7 @@ export async function commentTokenAction(
     ]);
     if (!displayName) return READ_ONLY;
     if (owner && context.ownerIpKey !== ipKey) await rememberOwnerIpKey(channelId, ipKey);
-    if (blocked) return { token: null, blocked: true, notice: null };
+    if (blocked) return { token: null, blocked: true, followersOnly: null };
     const commenter = {
       userId,
       displayName,
@@ -117,7 +118,7 @@ export async function commentTokenAction(
     return {
       token: signCommentToken(secret, channelId, commenter, now),
       blocked: false,
-      notice: waiting ? followersOnlyMessage(minutes ?? 0) : null,
+      followersOnly: waiting ? (minutes ?? 0) : null,
       writableAt:
         waiting && followedAt !== null && minutes !== null
           ? followedAt + minutes * MS_PER_MINUTE
@@ -130,10 +131,10 @@ export async function commentTokenAction(
   if (!context.guestComments) return READ_ONLY;
   // ゲストはフォローできないので、フォロワー限定のあいだは書けない
   if (settings.followersOnlyMinutes !== null) {
-    return { ...READ_ONLY, notice: followersOnlyMessage(settings.followersOnlyMinutes) };
+    return { ...READ_ONLY, followersOnly: settings.followersOnlyMinutes };
   }
   if (await commenterBlocked(channelId, null, ipKey)) {
-    return { token: null, blocked: true, notice: null };
+    return { token: null, blocked: true, followersOnly: null };
   }
   // ログインなしで名前を変えて何度でも札を取れるので、ボットには出さない（src/lib/bot.ts）
   if (await isBot()) return READ_ONLY;
@@ -146,7 +147,11 @@ export async function commentTokenAction(
     settings,
     ownerIpKey: context.ownerIpKey,
   };
-  return { token: signCommentToken(secret, channelId, guest, now), blocked: false, notice: null };
+  return {
+    token: signCommentToken(secret, channelId, guest, now),
+    blocked: false,
+    followersOnly: null,
+  };
 }
 
 /** 配信者か、そのチャンネルのモデレーターか。ブロックできる人 */

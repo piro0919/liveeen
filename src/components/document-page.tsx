@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 import { ui } from '@/lib/ui';
 
@@ -15,11 +16,12 @@ export function DocumentPage({
   enactedOn: string;
   children: ReactNode;
 }) {
+  const t = useTranslations('document');
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:px-6">
       <div className="flex flex-col gap-1">
         <h1 className={ui.heading}>{title}</h1>
-        <p className={ui.note}>{enactedOn} 制定</p>
+        <p className={ui.note}>{t('enacted', { date: enactedOn })}</p>
       </div>
       {children}
     </main>

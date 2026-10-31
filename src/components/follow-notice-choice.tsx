@@ -1,6 +1,7 @@
 'use client';
 
 import { useOptimistic, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { setEmailsLiveStartedAction, setListsFollowedOnTopAction } from '@/app/settings/actions';
 import { BrowserPushChoice } from './browser-push-choice';
 import { ui } from '@/lib/ui';
@@ -52,17 +53,18 @@ export function FollowNoticeChoice({
   emailEnabled: boolean;
   pushPublicKey: string | undefined;
 }) {
+  const t = useTranslations('followNotice');
   return (
     <fieldset className="flex flex-col gap-1">
-      <legend className={`mb-1 ${ui.subheading}`}>フォローした人の配信</legend>
+      <legend className={`mb-1 ${ui.subheading}`}>{t('legend')}</legend>
       <SavedCheckbox
         checked={listOnTop}
         save={setListsFollowedOnTopAction}
-        label="トップの上に出す"
+        label={t('listOnTop')}
       />
       {pushPublicKey && <BrowserPushChoice publicKey={pushPublicKey} />}
       {emailEnabled && (
-        <SavedCheckbox checked={email} save={setEmailsLiveStartedAction} label="メールで知らせる" />
+        <SavedCheckbox checked={email} save={setEmailsLiveStartedAction} label={t('email')} />
       )}
     </fieldset>
   );

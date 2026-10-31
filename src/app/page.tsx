@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { connection } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import marmot from '@/images/marmot.png';
 import { Avatar } from '@/components/avatar';
 import { LiveThumbnail } from '@/components/live-thumbnail';
@@ -10,7 +11,6 @@ import { type LiveChannel, liveChannels } from '@/lib/live';
 import { splitFollowed } from '@/lib/live-paths';
 import { currentUserId } from '@/lib/session';
 import { thumbnailUrl } from '@/lib/thumbnail';
-import { viewersLabel } from '@/lib/viewer-label';
 import { viewerCounts } from '@/lib/viewers';
 import { ui } from '@/lib/ui';
 import { env } from '@/env';
@@ -26,7 +26,15 @@ const startedAtFormat = new Intl.DateTimeFormat('ja-JP', {
  * 配信の札。16:9 の絵と、配信者の印・タイトル・名前・見ている人の数・始まった時刻。
  * 画像は中継が1分おきに撮る縮小画像（relay/thumbnails.ts）。まだ撮れていなければ名前の1文字を大きく出す
  */
-function LiveCard({ channel, viewers }: { channel: LiveChannel; viewers: number | undefined }) {
+async function LiveCard({
+  channel,
+  viewers,
+}: {
+  channel: LiveChannel;
+  viewers: number | undefined;
+}) {
+  const t = await getTranslations('home');
+  const tViewers = await getTranslations('viewers');
   const name = channel.displayName ?? channel.channelId;
   const thumbnail = thumbnailUrl(env.NEXT_PUBLIC_COMMENT_RELAY_URL, channel.channelId);
   return (
@@ -43,7 +51,7 @@ function LiveCard({ channel, viewers }: { channel: LiveChannel; viewers: number 
               aria-hidden
               className="size-1.5 animate-pulse rounded-xs bg-current motion-reduce:animate-none"
             />
-            ライブ
+            {t('live')}
           </span>
         </div>
         <div className="flex gap-3">
@@ -62,8 +70,12 @@ function LiveCard({ channel, viewers }: { channel: LiveChannel; viewers: number 
             )}
             <span className={ui.note}>
               {/* 人数は中継が答えたときだけ。誰も開いていなければ載ってこない */}
-              {viewers !== undefined && `${viewersLabel(viewers)} ・ `}
-              {startedAtFormat.format(channel.startedAt)} から
+              {viewers === undefined
+                ? t('startedAt', { time: startedAtFormat.format(channel.startedAt) })
+                : t('viewersAndStartedAt', {
+                    viewers: tViewers('count', { count: viewers }),
+                    time: startedAtFormat.format(channel.startedAt),
+                  })}
             </span>
           </div>
         </div>
@@ -98,6 +110,7 @@ function LiveGrid({
  */
 export default async function Home() {
   await connection();
+  const t = await getTranslations('home');
   const channels = await liveChannels();
   const viewers =
     channels.length > 0
@@ -114,17 +127,17 @@ export default async function Home() {
   const split = splitFollowed(channels, followed);
   return (
     <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-      <h1 className={ui.heading}>配信中</h1>
+      <h1 className={ui.heading}>{t('heading')}</h1>
       {channels.length === 0 && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16">
           {/* Liveeen のキャラクター（design/README.md） */}
           <Image src={marmot} alt="" className="h-44 w-auto" />
-          <p className="text-muted">いま配信している人はいません</p>
+          <p className="text-muted">{t('empty')}</p>
         </div>
       )}
       {split.followed.length > 0 && (
         <section className="flex flex-col gap-4">
-          <h2 className={ui.subheading}>フォロー中</h2>
+          <h2 className={ui.subheading}>{t('followed')}</h2>
           <LiveGrid channels={split.followed} viewers={viewers} />
         </section>
       )}

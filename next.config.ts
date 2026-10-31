@@ -1,6 +1,7 @@
 import { withSentryConfig } from '@sentry/nextjs/config';
 import { withBotId } from 'botid/next/config';
 import type { NextConfig } from 'next';
+import createNextIntlPlugin from 'next-intl/plugin';
 // 環境変数を確かめる。欠けていればビルドの頭で止まる
 import './src/env';
 
@@ -31,9 +32,12 @@ const nextConfig: NextConfig = {
   },
 };
 
+// 画面の文言を messages/ja.json から読む（src/i18n/request.ts）
+const withNextIntl = createNextIntlPlugin();
+
 // ボットの判定（Vercel BotID、src/lib/bot.ts）の受け口を足す
 // サーバーで落ちたことを Sentry へ送る（src/instrumentation.ts）。ソースマップは送らない（SENTRY_AUTH_TOKEN を置いていない）
-export default withSentryConfig(withBotId(nextConfig), {
+export default withSentryConfig(withBotId(withNextIntl(nextConfig)), {
   silent: !process.env.CI,
   // ビルドのたびに SDK の使われ方を Sentry へ送るのを止める。要るのは落ちた知らせだけ
   telemetry: false,

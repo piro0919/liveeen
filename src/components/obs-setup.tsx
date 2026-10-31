@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { useTranslations } from 'next-intl';
 import { resetStreamKeyAction, type KeyState } from '@/app/broadcast/actions';
 import type { LatencyMode } from '@/lib/latency';
 import { ui } from '@/lib/ui';
@@ -18,6 +19,7 @@ type Props = {
  * OBS に入れる設定（/broadcast/obs）。鍵は作り直したときにだけ見せる（DB には SHA-256 でしか無い）
  */
 export function ObsSetup({ channelId, latencyMode, rtmpUrl, whipUrl }: Props) {
+  const t = useTranslations('obs');
   const [reset, resetKey, resetting] = useActionState(resetStreamKeyAction, NO_KEY);
   const key = reset.key;
   return (
@@ -25,29 +27,24 @@ export function ObsSetup({ channelId, latencyMode, rtmpUrl, whipUrl }: Props) {
       {latencyMode === 'low' && (
         // RTMP の AAC は WebRTC に載らず、B フレーム入りの H264 は MediaMTX が WebRTC に出さない。
         // OBS の WHIP は Opus で送り、B フレームを 0 にする（obs-studio の plugins/obs-webrtc/whip-service.cpp）
-        <p>
-          低遅延では、OBS 30 以降の WHIP で配信してください。RTMP
-          では見ている人に音が届かず、映像の設定によっては映像も届きません。
-        </p>
+        <p>{t('lowLatencyNote')}</p>
       )}
       <dl className="flex flex-col gap-1">
-        <dt>RTMP のサーバー</dt>
+        <dt>{t('rtmpServer')}</dt>
         <dd className="mb-2 font-mono break-all">{rtmpUrl}</dd>
-        <dt>RTMP のストリームキー</dt>
+        <dt>{t('rtmpKey')}</dt>
         <dd className="mb-2 font-mono break-all">
-          {key ? `${channelId}?key=${key}` : `${channelId}?key=（鍵）`}
+          {key ? `${channelId}?key=${key}` : `${channelId}?key=${t('keyPlaceholder')}`}
         </dd>
-        <dt>WHIP のサーバー</dt>
+        <dt>{t('whipServer')}</dt>
         <dd className="mb-2 font-mono break-all">{whipUrl}</dd>
-        <dt>WHIP の Bearer トークン</dt>
-        <dd className="mb-2 font-mono break-all">{key ?? '（鍵）'}</dd>
+        <dt>{t('whipToken')}</dt>
+        <dd className="mb-2 font-mono break-all">{key ?? t('keyPlaceholder')}</dd>
       </dl>
-      <p>
-        鍵は作り直したときにだけ表示します。初めて使うときや分からなくなったときは、作り直してください。
-      </p>
+      <p>{t('keyNote')}</p>
       <form action={resetKey}>
         <button type="submit" className={ui.primaryButton} disabled={resetting}>
-          鍵を作り直す
+          {t('resetKey')}
         </button>
       </form>
     </section>

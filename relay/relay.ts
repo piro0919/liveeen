@@ -14,7 +14,6 @@ import {
 import {
   type CommentSettings,
   followerMayWrite,
-  followersOnlyMessage,
   hasBlockedWord,
   NO_RULES,
 } from '../src/lib/comment-settings';
@@ -334,7 +333,7 @@ export function startRelay({
           remove(joined, id);
           send(socket, { type: 'removed', id });
         } else {
-          send(socket, { type: 'error', message: '消す札が合いません' });
+          send(socket, { type: 'error', code: 'badRemoval' });
         }
         return;
       }
@@ -345,12 +344,12 @@ export function startRelay({
           apply(joined, verified.command, verified.issuedAt);
           send(socket, { type: 'applied' });
         } else {
-          send(socket, { type: 'error', message: '指示の札が合いません' });
+          send(socket, { type: 'error', code: 'badCommand' });
         }
         return;
       }
       if (!writer) {
-        send(socket, { type: 'error', message: 'コメントするにはログインしてください' });
+        send(socket, { type: 'error', code: 'signIn' });
         return;
       }
       if (!message) return;
@@ -365,7 +364,7 @@ export function startRelay({
       const at = now();
       if (writer.expiresAt < at) {
         // 見る画面は閉じられたらすぐ新しい札でつなぎ直す（src/components/comments.tsx）
-        send(socket, { type: 'error', message: '時間が空いたので、もう一度送ってください' });
+        send(socket, { type: 'error', code: 'expired' });
         socket.close(TOKEN_EXPIRED, 'token expired');
         return;
       }
@@ -375,7 +374,8 @@ export function startRelay({
       if (ruled && !followerMayWrite(settings, writer.followedAt, at)) {
         send(socket, {
           type: 'error',
-          message: followersOnlyMessage(settings.followersOnlyMinutes ?? 0),
+          code: 'followersOnly',
+          minutes: settings.followersOnlyMinutes ?? 0,
         });
         return;
       }
@@ -383,13 +383,12 @@ export function startRelay({
       const poster = posterKey(writer);
       const lastPostAt = joined.lastPosts.get(poster) ?? -Infinity;
       if (at - lastPostAt < Math.max(POST_INTERVAL_MS, slowMs)) {
-        send(socket, {
-          type: 'error',
-          message:
-            slowMs > POST_INTERVAL_MS
-              ? `低速モードです。${settings.slowSeconds}秒あけて書いてください`
-              : '少し待ってから書いてください',
-        });
+        send(
+          socket,
+          slowMs > POST_INTERVAL_MS
+            ? { type: 'error', code: 'slowMode', seconds: settings.slowSeconds }
+            : { type: 'error', code: 'tooSoon' },
+        );
         return;
       }
       if (joined.lastPosts.size > LAST_POSTS_PRUNE_SIZE) {

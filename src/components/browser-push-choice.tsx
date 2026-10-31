@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   deletePushSubscriptionAction,
   hasPushSubscriptionAction,
@@ -65,6 +66,7 @@ async function unsubscribe(): Promise<PushState> {
  * （同じブラウザで別の人がログインしていれば切に見える）
  */
 export function BrowserPushChoice({ publicKey }: { publicKey: string }) {
+  const t = useTranslations('browserPush');
   const [state, setState] = useState<PushState>('loading');
   const [saving, startTransition] = useTransition();
 
@@ -86,9 +88,9 @@ export function BrowserPushChoice({ publicKey }: { publicKey: string }) {
     };
   }, []);
 
-  if (state === 'unsupported') return <p>このブラウザではブラウザ通知を使えません</p>;
+  if (state === 'unsupported') return <p>{t('unsupported')}</p>;
   if (state === 'denied') {
-    return <p>ブラウザの設定でこのサイトの通知が止められています</p>;
+    return <p>{t('denied')}</p>;
   }
   return (
     <label className="flex items-center gap-2">
@@ -104,7 +106,7 @@ export function BrowserPushChoice({ publicKey }: { publicKey: string }) {
           });
         }}
       />
-      このブラウザに通知する
+      {t('label')}
     </label>
   );
 }

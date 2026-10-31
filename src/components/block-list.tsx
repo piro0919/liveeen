@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import { unblockCommenterAction } from '@/app/broadcast/actions';
 import type { CommentBlock } from '@/lib/blocks';
 import { ConfirmButton } from './confirm-button';
@@ -17,11 +18,12 @@ type Props = { blocks: CommentBlock[] };
 
 /** 配信者がコメントでブロックした人（/broadcast）。名前と止めた日時を出し、戻せる */
 export function BlockList({ blocks }: Props) {
+  const t = useTranslations('blockList');
   return (
     <section className={ui.card}>
-      <h2 className={ui.subheading}>ブロックした人</h2>
+      <h2 className={ui.subheading}>{t('heading')}</h2>
       {blocks.length === 0 ? (
-        <p>ブロックした人はいません</p>
+        <p>{t('empty')}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {blocks.map((block) => (
@@ -29,8 +31,8 @@ export function BlockList({ blocks }: Props) {
               <span>{block.displayName}</span>
               <span className={ui.note}>{timeFormat.format(block.createdAt)}</span>
               <ConfirmButton
-                label="戻す"
-                confirm={`${block.displayName}さんのブロックを戻しますか？またコメントできるようになります`}
+                label={t('unblock')}
+                confirm={t('confirmUnblock', { name: block.displayName })}
                 action={unblockCommenterAction.bind(null, block.id)}
               />
             </li>

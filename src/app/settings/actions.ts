@@ -1,13 +1,14 @@
 'use server';
 
+import { getTranslations } from 'next-intl/server';
 import { refresh } from 'next/cache';
 import { z } from 'zod';
 import { clearAuthCookies, deleteAccount } from '@/lib/account';
 import { AVATAR_IMAGE_MAX_BYTES, sniffAvatarImage } from '@/lib/avatar';
 import { saveAvatarImage, setAvatarChoice } from '@/lib/avatars';
-import { normalizeDisplayName } from '@/lib/display-name';
+import { DISPLAY_NAME_MAX, normalizeDisplayName } from '@/lib/display-name';
 import { setEmailsLiveStarted, setListsFollowedOnTop } from '@/lib/follows';
-import { normalizeHandle } from '@/lib/handle';
+import { HANDLE_MAX, HANDLE_MIN, normalizeHandle } from '@/lib/handle';
 import { kickStream } from '@/lib/live';
 import { setDisplayName, setHandle } from '@/lib/profiles';
 import {
@@ -70,7 +71,10 @@ export async function setDisplayNameAction(
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   const result = normalizeDisplayName(String(form.get('name') ?? ''));
-  if (!result.ok) return { error: result.error, saved: false };
+  if (!result.ok) {
+    const t = await getTranslations('displayName.errors');
+    return { error: t(result.error, { max: DISPLAY_NAME_MAX }), saved: false };
+  }
   await setDisplayName(userId, result.name);
   refresh();
   return { error: null, saved: true };
@@ -83,9 +87,12 @@ export async function setHandleAction(_: HandleState, form: FormData): Promise<H
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   const result = normalizeHandle(String(form.get('handle') ?? ''));
-  if (!result.ok) return { error: result.error, saved: false };
+  const t = await getTranslations('handle.errors');
+  if (!result.ok) {
+    return { error: t(result.error, { min: HANDLE_MIN, max: HANDLE_MAX }), saved: false };
+  }
   if ((await setHandle(userId, result.handle)) === 'taken') {
-    return { error: 'このハンドルはほかの人が使っています', saved: false };
+    return { error: t('taken'), saved: false };
   }
   refresh();
   return { error: null, saved: true };
@@ -117,11 +124,12 @@ export async function uploadAvatarAction(form: FormData): Promise<AvatarState> {
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   const file = form.get('image');
-  if (!(file instanceof File)) return { error: '画像を選んでください' };
-  if (file.size > AVATAR_IMAGE_MAX_BYTES) return { error: '画像が大きすぎます' };
+  const t = await getTranslations('avatarForm');
+  if (!(file instanceof File)) return { error: t('missing') };
+  if (file.size > AVATAR_IMAGE_MAX_BYTES) return { error: t('tooLarge') };
   const image = Buffer.from(await file.arrayBuffer());
   const contentType = sniffAvatarImage(image);
-  if (!contentType) return { error: 'この画像は使えません' };
+  if (!contentType) return { error: t('unusable') };
   await saveAvatarImage(userId, contentType, image);
   refresh();
   return { error: null };

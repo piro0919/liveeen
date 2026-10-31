@@ -1,5 +1,6 @@
 'use server';
 
+import { getTranslations } from 'next-intl/server';
 import { refresh } from 'next/cache';
 import {
   channelOf,
@@ -9,11 +10,13 @@ import {
   setLatencyMode,
   setStreamTitle,
 } from '@/lib/channels';
-import { normalizeStreamTitle } from '@/lib/stream-title';
+import { normalizeStreamTitle, STREAM_TITLE_MAX } from '@/lib/stream-title';
 import { unblockCommenter } from '@/lib/blocks';
 import { commandRelay } from '@/lib/comment-removal';
 import {
   FOLLOWERS_ONLY_CHOICES,
+  BLOCKED_WORD_LENGTH_MAX,
+  BLOCKED_WORDS_MAX,
   parseBlockedWords,
   SLOW_MODE_CHOICES,
 } from '@/lib/comment-settings';
@@ -76,7 +79,10 @@ export async function setStreamTitleAction(
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   const result = normalizeStreamTitle(String(form.get('title') ?? ''));
-  if (!result.ok) return { error: result.error, saved: false };
+  if (!result.ok) {
+    const t = await getTranslations('streamTitle.errors');
+    return { error: t(result.error, { max: STREAM_TITLE_MAX }), saved: false };
+  }
   await setStreamTitle(userId, result.title);
   refresh();
   return { error: null, saved: true };
@@ -111,7 +117,11 @@ export async function setCommentRulesAction(
     throw new Error(`フォロワー限定の選び方が違います: ${followers}`);
   }
   const words = parseBlockedWords(String(form.get('words') ?? ''));
-  if (!words.ok) return { error: words.error, saved: false };
+  if (!words.ok) {
+    const t = await getTranslations('commentRules.errors');
+    const max = words.error === 'tooManyWords' ? BLOCKED_WORDS_MAX : BLOCKED_WORD_LENGTH_MAX;
+    return { error: t(words.error, { max }), saved: false };
+  }
   const saved = await setCommentSettings(userId, {
     slowSeconds,
     followersOnlyMinutes,

@@ -8,16 +8,16 @@ const CONTROL = /[\p{Cc}\p{Zl}\p{Zp}]/u;
 
 /**
  * 本人が入れた名前を、そのまま保存してよい形にする。前後の空白は落とす。
- * 使えなければ理由を返す
+ * 使えなければ理由の鍵を返す（文言は messages/ja.json の displayName.errors）
  */
 export function normalizeDisplayName(
   input: string,
-): { ok: true; name: string } | { ok: false; error: string } {
+): { ok: true; name: string } | { ok: false; error: 'empty' | 'control' | 'tooLong' } {
   const name = input.trim();
-  if (name === '') return { ok: false, error: '名前を入れてください' };
-  if (CONTROL.test(name)) return { ok: false, error: '改行などは使えません' };
+  if (name === '') return { ok: false, error: 'empty' };
+  if (CONTROL.test(name)) return { ok: false, error: 'control' };
   if ([...graphemes.segment(name)].length > DISPLAY_NAME_MAX) {
-    return { ok: false, error: `${DISPLAY_NAME_MAX}文字までです` };
+    return { ok: false, error: 'tooLong' };
   }
   return { ok: true, name };
 }

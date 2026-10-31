@@ -10,19 +10,15 @@ const RESERVED = new Set(['admin', 'api', 'broadcast', 'privacy', 'settings', 't
 
 /**
  * 本人が入れたハンドルを、保存してよい形にする。前後の空白を落とし、大文字は小文字にそろえる。
- * 使えなければ理由を返す。ほかの人が使っているかは DB で確かめる（src/lib/profiles.ts）
+ * 使えなければ理由の鍵を返す（文言は messages/ja.json の handle.errors）。
+ * ほかの人が使っているかは DB で確かめる（src/lib/profiles.ts）
  */
 export function normalizeHandle(
   input: string,
-): { ok: true; handle: string } | { ok: false; error: string } {
+): { ok: true; handle: string } | { ok: false; error: 'format' | 'reserved' } {
   const handle = input.trim().toLowerCase();
-  if (!HANDLE_PATTERN.test(handle)) {
-    return {
-      ok: false,
-      error: `英小文字・数字・_ の${HANDLE_MIN}〜${HANDLE_MAX}文字にしてください`,
-    };
-  }
-  if (RESERVED.has(handle)) return { ok: false, error: 'このハンドルは使えません' };
+  if (!HANDLE_PATTERN.test(handle)) return { ok: false, error: 'format' };
+  if (RESERVED.has(handle)) return { ok: false, error: 'reserved' };
   return { ok: true, handle };
 }
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { avatarOf } from '@/lib/avatars';
 import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
@@ -12,6 +13,7 @@ import { SignInButton } from './sign-in-button';
  * ログインしていれば「配信する」と、本人の印（設定へ）
  */
 export async function SiteHeader() {
+  const t = await getTranslations('header');
   const userId = await currentUserId();
   const [name, avatar] = userId
     ? await Promise.all([displayNameOf(userId), avatarOf(userId)])
@@ -26,15 +28,15 @@ export async function SiteHeader() {
         {userId ? (
           <div className="flex items-center gap-2">
             <Link href="/broadcast" className={ui.tonalButton}>
-              配信する
+              {t('broadcast')}
             </Link>
             {/* 素の a のままだと中の印が文字の行に乗り、下に字の下がりの分の隙間ができて印が 3px 上にずれる */}
-            <Link href="/settings" aria-label="設定" className="flex">
+            <Link href="/settings" aria-label={t('settings')} className="flex">
               <Avatar name={name ?? '?'} src={avatar?.src} size="md" />
             </Link>
           </div>
         ) : (
-          <SignInButton label="ログイン" variant="header" />
+          <SignInButton variant="header" />
         )}
       </div>
     </header>

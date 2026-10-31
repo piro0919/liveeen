@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   appointModeratorAction,
@@ -12,12 +13,13 @@ import {
   type Comment,
   COMMENT_MAX,
   type RelayMessage,
+  type RelayRefusal,
   ROLE_CHANGED,
   TOKEN_EXPIRED,
 } from '@/lib/comment';
 import { CommentOutbox } from '@/lib/comment-outbox';
 import { COMMENT_TOKEN_TTL_MS } from '@/lib/comment-token';
-import { normalizeDisplayName } from '@/lib/display-name';
+import { DISPLAY_NAME_MAX, normalizeDisplayName } from '@/lib/display-name';
 import { ui } from '@/lib/ui';
 import { Avatar } from './avatar';
 import { DisplayNameForm } from './display-name-form';
@@ -64,6 +66,21 @@ function subscribeGuestName(listener: () => void): () => void {
   return () => guestNameListeners.delete(listener);
 }
 
+/** 中継が断った理由を、見る人に見せる文にする */
+function refusalText(
+  t: ReturnType<typeof useTranslations<'comments'>>,
+  refusal: RelayRefusal,
+): string {
+  switch (refusal.code) {
+    case 'followersOnly':
+      return t('followersOnly', { minutes: refusal.minutes });
+    case 'slowMode':
+      return t('refusals.slowMode', { seconds: refusal.seconds });
+    default:
+      return t(`refusals.${refusal.code}`);
+  }
+}
+
 type Props = {
   channelId: string;
   relayUrl: string;
@@ -96,6 +113,8 @@ export function Comments({
   reportedComments,
   overlay = false,
 }: Props) {
+  const t = useTranslations('comments');
+  const tName = useTranslations('displayName.errors');
   const [comments, setComments] = useState<Comment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('');
@@ -104,8 +123,8 @@ export function Comments({
   const [editingGuestName, setEditingGuestName] = useState(false);
   // 配信者に止められていれば、書く欄を出さない
   const [blocked, setBlocked] = useState(false);
-  // 配信者の決まり（フォロワー限定）でいまは書けなければ、書く欄の代わりに理由を出す
-  const [notice, setNotice] = useState<string | null>(null);
+  // 配信者の決まり（フォロワー限定）でいまは書けなければ、書く欄の代わりに理由を出す。フォローしてから要る分数
+  const [followersOnly, setFollowersOnly] = useState<number | null>(null);
   // モデレーターにした人の札。同じ人のほかのコメントにも「モデレーターにしました」と出す
   const [appointed, setAppointed] = useState(() => new Set<string>());
   // 通報したコメント。読み込み直しても「通報しました」のままにするため、サーバーから受け取った分から始める
@@ -147,7 +166,7 @@ export function Comments({
       if (cancelled) return;
       const token = result?.token ?? null;
       setBlocked(result?.blocked ?? false);
-      setNotice(result?.notice ?? null);
+      setFollowersOnly(result?.followersOnly ?? null);
       const query = token ? `?token=${encodeURIComponent(token)}` : '';
       const ws = new WebSocket(`${relayUrl}/${channelId}${query}`);
       socket.current = ws;
@@ -175,7 +194,7 @@ export function Comments({
           if (message.comment.mine) outbox.current.accepted(message.comment.text);
           setComments((shown) => [...shown, message.comment].slice(-SHOWN_MAX));
         } else if (message.type === 'error') {
-          setError(message.message);
+          setError(message.code ? refusalText(t, message) : message.message);
           restore(outbox.current.refused());
         } else if (message.type === 'viewers') setViewers(channelId, message.count);
         // 配信者が決まりを変えた。書ける人は札をもらい直し、書けるかどうかの知らせを出し直す
@@ -223,7 +242,7 @@ export function Comments({
       setConnected(false);
       setViewers(channelId, null);
     };
-  }, [channelId, relayUrl, viewer, writer, guestName, following]);
+  }, [channelId, relayUrl, viewer, writer, guestName, following, t]);
 
   // 新しいコメントが来たら下まで送る
   useEffect(() => {
@@ -235,7 +254,7 @@ export function Comments({
     if (text.trim() === '') return;
     const result = outbox.current.post(socket.current, text);
     if (result === 'invalid') {
-      setError(`コメントは${COMMENT_MAX}文字までです`);
+      setError(t('errors.tooLong', { max: COMMENT_MAX }));
       return;
     }
     if (result === 'closed') return;
@@ -247,17 +266,13 @@ export function Comments({
   async function appoint(comment: Comment) {
     const { author } = comment;
     if (!author) return;
-    if (
-      !window.confirm(
-        `${comment.name}さんをモデレーターにしますか？このチャンネルでコメントした人をブロックできるようになります`,
-      )
-    ) {
+    if (!window.confirm(t('confirmAppoint', { name: comment.name }))) {
       return;
     }
     try {
       await appointModeratorAction(channelId, author);
     } catch {
-      setError('モデレーターにできませんでした');
+      setError(t('errors.appoint'));
       return;
     }
     setError(null);
@@ -268,18 +283,14 @@ export function Comments({
   async function block(comment: Comment) {
     const { author } = comment;
     if (!author) return;
-    if (
-      !window.confirm(
-        `${comment.name}さんをブロックしますか？このチャンネルでコメントできなくなります`,
-      )
-    ) {
+    if (!window.confirm(t('confirmBlock', { name: comment.name }))) {
       return;
     }
     try {
       await blockCommenterAction(channelId, author);
     } catch {
       // 相手がモデレーターになっていた、などで断られた
-      setError('ブロックできませんでした');
+      setError(t('errors.block'));
       return;
     }
     setError(null);
@@ -289,11 +300,11 @@ export function Comments({
 
   /** コメントを通報する。運営が管理画面で見て、消すかを決める */
   async function report(comment: Comment) {
-    if (!window.confirm(`${comment.name}さんのこのコメントを通報しますか？`)) return;
+    if (!window.confirm(t('confirmReport', { name: comment.name }))) return;
     try {
       await reportCommentAction(channelId, comment);
     } catch {
-      setError('通報できませんでした。読み込み直してから、もう一度試してください');
+      setError(t('errors.report'));
       return;
     }
     setReported((ids) => new Set(ids).add(comment.id));
@@ -302,7 +313,7 @@ export function Comments({
   function decideGuestName(form: FormData) {
     const result = normalizeDisplayName(String(form.get('name') ?? ''));
     if (!result.ok) {
-      setError(result.error);
+      setError(tName(result.error, { max: DISPLAY_NAME_MAX }));
       return;
     }
     saveGuestName(result.name);
@@ -315,7 +326,7 @@ export function Comments({
     <section className={`flex min-h-0 flex-1 flex-col ${overlay ? ui.overlayComments : ui.panel}`}>
       {!overlay && (
         <h2 className="flex h-12 shrink-0 items-center border-b border-line px-4 font-medium">
-          コメント
+          {t('heading')}
         </h2>
       )}
       <ol
@@ -328,7 +339,7 @@ export function Comments({
             <p className="min-w-0 wrap-break-word">
               <span className={overlay ? ui.overlayName : 'text-muted'}>
                 {comment.name}
-                {comment.guest && '（ゲスト）'}
+                {comment.guest && t('guestMark')}
               </span>{' '}
               {comment.text}
               {/* 書いた人の札は、配信者とモデレーターにだけ中継が付ける（relay/relay.ts） */}
@@ -340,7 +351,7 @@ export function Comments({
                     className={overlay ? ui.overlayTextButton : ui.textButton}
                     onClick={() => void block(comment)}
                   >
-                    ブロック
+                    {t('block')}
                   </button>
                 </>
               )}
@@ -349,14 +360,14 @@ export function Comments({
                 <>
                   {' '}
                   {appointed.has(comment.author) ? (
-                    <span className={ui.note}>モデレーターにしました</span>
+                    <span className={ui.note}>{t('appointed')}</span>
                   ) : (
                     <button
                       type="button"
                       className={ui.textButton}
                       onClick={() => void appoint(comment)}
                     >
-                      モデレーターにする
+                      {t('appoint')}
                     </button>
                   )}
                 </>
@@ -365,14 +376,14 @@ export function Comments({
                 <>
                   {' '}
                   {reported.has(comment.id) ? (
-                    <span className={ui.note}>通報しました</span>
+                    <span className={ui.note}>{t('reported')}</span>
                   ) : (
                     <button
                       type="button"
                       className={ui.textButton}
                       onClick={() => void report(comment)}
                     >
-                      通報
+                      {t('report')}
                     </button>
                   )}
                 </>
@@ -384,7 +395,7 @@ export function Comments({
       <div className={`flex shrink-0 flex-col gap-2 p-3 ${overlay ? '' : 'border-t border-line'}`}>
         {viewer === 'signed-out' && !guestComments && (
           <div className="flex flex-col items-start gap-2">
-            <p className="text-sm">コメントするにはログインしてください</p>
+            <p className="text-sm">{t('signInToComment')}</p>
             <SignInButton />
           </div>
         )}
@@ -396,46 +407,48 @@ export function Comments({
               defaultValue={guestName ?? ''}
               required
               className={`flex-1 ${ui.input}`}
-              aria-label="名前"
-              placeholder="名前"
+              aria-label={t('guestName')}
+              placeholder={t('guestName')}
               autoComplete="nickname"
             />
             <button type="submit" className={ui.tonalButton}>
-              決める
+              {t('decideName')}
             </button>
           </form>
         )}
-        {unreachable && <p className="text-sm">コメントにつながっていません。つなぎ直しています</p>}
-        {blocked && <p className="text-sm">この配信者のチャンネルではコメントできません</p>}
-        {notice && !blocked && <p className="text-sm">{notice}</p>}
-        {writer && !blocked && !notice && !editingGuestName && (
+        {unreachable && <p className="text-sm">{t('unreachable')}</p>}
+        {blocked && <p className="text-sm">{t('blocked')}</p>}
+        {followersOnly !== null && !blocked && (
+          <p className="text-sm">{t('followersOnly', { minutes: followersOnly })}</p>
+        )}
+        {writer && !blocked && followersOnly === null && !editingGuestName && (
           <form action={post} className="flex gap-2">
             <input
               value={text}
               onChange={(event) => setText(event.target.value)}
               maxLength={COMMENT_MAX * 2}
               className={`flex-1 ${overlay ? ui.overlayInput : ui.input}`}
-              aria-label="コメント"
-              placeholder={overlay ? 'コメント' : undefined}
+              aria-label={t('input')}
+              placeholder={overlay ? t('input') : undefined}
             />
             <button
               type="submit"
               className={overlay ? ui.overlayButton : ui.tonalButton}
               disabled={!connected}
             >
-              送信
+              {t('send')}
             </button>
           </form>
         )}
         {guest && guestName !== null && !editingGuestName && (
           <p className={ui.note}>
-            名前：{guestName}{' '}
+            {t('guestNameShown', { name: guestName })}{' '}
             <button
               type="button"
               className={ui.textButton}
               onClick={() => setEditingGuestName(true)}
             >
-              変える
+              {t('changeName')}
             </button>
           </p>
         )}

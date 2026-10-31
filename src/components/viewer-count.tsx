@@ -1,7 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useSyncExternalStore } from 'react';
-import { viewersLabel } from '@/lib/viewer-label';
 
 /**
  * チャンネルごとの、見ている人の数と、映像が流れているか。
@@ -43,6 +43,7 @@ type Props = {
 
 /** 見ている人の数。中継から数が届くまでは何も出さない */
 export function ViewerCount({ channelId, whilePlaying = false, className }: Props) {
+  const t = useTranslations('viewers');
   const count = useSyncExternalStore(
     subscribe,
     () => viewers.get(channelId) ?? null,
@@ -54,5 +55,5 @@ export function ViewerCount({ channelId, whilePlaying = false, className }: Prop
     () => false,
   );
   if (count === null || !shown) return null;
-  return <span className={className}>{viewersLabel(count)}</span>;
+  return <span className={className}>{t('count', { count })}</span>;
 }

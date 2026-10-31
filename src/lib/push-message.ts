@@ -1,3 +1,4 @@
+import { outsideTranslator } from './outside-messages';
 import { channelPath } from './handle';
 
 /**
@@ -10,9 +11,10 @@ export type LiveStarted = { channelId: string; displayName: string | null; handl
 
 /** 配信が始まったことを知らせる中身。名前より先に作られたチャンネルは id を名前の代わりにする */
 export function liveStartedMessage({ channelId, displayName, handle }: LiveStarted): PushMessage {
+  const t = outsideTranslator('livePush');
   return {
-    title: `${displayName ?? channelId} さんが配信を始めました`,
-    body: 'タップして見る',
+    title: t('title', { name: displayName ?? channelId }),
+    body: t('body'),
     url: channelPath({ id: channelId, handle }),
   };
 }

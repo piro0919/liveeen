@@ -2,6 +2,7 @@
 
 import Hls from 'hls.js';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { LatencyMode } from '@/lib/latency';
 import { channelPublishingAction } from '@/app/[channelId]/actions';
 import { ui } from '@/lib/ui';
@@ -23,6 +24,7 @@ type Props = {
  * 配信していなければ、少し待ってつなぎ直す
  */
 export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
+  const t = useTranslations('player');
   const video = useRef<HTMLVideoElement>(null);
   // 開いた直後は、つなぎに行っている間に「配信していません」を出さない
   const [status, setStatus] = useState<'connecting' | 'live' | 'offline'>('connecting');
@@ -121,7 +123,7 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
         controls
         className={`size-full ${status === 'offline' ? 'invisible' : ''}`}
       />
-      {status === 'offline' && <PlayerMessage>配信していません</PlayerMessage>}
+      {status === 'offline' && <PlayerMessage>{t('offline')}</PlayerMessage>}
     </div>
   );
 }

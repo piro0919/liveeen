@@ -1,3 +1,5 @@
+import { ScreenError } from './screen-error';
+
 /** 映像の上限（CLAUDE.md：720p まで） */
 const MAX_WIDTH = 1280;
 const MAX_HEIGHT = 720;
@@ -144,7 +146,7 @@ export async function publishWhip(
       body: pc.localDescription?.sdp,
     });
     if (response.status !== CREATED)
-      throw new Error(`配信を始められませんでした（${response.status}）`);
+      throw new ScreenError('whipFailed', { status: response.status });
     const location = response.headers.get('Location');
     await pc.setRemoteDescription({ type: 'answer', sdp: await response.text() });
     return {

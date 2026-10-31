@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { browserPublishTokenAction, publishingAction } from '@/app/broadcast/actions';
 import {
   BGM_TRACKS,
@@ -11,6 +12,7 @@ import {
   nextTrackIndex,
 } from '@/lib/bgm';
 import { loadImage, type StillImage, stillImageStream } from '@/lib/still-image';
+import { useScreenErrorText } from '@/lib/screen-error';
 import { captureCamera, captureMicrophone, publishWhip, type WhipSession } from '@/lib/whip';
 import { ui } from '@/lib/ui';
 import { BgmPicker } from './bgm-picker';
@@ -44,6 +46,8 @@ export function BrowserPublisher({
   name,
   bgmUrl,
 }: Props) {
+  const t = useTranslations('broadcast.publisher');
+  const errorText = useScreenErrorText();
   const video = useRef<HTMLVideoElement>(null);
   const liveVideo = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -130,7 +134,7 @@ export function BrowserPublisher({
       .catch(() => {
         if (attempt !== bgmAttempt.current) return;
         stopBgm();
-        setError('曲を流せませんでした');
+        setError(t('errors.bgm'));
       });
     syncSentAudio();
   }
@@ -191,7 +195,7 @@ export function BrowserPublisher({
         track.addEventListener('ended', () => {
           if (endedByDevice) return;
           endedByDevice = true;
-          void stop().then(() => setError('カメラかマイクが止まったため、配信を終えました'));
+          void stop().then(() => setError(t('errors.deviceStopped')));
         });
       }
       // 始める前に曲を選んでいれば、初めから曲を重ねた音を送る
@@ -199,7 +203,7 @@ export function BrowserPublisher({
       const sent = new MediaStream([...captured.getVideoTracks(), ...(audio ? [audio] : [])]);
       const token = await browserPublishTokenAction();
       const started = await publishWhip(whipUrl, token, sent, {
-        onEnded: () => void stop().then(() => setError('配信が切れました')),
+        onEnded: () => void stop().then(() => setError(t('errors.disconnected'))),
         stillPublishing: publishingAction,
       });
       // つないでいるあいだにカメラやマイクが止まって終えていたら、つないだ分も切る
@@ -211,7 +215,7 @@ export function BrowserPublisher({
       setStatus('live');
     } catch (e) {
       await stop();
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     }
   }
 
@@ -221,7 +225,7 @@ export function BrowserPublisher({
       setImage(await loadImage(file));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     }
   }
 
@@ -249,7 +253,7 @@ export function BrowserPublisher({
         />
         <div className="relative flex items-center justify-between p-4 pt-safe-top">
           <div className="flex items-center gap-2">
-            <span className={ui.liveTag}>ライブ</span>
+            <span className={ui.liveTag}>{t('live')}</span>
             <ViewerCount channelId={channelId} className={`text-sm ${ui.overlayComments}`} />
           </div>
           <div className="flex gap-2">
@@ -264,7 +268,7 @@ export function BrowserPublisher({
               </button>
             )}
             <button type="button" className={ui.overlayButton} onClick={() => void stop()}>
-              配信を終える
+              {t('stop')}
             </button>
           </div>
         </div>
@@ -299,7 +303,7 @@ export function BrowserPublisher({
   return (
     <div className="flex flex-col gap-3">
       <fieldset className="flex flex-col gap-2">
-        <legend className="sr-only">映すもの</legend>
+        <legend className="sr-only">{t('source')}</legend>
         <label className="flex items-center gap-2">
           <input
             type="radio"
@@ -308,7 +312,7 @@ export function BrowserPublisher({
             checked={source === 'camera'}
             onChange={() => setSource('camera')}
           />
-          カメラ
+          {t('camera')}
         </label>
         <label className="flex items-center gap-2">
           <input
@@ -318,13 +322,13 @@ export function BrowserPublisher({
             checked={source === 'image'}
             onChange={() => setSource('image')}
           />
-          画像と声（カメラを使わない）
+          {t('image')}
         </label>
       </fieldset>
       {source === 'image' && (
         <div className="flex flex-col gap-1">
           <label className={ui.tonalButton}>
-            画像を選ぶ
+            {t('pickImage')}
             <input
               type="file"
               accept="image/*"
@@ -332,12 +336,12 @@ export function BrowserPublisher({
               onChange={(event) => void chooseImage(event.target.files?.[0])}
             />
           </label>
-          <p className={ui.note}>選ばなければ、名前を映します</p>
+          <p className={ui.note}>{t('imageFallback')}</p>
         </div>
       )}
       <div className={ui.videoFrame}>
         <video ref={video} autoPlay muted playsInline className="size-full object-contain" />
-        {source === 'camera' && <p className={ui.videoMessage}>始めるとカメラが映ります</p>}
+        {source === 'camera' && <p className={ui.videoMessage}>{t('cameraPreview')}</p>}
       </div>
       {bgmUrl && (
         <section className="flex flex-col gap-2">
@@ -345,16 +349,14 @@ export function BrowserPublisher({
           <BgmPicker playing={bgm} volume={bgmVolume} onPick={pickBgm} onVolume={changeBgmVolume} />
         </section>
       )}
-      <p className={ui.note}>
-        配信中にほかのアプリへ移ると、映像や音が止まることがあります。配信中はこの画面のままにしてください
-      </p>
+      <p className={ui.note}>{t('stayOnScreen')}</p>
       <button
         type="button"
         className={ui.primaryButton}
         disabled={status === 'starting'}
         onClick={() => void start()}
       >
-        配信を始める
+        {t('start')}
       </button>
       {error && <p className={ui.error}>{error}</p>}
     </div>

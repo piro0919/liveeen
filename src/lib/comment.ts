@@ -57,7 +57,18 @@ export type RelayMessage =
   | { type: 'rules' }
   /** いまその配信を開いている人の数。配信者自身は数えない（relay/relay.ts） */
   | { type: 'viewers'; count: number }
-  | { type: 'error'; message: string };
+  | ({ type: 'error' } & RelayRefusal)
+  /** 文言を中継が持っていたころの形。本番の中継を入れ替えるまでのあいだ受ける */
+  | { type: 'error'; code?: undefined; message: string };
+
+/**
+ * 中継が断った理由。文言は見る画面が訳す（messages/ja.json の comments.refusals）。
+ * badRemoval と badCommand はサイトのサーバーにだけ返す
+ */
+export type RelayRefusal =
+  | { code: 'badRemoval' | 'badCommand' | 'signIn' | 'expired' | 'tooSoon' }
+  | { code: 'followersOnly'; minutes: number }
+  | { code: 'slowMode'; seconds: number };
 
 /** 書かれたコメントを、流してよい形にする。空か長すぎれば null */
 export function normalizeComment(input: string): string | null {

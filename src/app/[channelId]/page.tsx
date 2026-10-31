@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { cache } from 'react';
 import { Comments } from '@/components/comments';
 import { FollowButton } from '@/components/follow-button';
@@ -56,6 +57,7 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
   const reportedComments = userId && !own ? await reportedCommentIdsOf(userId, channel.id) : null;
   // 上限に届くと配信サーバーが視聴を断るので、つなぎに行かずに理由を出す
   const capReached = await viewingCapReached();
+  const t = await getTranslations('watch');
   const name = channel.displayName ?? channel.id;
   // 手本は YouTube の視聴画面：左に映像と配信者、右にコメント。狭い画面では縦に並べる。
   // スマホでは映像を画面の端まで広げ、配信者の行とコメントだけに余白を付ける。コメントは画面の残りの高さを埋める（YouTube のアプリと同じ）
@@ -64,7 +66,7 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
       <div className="flex min-w-0 shrink-0 flex-col gap-3 lg:flex-1">
         {capReached ? (
           <div className={ui.watchFrame}>
-            <PlayerMessage>今月の視聴の上限に達したため、いまは見られません</PlayerMessage>
+            <PlayerMessage>{t('capReached')}</PlayerMessage>
           </div>
         ) : (
           <Player

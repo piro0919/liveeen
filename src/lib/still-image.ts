@@ -1,3 +1,4 @@
+import { ScreenError } from './screen-error';
 import { stillImageColors } from './ui';
 
 /** 画像の配信の大きさ。見る画面の枠（16:9）に合わせ、720p の上限（CLAUDE.md）に収める */
@@ -23,7 +24,7 @@ export function stillImageStream(image: HTMLImageElement | null, name: string): 
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
   const context = canvas.getContext('2d');
-  if (!context) throw new Error('このブラウザでは画像で配信できません');
+  if (!context) throw new ScreenError('noCanvas');
   const draw = () => {
     context.fillStyle = stillImageColors.background;
     context.fillRect(0, 0, WIDTH, HEIGHT);
@@ -63,7 +64,7 @@ export function loadImage(file: File): Promise<HTMLImageElement> {
     };
     image.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error('この画像は開けませんでした'));
+      reject(new ScreenError('imageUnreadable'));
     };
     image.src = url;
   });

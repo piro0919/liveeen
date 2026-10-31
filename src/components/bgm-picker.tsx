@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { BGM_TRACKS } from '@/lib/bgm';
 import { ui } from '@/lib/ui';
 
@@ -15,10 +16,11 @@ type Props = {
 
 /** BGM の一覧と音量。曲を押すと流れ、流れている曲をもう一度押すと止まる */
 export function BgmPicker({ playing, volume, onPick, onVolume, overlay = false }: Props) {
+  const t = useTranslations('bgm');
   return (
     <div className="flex min-h-0 flex-col gap-2">
       <label className="flex items-center gap-3 text-sm whitespace-nowrap">
-        音量
+        {t('volume')}
         <input
           type="range"
           min={0}
@@ -48,7 +50,7 @@ export function BgmPicker({ playing, volume, onPick, onVolume, overlay = false }
                 onClick={() => onPick(index)}
               >
                 <span className="truncate">{track.title}</span>
-                {current && <span className="shrink-0 text-xs">再生中</span>}
+                {current && <span className="shrink-0 text-xs">{t('playing')}</span>}
               </button>
             </li>
           );

@@ -34,7 +34,7 @@ async function sendToRelay(
           clearTimeout(timer);
           resolve();
         } else if (reply.type === 'error') {
-          fail(new Error(`コメントの中継が断りました: ${reply.message}`));
+          fail(new Error(`コメントの中継が断りました: ${reply.code ?? reply.message}`));
         }
       });
     });

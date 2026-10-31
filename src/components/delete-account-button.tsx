@@ -2,11 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { deleteAccountAction } from '@/app/settings/actions';
 import { ui } from '@/lib/ui';
 
 /** アカウントを消す。確かめてから消し、トップへ戻る。運営に止められた配信者は消せない（src/lib/account.ts） */
 export function DeleteAccountButton() {
+  const t = useTranslations('deleteAccount');
   const router = useRouter();
   const [deleting, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -17,12 +19,7 @@ export function DeleteAccountButton() {
         className={ui.textButton}
         disabled={deleting}
         onClick={() => {
-          if (
-            !window.confirm(
-              'アカウントを消しますか？チャンネル、フォロー、設定もすべて消え、元に戻せません',
-            )
-          )
-            return;
+          if (!window.confirm(t('confirm'))) return;
           startTransition(async () => {
             const result = await deleteAccountAction().catch(() => null);
             if (result === 'deleted') {
@@ -31,15 +28,11 @@ export function DeleteAccountButton() {
               router.refresh();
               return;
             }
-            setError(
-              result === 'banned'
-                ? '運営が配信を止めているため、ここでは消せません。プライバシーポリシーの問い合わせ先へご連絡ください'
-                : 'アカウントを消せませんでした。もう一度押してください',
-            );
+            setError(result === 'banned' ? t('errors.banned') : t('errors.failed'));
           });
         }}
       >
-        アカウントを消す
+        {t('button')}
       </button>
       {error && <p className={ui.error}>{error}</p>}
     </div>

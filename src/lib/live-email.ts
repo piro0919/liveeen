@@ -1,3 +1,4 @@
+import { outsideTranslator } from './outside-messages';
 import { channelPath } from './handle';
 import type { LiveStarted } from './push-message';
 
@@ -41,14 +42,15 @@ export function liveStartedEmails({
   from: string;
   to: Recipient[];
 }): Email[] {
+  const t = outsideTranslator('liveEmail');
   const name = displayName ?? channelId;
-  const subject = `${name} さんが配信を始めました`;
+  const subject = t('subject', { name });
   const text = [
-    `${name} さんが Liveeen で配信を始めました。`,
+    t('body', { name }),
     '',
     new URL(channelPath({ id: channelId, handle }), siteUrl).href,
     '',
-    'このメールを止めるときは、設定の「メールで知らせる」を切ってください。',
+    t('unsubscribe'),
     new URL('/settings', siteUrl).href,
   ].join('\n');
   return to.map((recipient) => ({

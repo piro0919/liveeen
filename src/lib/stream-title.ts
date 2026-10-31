@@ -8,15 +8,15 @@ const LINE_BREAKS = /[\p{Cc}\p{Zl}\p{Zp}]+/gu;
 
 /**
  * 配信者が入れたタイトルを、保存してよい形にする。空ならタイトルを消す（null）。
- * 長すぎれば理由を返す
+ * 長すぎれば理由の鍵を返す（文言は messages/ja.json の streamTitle.errors）
  */
 export function normalizeStreamTitle(
   input: string,
-): { ok: true; title: string | null } | { ok: false; error: string } {
+): { ok: true; title: string | null } | { ok: false; error: 'tooLong' } {
   const title = input.replace(LINE_BREAKS, ' ').trim();
   if (title === '') return { ok: true, title: null };
   if ([...graphemes.segment(title)].length > STREAM_TITLE_MAX) {
-    return { ok: false, error: `${STREAM_TITLE_MAX}文字までです` };
+    return { ok: false, error: 'tooLong' };
   }
   return { ok: true, title };
 }

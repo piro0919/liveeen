@@ -535,7 +535,8 @@ describe('コメントの決まり', () => {
     clock += 5000;
     expect(await post(writer, '2', 2)).toEqual({
       type: 'error',
-      message: '低速モードです。10秒あけて書いてください',
+      code: 'slowMode',
+      seconds: 10,
     });
     clock += 5000;
     expect(await post(writer, '3', 3)).toMatchObject({ type: 'comment', comment: { text: '3' } });
@@ -591,7 +592,8 @@ describe('コメントの決まり', () => {
     const stranger = await connect(CHANNEL, tokenFor('通りすがり', CHANNEL, { settings }));
     expect(await post(stranger, 'やあ', 1)).toEqual({
       type: 'error',
-      message: 'この配信者をフォローして10分たつとコメントできます',
+      code: 'followersOnly',
+      minutes: 10,
     });
     const fresh = await connect(
       CHANNEL,
@@ -619,7 +621,8 @@ describe('コメントの決まり', () => {
     expect(await writer.nth(2)).toEqual({ type: 'rules' });
     expect(await post(writer, 'やあ', 2)).toEqual({
       type: 'error',
-      message: 'この配信者をフォローしている人だけコメントできます',
+      code: 'followersOnly',
+      minutes: 0,
     });
     // あとから来た人の、古い札の決まりでは戻らない
     const stale = await connect(
@@ -647,7 +650,7 @@ describe('コメントの決まり', () => {
         kind: 'settings',
         settings: rules({ followersOnlyMinutes: 0 }),
       }),
-    ).rejects.toThrow('指示の札が合いません');
+    ).rejects.toThrow('badCommand');
     const writer = await connect(CHANNEL, tokenFor('ぴろ'));
     expect(await post(writer, 'やあ', 1)).toMatchObject({ type: 'comment' });
   });
