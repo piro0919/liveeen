@@ -209,7 +209,10 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 ## The production media server (`deploy/`)
 
-- Written 2026-10-31 when the owner said to handle the open items (「全部対応を」). The layout is Claude's call. Not deployed: no Akamai server exists yet, and the media host name waits on the domain
+- Written 2026-10-31 when the owner said to handle the open items (「全部対応を」). The layout is Claude's call. Not deployed yet; DNS for media.liveeen.kkweb.io is not set
+- The server exists since 2026-10-31: `liveeen-media` on Akamai, region JP Tokyo 2 (ap-northeast), Nanode 1 GB ($5 a month as shown on the create screen; 1 CPU, 1 GB RAM, 25 GB disk, 1 TB transfer, 1 Gbps out), Ubuntu 24.04, disk encrypted, no backups. IPv4 172.105.196.199, IPv6 2400:8902::2000:14ff:fe85:fb09. The owner chose the cheapest plan to start (「まずは一番安いのから」); raise it after measuring the load. Tokyo 2 and Tokyo 3 showed the same prices; Tokyo 2 was Claude's pick because it is an older core region, so its transfer is expected to count in the global pool (not stated in Akamai's docs)
+- The Akamai account was made on 2026-10-31 by the owner with Google sign-in (`piro.haniwa@gmail.com`). SSH as root with `~/.ssh/id_rsa`; the root password is in this Mac's Keychain as `liveeen-media-root`
+- Cloud Firewall `liveeen-media` is attached: inbound policy drop, accepting TCP 22, 80, 443, 1935 and UDP 8189 from anywhere; outbound accept
 - One Akamai server runs `deploy/compose.yaml`: MediaMTX (same version as local), the comment relay, and Caddy, all with `network_mode: host` so WebRTC's UDP needs no port mapping, all `restart: unless-stopped`. Values go in `deploy/.env` (`deploy/.env.example`): `MEDIA_HOST`, `SITE_URL`, `MEDIA_API_SECRET`, `COMMENT_TOKEN_SECRET`. Start with `docker compose up -d --build` in `deploy/`
 - Open to the internet directly: RTMP (1935) and WebRTC media (UDP 8189). HLS, WHIP/WHEP, the API and the relay listen on 127.0.0.1 behind Caddy, which takes TLS for `MEDIA_HOST` (Let's Encrypt) and routes by request: `/v3/*` → API only with `Authorization: Bearer <MEDIA_API_SECRET>` (else 401); WebSocket upgrades → relay; `/<id>/whip` and `/<id>/whep` (and what follows) → WebRTC; everything else → HLS. Routing by path prefix was avoided because MediaMTX answers WHIP/WHEP with a `Location` starting at `/`
 - Why Caddy checks the API secret rather than MediaMTX's `authMethod: http`: that would add a round trip from MediaMTX to the site on every API call, and the top page calls the API on every request
@@ -223,14 +226,13 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
   - This month's cost = the media server's monthly fee + the transfer billed beyond the included pool × $0.005 per GB, converted to yen (`src/lib/view-cap.ts`). Once it reaches ¥50,000, `/api/media/auth` refuses every new read; publishing still passes
   - The billed transfer is `billable` from Akamai's API (`GET /v4/account/transfer`, in GB, https://techdocs.akamai.com/linode-api/reference/get-transfer). With `AKAMAI_REGION` set, the entry for that region is used instead, since some newer regions keep their own pool (https://techdocs.akamai.com/cloud-computing/docs/network-transfer-usage-and-costs). Which pool the Tokyo server will use is not checked
   - The last value is kept in `transfer_usage` (one row) and read again from Akamai when it is older than 5 minutes; if Akamai does not answer, the old value is used. If none was ever read, the cap is not applied
-  - Needs `AKAMAI_API_TOKEN` (read access to the account is enough), `MEDIA_SERVER_FEE_USD` and `YEN_PER_USD`. Without any of them the cap is not checked (as locally). The fee waits on the server plan, and the exchange rate is a value the owner sets
+  - Needs `AKAMAI_API_TOKEN` (read access to the account is enough), `MEDIA_SERVER_FEE_USD` and `YEN_PER_USD`. Without any of them the cap is not checked (as locally). The fee is 5 for the Nanode, and the exchange rate is a value the owner sets
 - MediaMTX asks only when someone starts watching, so people already watching are not cut. The watch page shows 今月の視聴の上限に達したため、いまは見られません instead of the player (wording provisional)
 - How often Akamai updates `billable` is not stated in its docs, so the cap can lag behind the real transfer by that much (not measured)
 - Checked 2026-10-31 locally with a hand-written `transfer_usage` row and placeholder values in `.env.local`: under the cap a read got 200 and over it 401, while publish got 200; an HLS viewer (ffmpeg) watching when the cap was reached kept receiving all 45 s; a new HLS viewer got 401 (200 again after going back under); a new WHEP viewer got 401 instead of passing the check. Not checked against Akamai's real API
 
 ## Not decided or not checked
 
-- Akamai's monthly server price for the plan we need
 - How many viewers one server can serve, per latency mode (measure on the server)
 - Trademarks
 
