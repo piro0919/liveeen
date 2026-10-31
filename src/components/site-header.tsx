@@ -3,10 +3,11 @@ import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
 import { ui } from '@/lib/ui';
 import { Avatar } from './avatar';
+import { LogoMark } from './logo-mark';
 import { SignInButton } from './sign-in-button';
 
 /**
- * どの画面にも出す上の帯。画面の幅いっぱいで、上に貼りつく。左にロゴ、右にログイン。
+ * どの画面にも出す上の帯。画面の幅いっぱいで、上に貼りつく。左に印とロゴ、右にログイン。
  * ログインしていれば「配信する」と、名前の印（設定へ）
  */
 export async function SiteHeader() {
@@ -15,9 +16,9 @@ export async function SiteHeader() {
   return (
     <header className={`sticky top-0 z-10 ${ui.headerBar}`}>
       <div className="mx-auto flex h-14 w-full max-w-screen-2xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-1.5 font-logo text-xl tracking-tight">
+        <Link href="/" className="flex items-center gap-2 font-logo text-xl tracking-tight">
+          <LogoMark className="h-6 w-auto text-live" />
           Liveeen
-          <span aria-hidden className="size-2 rounded-xs bg-live" />
         </Link>
         {userId ? (
           <div className="flex items-center gap-2">
