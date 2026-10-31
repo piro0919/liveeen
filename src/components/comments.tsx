@@ -11,6 +11,8 @@ import {
 } from '@/lib/comment';
 import { COMMENT_TOKEN_TTL_MS } from '@/lib/comment-token';
 import { normalizeDisplayName } from '@/lib/display-name';
+import { ui } from '@/lib/ui';
+import { Avatar } from './avatar';
 import { DisplayNameForm } from './display-name-form';
 import { SignInButton } from './sign-in-button';
 
@@ -171,76 +173,90 @@ export function Comments({ channelId, relayUrl, viewer, guestComments, own }: Pr
   }
 
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="font-bold">コメント</h2>
-      <ol ref={list} className="flex h-64 flex-col gap-1 overflow-y-auto rounded border p-2">
+    // 手本は YouTube のライブチャット：枠の上に見出し、真ん中に流れ、下に書く欄
+    <section className={`flex min-h-0 flex-1 flex-col ${ui.panel}`}>
+      <h2 className="flex h-12 shrink-0 items-center border-b border-line px-4 font-medium">
+        コメント
+      </h2>
+      <ol ref={list} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-2">
         {comments.map((comment) => (
-          <li key={comment.id} className="wrap-break-word">
-            <span className="font-bold">{comment.name}</span>
-            {comment.guest && <span className="text-sm text-gray-500">（ゲスト）</span>}{' '}
-            {comment.text}
-            {own && comment.author && (
-              <>
-                {' '}
-                <button
-                  type="button"
-                  className="text-sm text-gray-500 underline"
-                  onClick={() => void block(comment)}
-                >
-                  ブロック
-                </button>
-              </>
-            )}
+          <li key={comment.id} className="flex gap-3 text-sm">
+            <Avatar name={comment.name} size="xs" />
+            <p className="min-w-0 wrap-break-word">
+              <span className="text-muted">
+                {comment.name}
+                {comment.guest && '（ゲスト）'}
+              </span>{' '}
+              {comment.text}
+              {own && comment.author && (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className={ui.textButton}
+                    onClick={() => void block(comment)}
+                  >
+                    ブロック
+                  </button>
+                </>
+              )}
+            </p>
           </li>
         ))}
       </ol>
-      {viewer === 'signed-out' && !guestComments && (
-        <div className="flex items-center gap-2">
-          <p>コメントするにはログインしてください</p>
-          <SignInButton />
-        </div>
-      )}
-      {viewer === 'no-name' && <DisplayNameForm name={null} />}
-      {guest && (guestName === null || editingGuestName) && (
-        <form action={decideGuestName} className="flex gap-2">
-          <input
-            name="name"
-            defaultValue={guestName ?? ''}
-            required
-            className="flex-1 rounded border px-2 py-1"
-            aria-label="名前"
-            placeholder="名前"
-            autoComplete="nickname"
-          />
-          <button type="submit" className="rounded border px-4 py-2">
-            決める
-          </button>
-        </form>
-      )}
-      {blocked && <p>この配信者のチャンネルではコメントできません</p>}
-      {writer && !blocked && !editingGuestName && (
-        <form action={post} className="flex gap-2">
-          <input
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            maxLength={COMMENT_MAX * 2}
-            className="flex-1 rounded border px-2 py-1"
-            aria-label="コメント"
-          />
-          <button type="submit" className="rounded border px-4 py-2">
-            送信
-          </button>
-        </form>
-      )}
-      {guest && guestName !== null && !editingGuestName && (
-        <p className="text-sm">
-          名前：{guestName}{' '}
-          <button type="button" className="underline" onClick={() => setEditingGuestName(true)}>
-            変える
-          </button>
-        </p>
-      )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex shrink-0 flex-col gap-2 border-t border-line p-3">
+        {viewer === 'signed-out' && !guestComments && (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-sm">コメントするにはログインしてください</p>
+            <SignInButton />
+          </div>
+        )}
+        {viewer === 'no-name' && <DisplayNameForm name={null} />}
+        {guest && (guestName === null || editingGuestName) && (
+          <form action={decideGuestName} className="flex gap-2">
+            <input
+              name="name"
+              defaultValue={guestName ?? ''}
+              required
+              className={`flex-1 ${ui.input}`}
+              aria-label="名前"
+              placeholder="名前"
+              autoComplete="nickname"
+            />
+            <button type="submit" className={ui.tonalButton}>
+              決める
+            </button>
+          </form>
+        )}
+        {blocked && <p className="text-sm">この配信者のチャンネルではコメントできません</p>}
+        {writer && !blocked && !editingGuestName && (
+          <form action={post} className="flex gap-2">
+            <input
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              maxLength={COMMENT_MAX * 2}
+              className={`flex-1 ${ui.input}`}
+              aria-label="コメント"
+            />
+            <button type="submit" className={ui.tonalButton}>
+              送信
+            </button>
+          </form>
+        )}
+        {guest && guestName !== null && !editingGuestName && (
+          <p className={ui.note}>
+            名前：{guestName}{' '}
+            <button
+              type="button"
+              className={ui.textButton}
+              onClick={() => setEditingGuestName(true)}
+            >
+              変える
+            </button>
+          </p>
+        )}
+        {error && <p className={ui.error}>{error}</p>}
+      </div>
     </section>
   );
 }

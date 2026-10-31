@@ -1,20 +1,45 @@
 @import 'tailwindcss';
 
+/*
+ * 色は YouTube に合わせる（手本。CLAUDE.md の Design rules）。明るさは端末の設定に従う。
+ * 部品では色の名前（bg-surface など）だけを使い、色の値や Tailwind の色（gray-500 など）を書かない
+ */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f0f0f;
+  --muted: #606060;
+  --surface: #f2f2f2;
+  --surface-hover: #e5e5e5;
+  --line: #e5e5e5;
+  --accent: #065fd4;
+  --live: #cc0000;
+  --danger: #cc0000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0f0f0f;
+    --foreground: #f1f1f1;
+    --muted: #aaaaaa;
+    --surface: #272727;
+    --surface-hover: #3f3f3f;
+    --line: #3f3f3f;
+    --accent: #3ea6ff;
+    --live: #cc0000;
+    --danger: #ff4e45;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-live: var(--live);
+  --color-danger: var(--danger);
 }
 
 body {

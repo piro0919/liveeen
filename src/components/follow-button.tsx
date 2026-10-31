@@ -3,6 +3,7 @@
 import { useOptimistic, useTransition } from 'react';
 import { setFollowingAction } from '@/app/[channelId]/actions';
 import { signIn } from '@/lib/auth-client';
+import { ui } from '@/lib/ui';
 
 type Props = {
   channelId: string;
@@ -18,7 +19,8 @@ export function FollowButton({ channelId, following }: Props) {
   return (
     <button
       type="button"
-      className="self-start rounded border px-4 py-2"
+      // フォロー中は控えめな形にする（YouTube の「チャンネル登録」と「登録済み」）
+      className={shown ? ui.tonalButton : ui.primaryButton}
       disabled={saving}
       aria-pressed={shown}
       onClick={() => {

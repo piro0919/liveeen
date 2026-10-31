@@ -2,6 +2,7 @@
 
 import { useOptimistic, useTransition } from 'react';
 import { setGuestCommentsAction } from '@/app/broadcast/actions';
+import { ui } from '@/lib/ui';
 
 /**
  * ログインしていない人がコメントを書けるか。選んだその場で保存する。
@@ -13,10 +14,11 @@ export function GuestCommentsChoice({ allowed }: { allowed: boolean }) {
   const [shown, setShown] = useOptimistic(allowed);
   return (
     <fieldset className="flex flex-col gap-1" disabled={saving}>
-      <legend className="font-bold">コメント</legend>
+      <legend className={`mb-1 ${ui.subheading}`}>コメント</legend>
       <label className="flex items-center gap-2">
         <input
           type="checkbox"
+          className={ui.check}
           checked={shown}
           onChange={(event) => {
             const next = event.target.checked;

@@ -3,6 +3,7 @@
 import { useOptimistic, useTransition } from 'react';
 import { setLatencyModeAction } from '@/app/broadcast/actions';
 import type { LatencyMode } from '@/lib/latency';
+import { ui } from '@/lib/ui';
 
 const OPTIONS: { mode: LatencyMode; label: string }[] = [
   { mode: 'hls', label: '遅れるが軽い（HLS）' },
@@ -16,11 +17,12 @@ export function LatencyChoice({ mode }: { mode: LatencyMode }) {
   const [shown, setShown] = useOptimistic(mode);
   return (
     <fieldset className="flex flex-col gap-1" disabled={saving}>
-      <legend className="font-bold">遅延</legend>
+      <legend className={`mb-1 ${ui.subheading}`}>遅延</legend>
       {OPTIONS.map((option) => (
         <label key={option.mode} className="flex items-center gap-2">
           <input
             type="radio"
+            className={ui.check}
             name="latency"
             value={option.mode}
             checked={shown === option.mode}

@@ -3,16 +3,20 @@ import { db } from './db';
 import type { LatencyMode } from './latency';
 import { hashStreamKey, newChannelId, newStreamKey } from './stream-key';
 
-/** handle は配信者のハンドル（db/migrations/0012_handle.sql）。まだ選んでいなければ null */
+/**
+ * handle は配信者のハンドル（db/migrations/0012_handle.sql）、displayName は配信者の名前。
+ * まだ選んでいなければ null
+ */
 export type Channel = {
   id: string;
   latencyMode: LatencyMode;
   guestComments: boolean;
   handle: string | null;
+  displayName: string | null;
 };
 
 const SELECT_CHANNEL = `select channel.id, channel.latency_mode as "latencyMode",
-  channel.guest_comments as "guestComments", profile.handle
+  channel.guest_comments as "guestComments", profile.handle, profile.display_name as "displayName"
   from channel left join profile on profile.user_id = channel.user_id`;
 
 /** その人のチャンネル。まだ作っていなければ null */

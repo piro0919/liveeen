@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { browserPublishTokenAction, publishingAction } from '@/app/broadcast/actions';
 import { captureCamera, publishWhip, type WhipSession } from '@/lib/whip';
+import { ui } from '@/lib/ui';
 
 type Status = 'idle' | 'starting' | 'live' | 'error';
 
@@ -53,15 +54,21 @@ export function BrowserPublisher({ whipUrl }: { whipUrl: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <video ref={video} autoPlay muted playsInline className="aspect-video w-full bg-black" />
+      <video
+        ref={video}
+        autoPlay
+        muted
+        playsInline
+        className="aspect-video w-full rounded-xl bg-black"
+      />
       {status === 'live' ? (
-        <button type="button" className="rounded border px-4 py-2" onClick={() => void stop()}>
+        <button type="button" className={ui.primaryButton} onClick={() => void stop()}>
           配信を終える
         </button>
       ) : (
         <button
           type="button"
-          className="rounded border px-4 py-2"
+          className={ui.primaryButton}
           disabled={status === 'starting'}
           onClick={() => void start()}
         >

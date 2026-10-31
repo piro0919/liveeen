@@ -9,6 +9,7 @@ import { channelOf } from '@/lib/channels';
 import { displayNameOf, handleOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
+import { ui } from '@/lib/ui';
 
 export const metadata: Metadata = { title: '配信する | Liveeen' };
 
@@ -22,12 +23,16 @@ export default async function BroadcastPage() {
   const displayName = userId ? await displayNameOf(userId) : null;
   const handle = userId ? await handleOf(userId) : null;
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
-      <h1 className="text-xl font-bold">配信する</h1>
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:px-6">
+      <h1 className={ui.heading}>配信する</h1>
       {userId && !displayName ? (
-        <DisplayNameForm name={null} />
+        <div className={ui.card}>
+          <DisplayNameForm name={null} />
+        </div>
       ) : userId && !handle ? (
-        <HandleForm handle={null} />
+        <div className={ui.card}>
+          <HandleForm handle={null} />
+        </div>
       ) : userId ? (
         <>
           <BroadcastSetup

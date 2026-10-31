@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { Comments } from '@/components/comments';
 import { FollowButton } from '@/components/follow-button';
-import { Player } from '@/components/player';
+import { Avatar } from '@/components/avatar';
+import { Player, PlayerMessage } from '@/components/player';
 import { ReportButton } from '@/components/report-button';
 import { channelByHandle, channelById, channelOf } from '@/lib/channels';
 import { isFollowing } from '@/lib/follows';
@@ -12,6 +13,7 @@ import { displayNameOf } from '@/lib/profiles';
 import { hasReported } from '@/lib/reports';
 import { currentUserId } from '@/lib/session';
 import { viewingCapReached } from '@/lib/transfer';
+import { ui } from '@/lib/ui';
 import { env } from '@/env';
 
 export const metadata: Metadata = { title: 'Liveeen' };
@@ -36,31 +38,49 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
   const reported = userId ? (live ? await hasReported(userId, live) : false) : null;
   // 上限に届くと配信サーバーが視聴を断るので、つなぎに行かずに理由を出す
   const capReached = await viewingCapReached();
+  const name = channel.displayName ?? channel.id;
+  // 手本は YouTube の視聴画面：左に映像と配信者、右にコメント。狭い画面では縦に並べる
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4">
-      {capReached ? (
-        <p>今月の視聴の上限に達したため、いまは見られません</p>
-      ) : (
-        <Player
-          channelId={channel.id}
-          latencyMode={channel.latencyMode}
-          hlsUrl={env.NEXT_PUBLIC_MEDIA_HLS_URL}
-          webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
-        />
-      )}
-      {!own && (
-        <div className="flex flex-wrap items-center gap-2">
-          <FollowButton channelId={channel.id} following={following} />
-          <ReportButton channelId={channel.id} reported={reported} />
+    <main className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row">
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        {capReached ? (
+          <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
+            <PlayerMessage>今月の視聴の上限に達したため、いまは見られません</PlayerMessage>
+          </div>
+        ) : (
+          <Player
+            channelId={channel.id}
+            latencyMode={channel.latencyMode}
+            hlsUrl={env.NEXT_PUBLIC_MEDIA_HLS_URL}
+            webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
+          />
+        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <Avatar name={name} size="lg" />
+          <div className="flex min-w-0 flex-col">
+            <h1 className="truncate font-bold">{name}</h1>
+            {channel.handle && <span className={ui.note}>@{channel.handle}</span>}
+          </div>
+          {!own && <FollowButton channelId={channel.id} following={following} />}
+          {!own && (
+            <div className="ml-auto">
+              <ReportButton channelId={channel.id} reported={reported} />
+            </div>
+          )}
         </div>
-      )}
-      <Comments
-        channelId={channel.id}
-        relayUrl={env.NEXT_PUBLIC_COMMENT_RELAY_URL}
-        viewer={viewer}
-        guestComments={channel.guestComments}
-        own={own}
-      />
+      </div>
+      {/* 広い画面では、コメントの枠を左の列（映像と配信者）と同じ高さにする。中身の多さで伸びないように、中は枠いっぱいに置く */}
+      <aside className="relative h-128 lg:h-auto lg:w-100 lg:shrink-0">
+        <div className="absolute inset-0 flex flex-col">
+          <Comments
+            channelId={channel.id}
+            relayUrl={env.NEXT_PUBLIC_COMMENT_RELAY_URL}
+            viewer={viewer}
+            guestComments={channel.guestComments}
+            own={own}
+          />
+        </div>
+      </aside>
     </main>
   );
 }

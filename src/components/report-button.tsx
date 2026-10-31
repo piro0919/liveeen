@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { reportAction } from '@/app/[channelId]/actions';
 import { signIn } from '@/lib/auth-client';
 import { REPORT_REASONS } from '@/lib/report-reason';
+import { ui } from '@/lib/ui';
 
 type Props = {
   channelId: string;
@@ -33,9 +34,9 @@ export function ReportButton({ channelId, reported }: Props) {
 
   if (choosing) {
     return (
-      <form action={send} className="flex flex-col gap-2 rounded border p-2">
+      <form action={send} className={`flex flex-col gap-3 p-4 ${ui.panel}`}>
         <fieldset className="flex flex-col gap-1" disabled={sending}>
-          <legend className="font-bold">通報の理由</legend>
+          <legend className="mb-2 font-bold">通報の理由</legend>
           {REPORT_REASONS.map((reason) => (
             <label key={reason.value} className="flex items-center gap-2">
               <input type="radio" name="reason" value={reason.value} required />
@@ -43,13 +44,13 @@ export function ReportButton({ channelId, reported }: Props) {
             </label>
           ))}
         </fieldset>
-        <div className="flex gap-2">
-          <button type="submit" className="rounded border px-4 py-2" disabled={sending}>
+        <div className="flex justify-end gap-2">
+          <button type="submit" className={ui.primaryButton} disabled={sending}>
             通報する
           </button>
           <button
             type="button"
-            className="rounded border px-4 py-2"
+            className={ui.tonalButton}
             disabled={sending}
             onClick={() => setChoosing(false)}
           >
@@ -64,7 +65,7 @@ export function ReportButton({ channelId, reported }: Props) {
     <div className="flex items-center gap-2">
       <button
         type="button"
-        className="rounded border px-4 py-2"
+        className={ui.tonalButton}
         disabled={done}
         onClick={() => {
           if (reported === null) {
@@ -77,7 +78,7 @@ export function ReportButton({ channelId, reported }: Props) {
       >
         {done ? '通報しました' : '通報する'}
       </button>
-      {message && <p className="text-sm">{message}</p>}
+      {message && <p className={ui.error}>{message}</p>}
     </div>
   );
 }

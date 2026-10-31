@@ -84,10 +84,21 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Read passes for anyone (watching needs no sign-in) until the monthly cap is reached (see the monthly cap)
 - Checked locally on 2026-10-30 with ffmpeg over RTMP: wrong key and no key get 401, the right key publishes
 
+## Design rules
+
+- The model is **YouTube** (the owner on 2026-10-31: not TwitCasting, otherwise left to Claude, "simple is fine"; Claude picked YouTube over Twitch as the simpler one and looked at youtube.com's live page and a live watch page signed out). The owner said 「ok」 to the top page and watch page built from it
+- Colors are YouTube's light and dark values, as named tokens in `src/app/globals.css` (`background`, `foreground`, `muted`, `surface`, `surface-hover`, `line`, `accent`, `live`, `danger`). Light or dark follows the device. Components use the token names only, never hex values or Tailwind's palette
+- Buttons, inputs, cards, headings and notes come from `src/lib/ui.ts`: pill buttons (`primaryButton` black like チャンネル登録, `tonalButton` grey like 登録済み, `signInButton` outlined blue like YouTube's ログイン), `card` for a group on `/broadcast`, `/settings` and `/admin`
+- `test/design-rules.test.ts` fails on hex colors, Tailwind palette colors, `rounded-full` outside `ui.ts` and the avatar, and the old `rounded border px-` buttons. Each check was seen failing on a planted line
+- Every page has the header (`src/components/site-header.tsx`): Liveeen on the left; signed out, ログイン on the right; signed in, 配信する (where YouTube has 作成) and the person's mark linking to `/settings`. There is no sign-out yet
+- A person's mark is the first character of their display name in a circle (`src/components/avatar.tsx`), not the Google photo, which can show a face or real name (Claude's call)
+- The top page shows 16:9 cards with a red ライブ tag, the mark, the name and the start time. There are no stream thumbnails (MediaMTX does not make images), so the card shows the name's first character large
+- The watch page puts the player and the streamer row (mark, name, @handle, フォローする, 通報する at the right) on the left and the comments panel on the right at the same height; on narrow screens they stack. Not-live and over-the-cap messages show in the middle of the black player. On a phone width 通報する wraps to its own line
+
 ## The broadcast screen (`/broadcast`)
 
 - Sign in → declare 18+ (checkbox) → the channel is created and the key shown → OBS settings (RTMP and WHIP) and browser streaming
-- The UI is plain and has not been shown to the owner. Wording and layout are provisional
+- Wording is provisional. Each part is a card (see Design rules)
 - Google sign-in: Google Cloud project `liveeen` (made 2026-10-31, billing account kk-web attached by default), OAuth client `liveeen-web`, redirect URIs `https://liveeen.kkweb.io/api/auth/callback/google` and `http://localhost:3000/api/auth/callback/google`. The consent screen is External and still **in testing**: only test users can sign in (now `piro.haniwa@gmail.com`). Publishing it needs a privacy policy URL, and the site has no privacy policy page. The client secret is in this Mac's Keychain as `liveeen-google-client-secret`; the first secret was disabled because it showed up in a session log. `.env.local` still has placeholder Google ids; local checks used a session row and a hand-signed `better-auth.session_token` cookie
 - Browser streaming asks for H264 Constrained Baseline (`42e01f`) first. With Chrome's first H264 entry (Baseline `42001f`), Chrome on this Mac encoded about 10 frames with VideoToolbox and stopped; `42e01f` and High `640034` kept going. Without any preference Chrome sends VP8, which HLS cannot carry
 - Checked 2026-10-30 in Chrome (window off screen, fake camera): create channel → stream → MediaMTX has Opus + H264 → HLS plays → stop removes the stream. HLS showed 640×360 that time although the camera gave 1280×720. Measured again 2026-10-31 (fake camera, stats every 5 s for 40 s): Chrome sends 640×360 for the first ~5 s with `qualityLimitationReason: bandwidth` while it is still estimating the bandwidth, then 1280×720 with no limitation for the rest. This is WebRTC's normal start, so nothing was changed. Not checked with a real camera, Safari, or a phone
@@ -103,7 +114,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 ## The top page (`/`)
 
-- Lists the channels that are live now, newest first, each linking to `/<channel id>`. The label is the streamer's display name (the channel id for channels made before names existed) and the start time in Japan time
+- Lists the channels that are live now, newest first, as cards (see Design rules), each linking to `/@<handle>`. The label is the streamer's display name (the channel id for channels made before names existed) and the start time in Japan time
 - Whether a channel is live comes from MediaMTX's API (`GET /v3/paths/list`, `ready: true`) on every request (`src/lib/live.ts`, `MEDIA_API_URL`), not from a table. Claude's call: it cannot drift from what is really streaming. Paths that are not registered channels are dropped
 - If MediaMTX does not answer within 3 s, the page shows the empty list (いま配信している人はいません)
 - In production the web app on Vercel reaches MediaMTX's API through Caddy, which asks for `MEDIA_API_SECRET` as a Bearer token (see the production media server). Locally `authHTTPExclude` lets the API through and no secret is needed

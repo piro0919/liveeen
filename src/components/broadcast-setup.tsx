@@ -8,6 +8,7 @@ import { channelPath } from '@/lib/handle';
 import { BrowserPublisher } from './browser-publisher';
 import { GuestCommentsChoice } from './guest-comments-choice';
 import { LatencyChoice } from './latency-choice';
+import { ui } from '@/lib/ui';
 
 const NO_KEY: KeyState = { key: null };
 
@@ -29,12 +30,12 @@ export function BroadcastSetup({ channel, rtmpUrl, webrtcUrl }: Props) {
 
   if (!channel) {
     return (
-      <form action={create} className="flex flex-col gap-4">
+      <form action={create} className={ui.card}>
         <label className="flex items-center gap-2">
-          <input type="checkbox" name="adult" value="yes" required />
+          <input type="checkbox" className={ui.check} name="adult" value="yes" required />
           18歳以上です
         </label>
-        <button type="submit" className="rounded border px-4 py-2" disabled={creating}>
+        <button type="submit" className={ui.primaryButton} disabled={creating}>
           チャンネルを作る
         </button>
       </form>
@@ -44,21 +45,27 @@ export function BroadcastSetup({ channel, rtmpUrl, webrtcUrl }: Props) {
   const channelId = channel.id;
   const whipUrl = `${webrtcUrl}/${channelId}/whip`;
   return (
-    <div className="flex flex-col gap-8">
-      <p>
-        配信の住所：
-        <Link href={channelPath(channel)} className="underline">
-          {channelPath(channel)}
-        </Link>
-      </p>
-      <LatencyChoice mode={channel.latencyMode} />
-      <GuestCommentsChoice allowed={channel.guestComments} />
-      <section className="flex flex-col gap-2">
-        <h2 className="font-bold">ブラウザで配信</h2>
+    <div className="flex flex-col gap-4">
+      <div className={ui.card}>
+        <p>
+          配信の住所：
+          <Link href={channelPath(channel)} className={ui.link}>
+            {channelPath(channel)}
+          </Link>
+        </p>
+      </div>
+      <div className={ui.card}>
+        <LatencyChoice mode={channel.latencyMode} />
+      </div>
+      <div className={ui.card}>
+        <GuestCommentsChoice allowed={channel.guestComments} />
+      </div>
+      <section className={ui.card}>
+        <h2 className={ui.subheading}>ブラウザで配信</h2>
         <BrowserPublisher whipUrl={whipUrl} />
       </section>
-      <section className="flex flex-col gap-2">
-        <h2 className="font-bold">OBS で配信</h2>
+      <section className={ui.card}>
+        <h2 className={ui.subheading}>OBS で配信</h2>
         {channel.latencyMode === 'low' && (
           // RTMP の AAC は WebRTC に載らず、B フレーム入りの H264 は MediaMTX が WebRTC に出さない。
           // OBS の WHIP は Opus で送り、B フレームを 0 にする（obs-studio の plugins/obs-webrtc/whip-service.cpp）
@@ -81,7 +88,7 @@ export function BroadcastSetup({ channel, rtmpUrl, webrtcUrl }: Props) {
         </dl>
         <p>鍵は作ったときにだけ表示します。分からなくなったら作り直してください。</p>
         <form action={resetKey}>
-          <button type="submit" className="rounded border px-4 py-2" disabled={resetting}>
+          <button type="submit" className={ui.primaryButton} disabled={resetting}>
             鍵を作り直す
           </button>
         </form>

@@ -3,6 +3,7 @@
 import { useOptimistic, useTransition } from 'react';
 import { setEmailsLiveStartedAction, setListsFollowedOnTopAction } from '@/app/settings/actions';
 import { BrowserPushChoice } from './browser-push-choice';
+import { ui } from '@/lib/ui';
 
 /** 選んだその場で保存する切り替え。保存が終わるのを待たずに、押したほうへ印を動かす */
 function SavedCheckbox({
@@ -20,6 +21,7 @@ function SavedCheckbox({
     <label className="flex items-center gap-2">
       <input
         type="checkbox"
+        className={ui.check}
         checked={shown}
         disabled={saving}
         onChange={(event) => {
@@ -52,7 +54,7 @@ export function FollowNoticeChoice({
 }) {
   return (
     <fieldset className="flex flex-col gap-1">
-      <legend className="font-bold">フォローした人の配信</legend>
+      <legend className={`mb-1 ${ui.subheading}`}>フォローした人の配信</legend>
       <SavedCheckbox
         checked={listOnTop}
         save={setListsFollowedOnTopAction}

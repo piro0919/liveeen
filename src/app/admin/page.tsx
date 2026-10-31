@@ -9,6 +9,7 @@ import { channelPath } from '@/lib/handle';
 import { liveRegisteredChannels } from '@/lib/live';
 import { reasonSummary } from '@/lib/report-reason';
 import { reportReasonsOf, reportersOf } from '@/lib/reports';
+import { ui } from '@/lib/ui';
 
 export const metadata: Metadata = { title: '管理 | Liveeen' };
 
@@ -36,10 +37,10 @@ export default async function AdminPage() {
   const byReports = [...live].sort((a, b) => countOf(b) - countOf(a));
   const banned = await bannedChannels();
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4">
-      <h1 className="text-xl font-bold">管理</h1>
-      <section className="flex flex-col gap-2">
-        <h2 className="font-bold">配信中</h2>
+    <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6">
+      <h1 className={ui.heading}>管理</h1>
+      <section className={ui.card}>
+        <h2 className={ui.subheading}>配信中</h2>
         {byReports.length === 0 ? (
           <p>いま配信している人はいません</p>
         ) : (
@@ -48,11 +49,11 @@ export default async function AdminPage() {
               <li key={channel.channelId} className="flex flex-wrap items-center gap-2">
                 <Link
                   href={channelPath({ id: channel.channelId, handle: channel.handle })}
-                  className="underline"
+                  className={ui.link}
                 >
                   {channel.displayName ?? channel.channelId}
                 </Link>
-                <span className="text-sm text-gray-500">
+                <span className={ui.note}>
                   {timeFormat.format(channel.startedAt)} から ・ 通報 {countOf(channel)}
                   {reasonsOf(channel) && `（${reasonsOf(channel)}）`}
                   {countOf(channel) >= DELIST_THRESHOLD && '（一覧から外した）'}
@@ -72,20 +73,18 @@ export default async function AdminPage() {
           </ul>
         )}
       </section>
-      <section className="flex flex-col gap-2">
-        <h2 className="font-bold">止めた配信者</h2>
+      <section className={ui.card}>
+        <h2 className={ui.subheading}>止めた配信者</h2>
         {banned.length === 0 ? (
           <p>いません</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {banned.map((channel) => (
               <li key={channel.id} className="flex flex-wrap items-center gap-2">
-                <Link href={channelPath(channel)} className="underline">
+                <Link href={channelPath(channel)} className={ui.link}>
                   {channel.displayName ?? channel.id}
                 </Link>
-                <span className="text-sm text-gray-500">
-                  {timeFormat.format(channel.bannedAt)} に止めた
-                </span>
+                <span className={ui.note}>{timeFormat.format(channel.bannedAt)} に止めた</span>
                 <ConfirmButton
                   label="戻す"
                   confirm="この配信者を戻しますか。また配信できるようになります"

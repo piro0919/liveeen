@@ -6,6 +6,7 @@ import {
   hasPushSubscriptionAction,
   savePushSubscriptionAction,
 } from '@/app/settings/actions';
+import { ui } from '@/lib/ui';
 
 /** 受け取る service worker（public/sw.js） */
 const SERVICE_WORKER_URL = '/sw.js';
@@ -93,6 +94,7 @@ export function BrowserPushChoice({ publicKey }: { publicKey: string }) {
     <label className="flex items-center gap-2">
       <input
         type="checkbox"
+        className={ui.check}
         checked={state === 'on'}
         disabled={state === 'loading' || saving}
         onChange={(event) => {

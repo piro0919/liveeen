@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import { ui } from '@/lib/ui';
 
 type Props = {
   label: string;
@@ -15,7 +16,7 @@ export function ConfirmButton({ label, confirm, action }: Props) {
   return (
     <button
       type="button"
-      className="rounded border px-3 py-1"
+      className={ui.tonalButton}
       disabled={running}
       onClick={() => {
         if (window.confirm(confirm)) startTransition(action);

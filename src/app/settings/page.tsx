@@ -8,6 +8,7 @@ import { emailsLiveStarted, listsFollowedOnTop } from '@/lib/follows';
 import { displayNameOf, handleOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
+import { ui } from '@/lib/ui';
 
 export const metadata: Metadata = { title: '設定 | Liveeen' };
 
@@ -16,18 +17,26 @@ export default async function SettingsPage() {
   const userId = await currentUserId();
   const handle = userId ? await handleOf(userId) : null;
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
-      <h1 className="text-xl font-bold">設定</h1>
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:px-6">
+      <h1 className={ui.heading}>設定</h1>
       {userId ? (
         <>
-          <DisplayNameForm name={await displayNameOf(userId)} />
-          {handle && <HandleForm handle={handle} />}
-          <FollowNoticeChoice
-            listOnTop={await listsFollowedOnTop(userId)}
-            email={await emailsLiveStarted(userId)}
-            emailEnabled={emailEnabled()}
-            pushPublicKey={env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}
-          />
+          <div className={ui.card}>
+            <DisplayNameForm name={await displayNameOf(userId)} />
+          </div>
+          {handle && (
+            <div className={ui.card}>
+              <HandleForm handle={handle} />
+            </div>
+          )}
+          <div className={ui.card}>
+            <FollowNoticeChoice
+              listOnTop={await listsFollowedOnTop(userId)}
+              email={await emailsLiveStarted(userId)}
+              emailEnabled={emailEnabled()}
+              pushPublicKey={env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+            />
+          </div>
         </>
       ) : (
         <SignInButton />
