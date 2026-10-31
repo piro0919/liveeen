@@ -34,7 +34,7 @@ export function ReportButton({ channelId, reported }: Props) {
 
   if (choosing) {
     return (
-      <form action={send} className={`flex flex-col gap-3 p-4 ${ui.panel}`}>
+      <form action={send} className={`flex basis-full flex-col gap-3 p-4 ${ui.panel}`}>
         <fieldset className="flex flex-col gap-1" disabled={sending}>
           <legend className="mb-2 font-bold">通報の理由</legend>
           {REPORT_REASONS.map((reason) => (
@@ -68,7 +68,7 @@ export function ReportButton({ channelId, reported }: Props) {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex shrink-0 items-center gap-2">
       <button
         type="button"
         className={ui.tonalButton}

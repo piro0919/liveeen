@@ -55,18 +55,17 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
             webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
           />
         )}
+        {/* スマホの幅でも1行に収める。名前とフォローの組が残りの幅を取り、名前は入りきらなければ省く。通報の理由を選ぶ欄だけが次の行に出る */}
         <div className="flex flex-wrap items-center gap-3">
           <Avatar name={name} size="lg" />
-          <div className="flex min-w-0 flex-col">
-            <h1 className="truncate font-bold">{name}</h1>
-            {channel.handle && <span className={ui.note}>@{channel.handle}</span>}
-          </div>
-          {!own && <FollowButton channelId={channel.id} following={following} />}
-          {!own && (
-            <div className="ml-auto">
-              <ReportButton channelId={channel.id} reported={reported} />
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex min-w-0 flex-col">
+              <h1 className="truncate font-bold">{name}</h1>
+              {channel.handle && <span className={`truncate ${ui.note}`}>@{channel.handle}</span>}
             </div>
-          )}
+            {!own && <FollowButton channelId={channel.id} following={following} />}
+          </div>
+          {!own && <ReportButton channelId={channel.id} reported={reported} />}
         </div>
       </div>
       {/* 広い画面では、コメントの枠を左の列（映像と配信者）と同じ高さにする。中身の多さで伸びないように、中は枠いっぱいに置く */}
