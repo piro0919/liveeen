@@ -10,6 +10,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
+      # 公式の image は mediamtx 本体だけで認証局の一覧を持たず、サイト（HTTPS）への確認が x509 で落ちるため、サーバーの一覧を渡す
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
     environment:
       MTX_AUTHHTTPADDRESS: ${SITE_URL}/api/media/auth
       MTX_WEBRTCADDITIONALHOSTS: ${MEDIA_HOST}
