@@ -29,7 +29,8 @@ const channelOfSegment = cache(async (segment: string) => {
 export async function generateMetadata({ params }: PageProps<'/[channelId]'>): Promise<Metadata> {
   const channel = await channelOfSegment((await params).channelId);
   if (!channel) return { title: 'Liveeen' };
-  // 共有したときのカードの題も、ここから Next.js が作る。openGraph を書くと全体の画像（src/app/opengraph-image.png）が外れる
+  // 共有したときのカードの題も、ここから Next.js が作る。画像は同じフォルダの opengraph-image.tsx。
+  // openGraph を書くと、その画像が外れる
   return { title: `${channel.title ?? channel.displayName ?? channel.id} | Liveeen` };
 }
 

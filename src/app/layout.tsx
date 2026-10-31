@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import { Unbounded } from 'next/font/google';
+import { ExternalBrowser } from '@/components/external-browser';
+import { PageAnalytics } from '@/components/page-analytics';
+import { Progress } from '@/components/progress';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { env } from '@/env';
@@ -22,9 +25,13 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="ja" className={`h-full antialiased ${unbounded.variable}`}>
       <body className="flex min-h-full flex-col">
-        <SiteHeader />
-        {children}
-        <SiteFooter />
+        <Progress>
+          <SiteHeader />
+          {children}
+          <SiteFooter />
+        </Progress>
+        <PageAnalytics />
+        <ExternalBrowser />
       </body>
     </html>
   );

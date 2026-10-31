@@ -1,0 +1,97 @@
+# 手元のフック（lefthook）と同じ確かめをかける（onigiri・vocafy と同じ形）。
+# main には直接 push するので、push でも回す（プルリクエストだけだと一度も走らない）。
+# 依存の更新（Renovate）の PR は手元を通らないので、ここが唯一の確かめ
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      db:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: liveeen
+          POSTGRES_PASSWORD: liveeen
+          POSTGRES_DB: liveeen
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U liveeen" --health-interval 2s --health-retries 30
+    env:
+      DATABASE_URL: postgres://liveeen:liveeen@localhost:5435/liveeen
+      # src/env.ts が欠けるとビルドの頭で止める値。ビルドが通るかだけを見るので、手元の compose.yaml の住所でよい
+      MEDIA_API_URL: http://localhost:9997
+      NEXT_PUBLIC_MEDIA_RTMP_URL: rtmp://localhost:1935
+      NEXT_PUBLIC_MEDIA_WEBRTC_URL: http://localhost:8889
+      NEXT_PUBLIC_MEDIA_HLS_URL: http://localhost:8888
+      NEXT_PUBLIC_COMMENT_RELAY_URL: ws://localhost:8090
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # 下の移行の確かめで、push の前のコミットと比べる
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # 手元のフック（.squawk.toml と .lefthook/pre-commit/migrations.sh）と同じ確かめ。フックを通らなかったコミット
+      # （--no-verify）も、ここで止める。比べる元は、プルリクエストなら元のブランチ、push なら push の前の先頭
+      - name: 移行（書き換え・消すのを止め、足したものに squawk）
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "比べる元のコミットが無いので飛ばす"
+            exit 0
+          fi
+          changed=$(git diff --name-only --diff-filter=MDR "$BASE" HEAD -- 'db/migrations/*.sql')
+          if [ -n "$changed" ]; then
+            echo "::error::コミット済みの移行を書き換えるか消しています。直すなら新しい番号のファイルを足す"
+            echo "$changed"
+            exit 1
+          fi
+          added=$(git diff --name-only --diff-filter=A "$BASE" HEAD -- 'db/migrations/*.sql')
+          if [ -n "$added" ]; then
+            echo "$added" | xargs pnpm exec squawk
+          fi
+
+      - run: pnpm typecheck
+
+      - run: pnpm lint
+
+      - run: pnpm format:check
+
+      - run: pnpm secretlint
+
+      # 使われていないファイル・エクスポート・パッケージ
+      - run: pnpm knip
+
+      # db/migrations/ が空の DB に頭から当たるか
+      - run: pnpm migrate
+
+      - run: pnpm test
+
+      - run: pnpm build
+
+      # 配信サーバーに載せるコメントの中継が一つのファイルにまとまるか（deploy/relay.Dockerfile と同じ手順）
+      - run: pnpm relay:build

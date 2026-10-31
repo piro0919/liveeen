@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { refresh } from 'next/cache';
 import { avatarOf } from '@/lib/avatars';
 import { blockCommenter, commenterBlocked } from '@/lib/blocks';
+import { isBot } from '@/lib/bot';
 import { channelOf } from '@/lib/channels';
 import { type Comment, guestId, isGuestId } from '@/lib/comment';
 import { commandRelay } from '@/lib/comment-removal';
@@ -134,6 +135,8 @@ export async function commentTokenAction(
   if (await commenterBlocked(channelId, null, ipKey)) {
     return { token: null, blocked: true, notice: null };
   }
+  // ログインなしで名前を変えて何度でも札を取れるので、ボットには出さない（src/lib/bot.ts）
+  if (await isBot()) return READ_ONLY;
   // 未ログインの人には決まった id が無い。札ごとに振る
   const guest = {
     userId: guestId(randomUUID()),

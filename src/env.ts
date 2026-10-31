@@ -44,6 +44,8 @@ export const env = createEnv({
     AKAMAI_REGION: z.string().min(1).optional(),
     MEDIA_SERVER_FEE_USD: z.coerce.number().nonnegative().optional(),
     YEN_PER_USD: z.coerce.number().positive().optional(),
+    // サーバーで落ちたことを Sentry へ送る（src/lib/monitoring.ts）。無ければ送らない（手元と CI）
+    SENTRY_DSN: z.url().optional(),
   },
   client: {
     // 配信サーバー（MediaMTX）の住所。手元は compose.yaml
@@ -79,6 +81,7 @@ export const env = createEnv({
     AKAMAI_REGION: process.env.AKAMAI_REGION,
     MEDIA_SERVER_FEE_USD: process.env.MEDIA_SERVER_FEE_USD,
     YEN_PER_USD: process.env.YEN_PER_USD,
+    SENTRY_DSN: process.env.SENTRY_DSN,
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     NEXT_PUBLIC_BGM_URL: process.env.NEXT_PUBLIC_BGM_URL,
     NEXT_PUBLIC_COMMENT_RELAY_URL: process.env.NEXT_PUBLIC_COMMENT_RELAY_URL,

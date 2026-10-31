@@ -72,17 +72,23 @@ export default function PrivacyPage() {
         </p>
         <Items>
           <li>Google（ログイン）</li>
-          <li>Vercel（サイトの配信）</li>
+          <li>Vercel（サイトの配信、閲覧数の集計、ボットの判定）</li>
           <li>Neon（データベース。シンガポール）</li>
           <li>Akamai（配信サーバー。東京）</li>
           <li>Resend（メールの送信）</li>
+          <li>
+            Functional Software,
+            Inc.（Sentry。サーバーで起きたエラーの記録。米国。ページの住所とエラーの中身だけを送り、ログインの情報・IP・送った文は除きます）
+          </li>
           <li>ブラウザの通知の仕組みを持つ会社（Google、Apple、Mozilla など。通知を運ぶ）</li>
         </Items>
       </Article>
 
       <Article title="5. クッキーとアクセス解析">
         <p>
-          ログインを保つためのクッキーだけを使います。広告やアクセス解析の仕組みは使っていません。
+          ログインを保つためのクッキーだけを使います。広告の仕組みは使っていません。
+          どのページがどれだけ見られたかを数えるために、Vercel Web Analytics
+          を使っています。クッキーは使わず、送るのはページの住所（「?」から後ろは除く）と、端末やブラウザの種類などです。
         </p>
       </Article>
 
