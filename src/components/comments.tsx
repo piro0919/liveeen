@@ -13,6 +13,7 @@ import {
   type RelayMessage,
   TOKEN_EXPIRED,
 } from '@/lib/comment';
+import { CommentOutbox } from '@/lib/comment-outbox';
 import { COMMENT_TOKEN_TTL_MS } from '@/lib/comment-token';
 import { normalizeDisplayName } from '@/lib/display-name';
 import { ui } from '@/lib/ui';
@@ -102,6 +103,9 @@ export function Comments({
   const socket = useRef<WebSocket | null>(null);
   // 中継につながるまで送れない。押せるままだと、開いてすぐ送った分が黙って捨てられる
   const [connected, setConnected] = useState(false);
+  // 中継に届かず、つなぎ直しを待っている。黙って押せないままにしないために知らせる
+  const [unreachable, setUnreachable] = useState(false);
+  const outbox = useRef(new CommentOutbox());
   const list = useRef<HTMLOListElement>(null);
 
   const guest = viewer === 'signed-out' && guestComments;
@@ -112,10 +116,24 @@ export function Comments({
     let retry: ReturnType<typeof setTimeout> | undefined;
     let refresh: ReturnType<typeof setTimeout> | undefined;
 
+    /** 中継に戻された文を書く欄に戻す。その間に書き始めていれば、そちらを残す */
+    function restore(returned: string | null) {
+      if (returned !== null) setText((current) => (current === '' ? returned : current));
+    }
+
     async function connect() {
-      const result = writer
-        ? await commentTokenAction(channelId, viewer === 'ready' ? null : guestName)
-        : null;
+      let result: Awaited<ReturnType<typeof commentTokenAction>> | null = null;
+      try {
+        if (writer) {
+          result = await commentTokenAction(channelId, viewer === 'ready' ? null : guestName);
+        }
+      } catch {
+        // 札をもらえなかった。黙って押せないままにせず、知らせて待ってからやり直す
+        if (cancelled) return;
+        setUnreachable(true);
+        retry = setTimeout(() => void connect(), RETRY_MS);
+        return;
+      }
       if (cancelled) return;
       const token = result?.token ?? null;
       setBlocked(result?.blocked ?? false);
@@ -124,7 +142,10 @@ export function Comments({
       socket.current = ws;
       // 札なしのつなぎは読むだけで、送っても中継に断られる。札を持ってつながったときだけ送れる
       ws.onopen = () => {
-        if (socket.current === ws) setConnected(token !== null);
+        if (socket.current !== ws) return;
+        setConnected(token !== null);
+        setUnreachable(false);
+        if (token) outbox.current.opened(ws);
       };
       // 札を取り替えるために自分で閉じたか
       let refreshing = false;
@@ -134,8 +155,12 @@ export function Comments({
         else if (message.type === 'remove') {
           setComments((shown) => shown.filter((comment) => !message.ids.includes(comment.id)));
         } else if (message.type === 'comment') {
+          if (message.comment.mine) outbox.current.accepted(message.comment.text);
           setComments((shown) => [...shown, message.comment].slice(-SHOWN_MAX));
-        } else if (message.type === 'error') setError(message.message);
+        } else if (message.type === 'error') {
+          setError(message.message);
+          restore(outbox.current.refused());
+        }
       };
       ws.onclose = (event) => {
         clearTimeout(refresh);
@@ -144,9 +169,12 @@ export function Comments({
           setConnected(false);
         }
         if (cancelled) return;
+        // 送ったのに返事の来ないまま切れた文は、届いたか分からないので書く欄に戻す
+        restore(outbox.current.closed());
         // 札を取り替えるとき、札が切れたか、ブロックされて閉じられたときは、待たずに新しい札でつなぐ（止められていれば札は出ない）
         const wait =
           refreshing || event.code === TOKEN_EXPIRED || event.code === BLOCKED ? 0 : RETRY_MS;
+        if (wait > 0) setUnreachable(true);
         retry = setTimeout(() => void connect(), wait);
       };
       if (token) {
@@ -177,9 +205,13 @@ export function Comments({
   }, [comments]);
 
   function post() {
-    const ws = socket.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN || text.trim() === '') return;
-    ws.send(JSON.stringify({ text }));
+    if (text.trim() === '') return;
+    const result = outbox.current.post(socket.current, text);
+    if (result === 'invalid') {
+      setError(`コメントは${COMMENT_MAX}文字までです`);
+      return;
+    }
+    if (result === 'closed') return;
     setText('');
     setError(null);
   }
@@ -196,7 +228,8 @@ export function Comments({
       return;
     }
     await blockCommenterAction(channelId, author);
-    socket.current?.send(JSON.stringify({ block: author }));
+    // つなぎ直しの最中なら、つながったときに送る
+    outbox.current.block(socket.current, author);
   }
 
   /** コメントを通報する。運営が管理画面で見て、消すかを決める */
@@ -299,6 +332,7 @@ export function Comments({
             </button>
           </form>
         )}
+        {unreachable && <p className="text-sm">コメントにつながっていません。つなぎ直しています</p>}
         {blocked && <p className="text-sm">この配信者のチャンネルではコメントできません</p>}
         {writer && !blocked && !editingGuestName && (
           <form action={post} className="flex gap-2">
