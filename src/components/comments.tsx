@@ -100,6 +100,8 @@ export function Comments({
   // 通報したコメント。読み込み直しても「通報しました」のままにするため、サーバーから受け取った分から始める
   const [reported, setReported] = useState(() => new Set(reportedComments ?? []));
   const socket = useRef<WebSocket | null>(null);
+  // 中継につながるまで送れない。押せるままだと、開いてすぐ送った分が黙って捨てられる
+  const [connected, setConnected] = useState(false);
   const list = useRef<HTMLOListElement>(null);
 
   const guest = viewer === 'signed-out' && guestComments;
@@ -120,6 +122,9 @@ export function Comments({
       const query = token ? `?token=${encodeURIComponent(token)}` : '';
       const ws = new WebSocket(`${relayUrl}/${channelId}${query}`);
       socket.current = ws;
+      ws.onopen = () => {
+        if (socket.current === ws) setConnected(true);
+      };
       ws.onmessage = (event) => {
         const message = JSON.parse(String(event.data)) as RelayMessage;
         if (message.type === 'history') setComments(message.comments);
@@ -131,7 +136,10 @@ export function Comments({
       };
       ws.onclose = (event) => {
         clearTimeout(refresh);
-        if (socket.current === ws) socket.current = null;
+        if (socket.current === ws) {
+          socket.current = null;
+          setConnected(false);
+        }
         if (cancelled) return;
         // 札が切れたか、ブロックされて閉じられたときは、待たずに新しい札でつなぐ（止められていれば札は出ない）
         const wait = event.code === TOKEN_EXPIRED || event.code === BLOCKED ? 0 : RETRY_MS;
@@ -147,6 +155,7 @@ export function Comments({
       clearTimeout(refresh);
       socket.current?.close();
       socket.current = null;
+      setConnected(false);
     };
   }, [channelId, relayUrl, viewer, writer, guestName]);
 
@@ -290,7 +299,11 @@ export function Comments({
               aria-label="コメント"
               placeholder={overlay ? 'コメント' : undefined}
             />
-            <button type="submit" className={overlay ? ui.overlayButton : ui.tonalButton}>
+            <button
+              type="submit"
+              className={overlay ? ui.overlayButton : ui.tonalButton}
+              disabled={!connected}
+            >
               送信
             </button>
           </form>
