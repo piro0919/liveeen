@@ -55,6 +55,8 @@ export function BrowserPublisher({
   const mixer = useRef<BgmMixer | null>(null);
   // 曲の終わりに次の曲へ進むとき、いま流れている曲を描き直しを待たずに知るため、画面の値とは別に持つ
   const bgmPlaying = useRef<number | null>(null);
+  // 曲を流そうとした回の番号。素早く押し替えたとき、前の回の失敗で今の曲を止めない
+  const bgmAttempt = useRef(0);
   const [bgm, setBgm] = useState<number | null>(null);
   const [bgmVolume, setBgmVolume] = useState(DEFAULT_BGM_VOLUME);
   const [bgmOpen, setBgmOpen] = useState(false);
@@ -95,24 +97,49 @@ export function BrowserPublisher({
     return mixer.current;
   }
 
+  /**
+   * 送る音。曲を流している間だけ声に曲を重ねた音にし、それ以外はマイクの音をそのまま送る。
+   * BGM を使わない人の声を Web Audio に通さないため
+   */
+  function audioToSend(): MediaStreamTrack | undefined {
+    const voice = stream.current?.getAudioTracks()[0];
+    if (!voice) return undefined;
+    if (bgmPlaying.current !== null && mixer.current) return mixer.current.mix(voice);
+    mixer.current?.unmix();
+    return voice;
+  }
+
+  /** 配信中なら、送る音を今の曲の有無に合わせる */
+  function syncSentAudio() {
+    const track = audioToSend();
+    if (track && session.current) void session.current.replaceAudio(track).catch(() => undefined);
+  }
+
   function playBgm(index: number) {
     const track = BGM_TRACKS[index];
     if (!bgmUrl || !track) return;
     bgmPlaying.current = index;
+    const attempt = ++bgmAttempt.current;
     setBgm(index);
     ensureMixer()
       .play(bgmTrackUrl(bgmUrl, track.id))
+      .then(() => {
+        if (attempt === bgmAttempt.current) setError(null);
+      })
       .catch(() => {
-        if (bgmPlaying.current !== index) return;
+        if (attempt !== bgmAttempt.current) return;
         stopBgm();
         setError('曲を流せませんでした');
       });
+    syncSentAudio();
   }
 
   function stopBgm() {
     bgmPlaying.current = null;
+    bgmAttempt.current += 1;
     setBgm(null);
     mixer.current?.stop();
+    syncSentAudio();
   }
 
   function pickBgm(index: number) {
@@ -153,8 +180,6 @@ export function BrowserPublisher({
   async function start() {
     setStatus('starting');
     setError(null);
-    // 待つ前に作る。待った後では、押した操作の中でなくなる
-    const audioMixer = bgmUrl ? ensureMixer() : null;
     try {
       const captured = await capture();
       stream.current = captured;
@@ -168,12 +193,9 @@ export function BrowserPublisher({
           void stop().then(() => setError('カメラかマイクが止まったため、配信を終えました'));
         });
       }
-      // BGM を使えるときは、声に曲を重ねた音を送る。曲を流していなくても通しておき、配信中に曲を足せるようにする
-      const [voice] = captured.getAudioTracks();
-      const sent =
-        audioMixer && voice
-          ? new MediaStream([...captured.getVideoTracks(), audioMixer.mix(voice)])
-          : captured;
+      // 始める前に曲を選んでいれば、初めから曲を重ねた音を送る
+      const audio = audioToSend();
+      const sent = new MediaStream([...captured.getVideoTracks(), ...(audio ? [audio] : [])]);
       const token = await browserPublishTokenAction();
       const started = await publishWhip(whipUrl, token, sent, {
         onEnded: () => void stop().then(() => setError('配信が切れました')),
@@ -209,6 +231,7 @@ export function BrowserPublisher({
       stream.current?.getTracks().forEach((track) => track.stop());
       still.current?.stop();
       mixer.current?.close();
+      mixer.current = null;
     },
     [],
   );

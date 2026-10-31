@@ -46,9 +46,9 @@ export type BgmMixer = {
   play: (url: string) => Promise<void>;
   stop: () => void;
   setVolume: (volume: number) => void;
-  /** 声に曲を重ねた音を返す。配信にはこちらを送る */
+  /** 声に曲を重ねた音を返す。曲を流している間は、配信にこちらを送る。同じ声なら同じ音を返す */
   mix: (voice: MediaStreamTrack) => MediaStreamTrack;
-  /** 声を外す（配信を終えたとき） */
+  /** 声を外す（曲を止めたとき・配信を終えたとき） */
   unmix: () => void;
   close: () => void;
 };
@@ -70,7 +70,12 @@ export function createBgmMixer(onEnded: () => void): BgmMixer {
   music.connect(volume);
   volume.connect(context.destination);
   volume.connect(output);
-  let voice: MediaStreamAudioSourceNode | null = null;
+  let voice: { track: MediaStreamTrack; node: MediaStreamAudioSourceNode } | null = null;
+  // 電話や別のアプリで止められたら（iPhone は interrupted）、戻せるときに戻す。止まったままだと声も曲も届かない
+  context.addEventListener('statechange', () => {
+    if (context.state !== 'running' && context.state !== 'closed')
+      void context.resume().catch(() => undefined);
+  });
 
   const stop = () => {
     audio.pause();
@@ -90,20 +95,24 @@ export function createBgmMixer(onEnded: () => void): BgmMixer {
       volume.gain.value = value;
     },
     mix: (track) => {
-      voice?.disconnect();
-      voice = context.createMediaStreamSource(new MediaStream([track]));
-      voice.connect(output);
+      if (voice?.track !== track) {
+        voice?.node.disconnect();
+        const node = context.createMediaStreamSource(new MediaStream([track]));
+        node.connect(output);
+        voice = { track, node };
+      }
       const [mixed] = output.stream.getAudioTracks();
       if (!mixed) throw new Error('音を混ぜられませんでした');
       return mixed;
     },
     unmix: () => {
-      voice?.disconnect();
+      voice?.node.disconnect();
       voice = null;
     },
     close: () => {
       stop();
-      voice?.disconnect();
+      voice?.node.disconnect();
+      voice = null;
       void context.close();
     },
   };

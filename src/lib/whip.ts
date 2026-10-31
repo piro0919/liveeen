@@ -72,7 +72,11 @@ export function waitForIceGathering(pc: RTCPeerConnection): Promise<void> {
   });
 }
 
-export type WhipSession = { stop: () => Promise<void> };
+export type WhipSession = {
+  stop: () => Promise<void>;
+  /** 送る音を差し替える（BGM を流し始めた・止めた）。つなぎ直さずに済む */
+  replaceAudio: (track: MediaStreamTrack) => Promise<void>;
+};
 
 /**
  * 配信のつながりの状態が変わったとき、どうするか。
@@ -122,12 +126,14 @@ export async function publishWhip(
         .catch(() => undefined);
     }
   });
+  let audioSender: RTCRtpSender | null = null;
   for (const track of stream.getTracks()) {
     const transceiver = pc.addTransceiver(track, {
       direction: 'sendonly',
       sendEncodings: track.kind === 'video' ? [{ maxBitrate: MAX_VIDEO_BITRATE }] : undefined,
     });
     if (track.kind === 'video') preferH264(transceiver);
+    else audioSender = transceiver.sender;
   }
   try {
     await pc.setLocalDescription(await pc.createOffer());
@@ -152,6 +158,9 @@ export async function publishWhip(
           }).catch(() => undefined);
         }
         pc.close();
+      },
+      replaceAudio: async (track) => {
+        await audioSender?.replaceTrack(track);
       },
     };
   } catch (error) {
