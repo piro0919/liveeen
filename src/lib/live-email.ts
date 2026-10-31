@@ -17,7 +17,7 @@ export type Email = {
 export type Recipient = { email: string; unsubscribeToken: string };
 
 /** メールを止める受け口（src/app/api/email/unsubscribe/route.ts） */
-export function unsubscribeUrl(siteUrl: string, token: string): string {
+function unsubscribeUrl(siteUrl: string, token: string): string {
   const url = new URL('/api/email/unsubscribe', siteUrl);
   url.searchParams.set('token', token);
   return url.href;
