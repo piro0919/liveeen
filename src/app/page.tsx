@@ -19,7 +19,7 @@ const startedAtFormat = new Intl.DateTimeFormat('ja-JP', {
 });
 
 /**
- * 配信の札。手本は YouTube の「ライブ配信中」の並び。
+ * 配信の札。16:9 の絵と、配信者の印・名前・始まった時刻。
  * 画像は中継が1分おきに撮る縮小画像（relay/thumbnails.ts）。まだ撮れていなければ名前の1文字を大きく出す
  */
 function LiveCard({ channel }: { channel: LiveChannel }) {
@@ -31,15 +31,21 @@ function LiveCard({ channel }: { channel: LiveChannel }) {
         href={channelPath({ id: channel.channelId, handle: channel.handle })}
         className="group flex flex-col gap-3"
       >
-        <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-surface group-hover:bg-surface-hover">
+        <div className={`flex items-center justify-center ${ui.thumbnail}`}>
           {/* 住所は1分ごとに変わる。変わったら撮れなかったことを忘れて、もう一度読ませる */}
           <LiveThumbnail key={thumbnail} name={name} src={thumbnail} />
-          <span className={`absolute bottom-2 left-2 ${ui.liveTag}`}>ライブ</span>
+          <span className={`absolute top-2 left-2 ${ui.liveTag}`}>
+            <span
+              aria-hidden
+              className="size-1.5 animate-pulse rounded-xs bg-current motion-reduce:animate-none"
+            />
+            ライブ
+          </span>
         </div>
         <div className="flex gap-3">
           <Avatar name={name} />
           <div className="flex min-w-0 flex-col">
-            <span className="truncate font-medium">{name}</span>
+            <span className="truncate font-bold group-hover:text-accent">{name}</span>
             <span className={ui.note}>{startedAtFormat.format(channel.startedAt)} から</span>
           </div>
         </div>
@@ -50,7 +56,7 @@ function LiveCard({ channel }: { channel: LiveChannel }) {
 
 function LiveGrid({ channels }: { channels: LiveChannel[] }) {
   return (
-    <ul className="grid gap-x-4 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <ul className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {channels.map((channel) => (
         <LiveCard key={channel.channelId} channel={channel} />
       ))}
@@ -75,9 +81,13 @@ export default async function Home() {
       : new Set<string>();
   const split = splitFollowed(channels, followed);
   return (
-    <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
+    <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
       <h1 className={ui.heading}>配信中</h1>
-      {channels.length === 0 && <p className="text-muted">いま配信している人はいません</p>}
+      {channels.length === 0 && (
+        <p className="flex flex-1 items-center justify-center py-24 text-muted">
+          いま配信している人はいません
+        </p>
+      )}
       {split.followed.length > 0 && (
         <section className="flex flex-col gap-4">
           <h2 className={ui.subheading}>フォロー中</h2>

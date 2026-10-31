@@ -104,9 +104,17 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
   }, [channelId, latencyMode, hlsUrl, webrtcUrl]);
 
   return (
-    <div className={ui.videoFrame}>
+    <div className={ui.watchFrame}>
       {/* 音を出すかは見る人が決める。自動で再生するために、始めは音を消しておく */}
-      <video ref={video} autoPlay muted playsInline controls className="size-full" />
+      {/* 配信していないあいだは映像を隠す。ブラウザの読み込み中の輪が、知らせの文字と重なるため */}
+      <video
+        ref={video}
+        autoPlay
+        muted
+        playsInline
+        controls
+        className={`size-full ${status === 'offline' ? 'invisible' : ''}`}
+      />
       {status === 'offline' && <PlayerMessage>配信していません</PlayerMessage>}
     </div>
   );

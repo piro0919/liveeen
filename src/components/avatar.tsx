@@ -26,7 +26,7 @@ export function Avatar({ name, size = 'md' }: { name: string; size?: keyof typeo
   return (
     <span
       aria-hidden
-      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-surface-hover font-medium ${SIZES[size]}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-surface-hover font-bold ${SIZES[size]}`}
     >
       {initialOf(name)}
     </span>

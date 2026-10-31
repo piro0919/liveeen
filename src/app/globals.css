@@ -1,32 +1,38 @@
 @import 'tailwindcss';
 
 /*
- * 色は YouTube に合わせる（手本。CLAUDE.md の Design rules）。明るさは端末の設定に従う。
- * 部品では色の名前（bg-surface など）だけを使い、色の値や Tailwind の色（gray-500 など）を書かない
+ * 色の決まり（CLAUDE.md の Design rules）。手本は vocafy の形で、色は Liveeen のもの：青みのある深い地に、ローズの差し色1色。
+ * ライブの札も差し色にそろえ、色の数を増やさない。明るさは端末の設定に従う。
+ * 部品では色の名前（bg-surface など）だけを使い、色の値や Tailwind の色（gray-500 など）を書かない。
+ * accent は文字とリンク、accent-fill は塗り（主なボタン・ライブの札）。塗りの上の字は白（src/lib/ui.ts）
  */
 :root {
-  --background: #ffffff;
-  --foreground: #0f0f0f;
-  --muted: #606060;
-  --surface: #f2f2f2;
-  --surface-hover: #e5e5e5;
-  --line: #e5e5e5;
-  --accent: #065fd4;
-  --live: #cc0000;
-  --danger: #cc0000;
+  --background: #f6f6f9;
+  --foreground: #12131a;
+  --muted: #5f6372;
+  --surface: #ebecf1;
+  --surface-hover: #e0e2e9;
+  --line: #dcdee6;
+  --accent: #c8174a;
+  --accent-fill: #e11d55;
+  --live: #e11d55;
+  --danger: #c8174a;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0f0f0f;
-    --foreground: #f1f1f1;
-    --muted: #aaaaaa;
-    --surface: #272727;
-    --surface-hover: #3f3f3f;
-    --line: #3f3f3f;
-    --accent: #3ea6ff;
-    --live: #cc0000;
-    --danger: #ff4e45;
+    --background: #0c0d12;
+    --foreground: #f2f3f7;
+    --muted: #9a9fb0;
+    --surface: #181a22;
+    --surface-hover: #232633;
+    --line: #2a2d3a;
+    --accent: #ff6b8f;
+    --accent-fill: #e11d55;
+    --live: #e11d55;
+    --danger: #ff5a5f;
+    color-scheme: dark;
   }
 }
 
@@ -38,11 +44,30 @@
   --color-surface-hover: var(--surface-hover);
   --color-line: var(--line);
   --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
   --color-live: var(--live);
   --color-danger: var(--danger);
+  /*
+   * 本文は端末の書体（iPhone と Mac はヒラギノ、Android は Noto Sans CJK）。字を読み込まずに済み、仮名を詰める palt も効く。
+   * Google Fonts の Zen Kaku Gothic New では palt が効かなかった（2026-10-31 に Chrome で幅を測った）。
+   * ロゴの Unbounded だけ src/app/layout.tsx で読み込む
+   */
+  --font-sans: system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  --font-logo: var(--font-unbounded), system-ui, sans-serif;
 }
 
+/*
+ * 地は一色。仮名と約物を字の形に合わせて詰める（palt）。そのままだと全角の箱どおりに並び、
+ * 「フォロー中」のような仮名の多い語が間延びする
+ */
 body {
   background: var(--background);
   color: var(--foreground);
+  font-feature-settings: 'palt';
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 見る画面のスマホの高さ。上の帯（h-14）を除いた画面の高さで、コメント欄が残りを埋める */
+@utility h-below-header {
+  height: calc(100dvh - 3.5rem);
 }
