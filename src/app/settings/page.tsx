@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { DeleteAccountButton } from '@/components/delete-account-button';
 import { DisplayNameForm } from '@/components/display-name-form';
 import { FollowNoticeChoice } from '@/components/follow-notice-choice';
 import { HandleForm } from '@/components/handle-form';
@@ -39,6 +40,7 @@ export default async function SettingsPage() {
             />
           </div>
           <SignOutButton />
+          <DeleteAccountButton />
         </>
       ) : (
         <SignInButton />
