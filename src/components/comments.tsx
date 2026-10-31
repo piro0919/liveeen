@@ -122,9 +122,12 @@ export function Comments({
       const query = token ? `?token=${encodeURIComponent(token)}` : '';
       const ws = new WebSocket(`${relayUrl}/${channelId}${query}`);
       socket.current = ws;
+      // 札なしのつなぎは読むだけで、送っても中継に断られる。札を持ってつながったときだけ送れる
       ws.onopen = () => {
-        if (socket.current === ws) setConnected(true);
+        if (socket.current === ws) setConnected(token !== null);
       };
+      // 札を取り替えるために自分で閉じたか
+      let refreshing = false;
       ws.onmessage = (event) => {
         const message = JSON.parse(String(event.data)) as RelayMessage;
         if (message.type === 'history') setComments(message.comments);
@@ -141,11 +144,19 @@ export function Comments({
           setConnected(false);
         }
         if (cancelled) return;
-        // 札が切れたか、ブロックされて閉じられたときは、待たずに新しい札でつなぐ（止められていれば札は出ない）
-        const wait = event.code === TOKEN_EXPIRED || event.code === BLOCKED ? 0 : RETRY_MS;
+        // 札を取り替えるとき、札が切れたか、ブロックされて閉じられたときは、待たずに新しい札でつなぐ（止められていれば札は出ない）
+        const wait =
+          refreshing || event.code === TOKEN_EXPIRED || event.code === BLOCKED ? 0 : RETRY_MS;
         retry = setTimeout(() => void connect(), wait);
       };
-      if (token) refresh = setTimeout(() => ws.close(), REFRESH_MS);
+      if (token) {
+        refresh = setTimeout(() => {
+          // 閉じ終わるまでの間に押されても、黙って捨てないよう先に止める
+          refreshing = true;
+          setConnected(false);
+          ws.close();
+        }, REFRESH_MS);
+      }
     }
 
     void connect();
