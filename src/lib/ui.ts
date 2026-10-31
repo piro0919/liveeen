@@ -50,4 +50,20 @@ export const ui = {
     'inline-flex items-center gap-1 rounded-md bg-live px-1.5 py-0.5 text-xs font-bold text-white',
   /** 失敗の理由 */
   error: 'text-sm text-danger',
+  /** 配信中の画面。映像を画面いっぱいに出し、上の帯にも重ねる（YouTube のアプリの配信と同じ） */
+  liveScreen: 'fixed inset-0 z-50 flex h-dvh flex-col bg-black text-white',
+  /** 配信中の画面の上に重ねるボタン。映像の明るさに関係なく読めるよう、黒を透かした地に白 */
+  overlayButton: `${BUTTON_BASE} bg-black/50 text-white backdrop-blur-md hover:bg-black/70`,
+  /** 配信中の画面の上に重ねるコメント。映像が見えるよう地を塗らず、字に影を付ける */
+  overlayComments: 'text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]',
+  /** 配信中の画面の上に重ねるコメントの名前 */
+  overlayName: 'text-white/70',
+  /** 配信中の画面の上に重ねる、文の中の小さな操作（ブロック） */
+  overlayTextButton: 'text-sm text-white/70 transition-colors hover:text-white',
+  /** 配信中の画面の上に重ねるコメントの書く欄 */
+  overlayInput:
+    'h-10 min-w-0 rounded-full border border-white/30 bg-black/40 px-4 text-base text-white outline-none placeholder:text-white/60 focus:border-white/70 sm:h-9 sm:text-sm',
 } as const;
+
+/** 画像で配信するときの映像の色（src/lib/still-image.ts）。見る画面の映像の枠と同じ黒地に白 */
+export const stillImageColors = { background: 'black', text: 'white' } as const;

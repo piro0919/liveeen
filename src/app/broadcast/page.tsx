@@ -37,8 +37,8 @@ export default async function BroadcastPage() {
         <>
           <BroadcastSetup
             channel={channel}
-            rtmpUrl={env.NEXT_PUBLIC_MEDIA_RTMP_URL}
             webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
+            relayUrl={env.NEXT_PUBLIC_COMMENT_RELAY_URL}
           />
           {channel && <BlockList blocks={await blocksOf(channel.id)} />}
         </>

@@ -71,6 +71,8 @@ type Props = {
   own: boolean;
   /** ログインした人が通報したコメントの id。null ならコメントを通報できない（ログインしていないか、配信者） */
   reportedComments: string[] | null;
+  /** 配信中の画面の映像に重ねて出す。地を塗らず、見出しを出さない */
+  overlay?: boolean;
 };
 
 /**
@@ -85,6 +87,7 @@ export function Comments({
   guestComments,
   own,
   reportedComments,
+  overlay = false,
 }: Props) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -201,16 +204,21 @@ export function Comments({
 
   return (
     // 手本は YouTube のライブチャット：枠の上に見出し、真ん中に流れ、下に書く欄
-    <section className={`flex min-h-0 flex-1 flex-col ${ui.panel}`}>
-      <h2 className="flex h-12 shrink-0 items-center border-b border-line px-4 font-medium">
-        コメント
-      </h2>
-      <ol ref={list} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-2">
+    <section className={`flex min-h-0 flex-1 flex-col ${overlay ? ui.overlayComments : ui.panel}`}>
+      {!overlay && (
+        <h2 className="flex h-12 shrink-0 items-center border-b border-line px-4 font-medium">
+          コメント
+        </h2>
+      )}
+      <ol
+        ref={list}
+        className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-2 ${overlay ? 'stack-bottom' : ''}`}
+      >
         {comments.map((comment) => (
           <li key={comment.id} className="flex gap-3 text-sm">
             <Avatar name={comment.name} size="xs" />
             <p className="min-w-0 wrap-break-word">
-              <span className="text-muted">
+              <span className={overlay ? ui.overlayName : 'text-muted'}>
                 {comment.name}
                 {comment.guest && '（ゲスト）'}
               </span>{' '}
@@ -220,7 +228,7 @@ export function Comments({
                   {' '}
                   <button
                     type="button"
-                    className={ui.textButton}
+                    className={overlay ? ui.overlayTextButton : ui.textButton}
                     onClick={() => void block(comment)}
                   >
                     ブロック
@@ -247,7 +255,7 @@ export function Comments({
           </li>
         ))}
       </ol>
-      <div className="flex shrink-0 flex-col gap-2 border-t border-line p-3">
+      <div className={`flex shrink-0 flex-col gap-2 p-3 ${overlay ? '' : 'border-t border-line'}`}>
         {viewer === 'signed-out' && !guestComments && (
           <div className="flex flex-col items-start gap-2">
             <p className="text-sm">コメントするにはログインしてください</p>
@@ -278,10 +286,11 @@ export function Comments({
               value={text}
               onChange={(event) => setText(event.target.value)}
               maxLength={COMMENT_MAX * 2}
-              className={`flex-1 ${ui.input}`}
+              className={`flex-1 ${overlay ? ui.overlayInput : ui.input}`}
               aria-label="コメント"
+              placeholder={overlay ? 'コメント' : undefined}
             />
-            <button type="submit" className={ui.tonalButton}>
+            <button type="submit" className={overlay ? ui.overlayButton : ui.tonalButton}>
               送信
             </button>
           </form>

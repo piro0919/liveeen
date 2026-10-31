@@ -71,3 +71,24 @@ body {
 @utility h-below-header {
   height: calc(100dvh - 3.5rem);
 }
+
+/* 配信中の画面（src/components/browser-publisher.tsx）。iPhone の切り欠きと下の帯に、ボタンと書く欄が隠れないようにする */
+@utility pt-safe-top {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+@utility pb-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 配信中の画面のコメント。下の半分ほどに重ね、上の映像は見えるままにする */
+@utility h-live-comments {
+  height: 45%;
+}
+
+/* 配信中の画面のコメントは、書く欄のすぐ上から積む。justify-end だと溢れたときに上へ送れなくなるため、先頭を押し下げる */
+@utility stack-bottom {
+  & > :first-child {
+    margin-top: auto;
+  }
+}

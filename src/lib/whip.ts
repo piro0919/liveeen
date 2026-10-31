@@ -20,6 +20,11 @@ export function captureCamera(): Promise<MediaStream> {
   });
 }
 
+/** マイクだけを取る（画像で配信するとき）。カメラの許可は求めない */
+export function captureMicrophone(): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({ audio: true });
+}
+
 /** H264 の型の並べ方。先にあるものほど先に出す */
 const H264_PROFILE_ORDER = [
   // Constrained Baseline。どの端末でも再生できる

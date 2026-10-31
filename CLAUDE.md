@@ -11,7 +11,7 @@ Nothing is built yet. Everything below was agreed with the owner in a sounding-b
 
 ## Agreed
 
-- Name: **Liveeen** (read ライブーン), the owner's idea. Romaji names (Utsuru, Imakoko, Mitero) were rejected because the service will go global. English-word names were also rejected: Hearth, Beamo, Wavely, Lumo, Nook, Popin, Busker, Magpie, Lantern, OpenLive, LiveNow, AnyStream. On 2026-10-30 a web search for "Liveeen" found no service with that name; liveeen .com/.io/.tv/.jp had no whois or DNS record (likely free); .app and .live could not be checked from the shell. Trademarks not checked. People who hear "ライブーン" may type the wrong number of e's (a guess, not checked); whether to hold the look-alike domains is open
+- Name: **Liveeen** (read ライブーン), the owner's idea. Romaji names (Utsuru, Imakoko, Mitero) were rejected because the service will go global. English-word names were also rejected: Hearth, Beamo, Wavely, Lumo, Nook, Popin, Busker, Magpie, Lantern, OpenLive, LiveNow, AnyStream. On 2026-10-30 a web search for "Liveeen" found no service with that name; liveeen .com/.io/.tv/.jp had no whois or DNS record (likely free); .app and .live could not be checked from the shell. Trademarks: on 2026-10-31 the WIPO Global Brand Database (which includes Japan's register) had no mark containing "liveeen"; "liveen" had three, none for streaming: India class 5, Korea class 45, Japan classes 29 and 30 (no. 7051439, food). J-PlatPat sent the headless browser to its maintenance page, so Japan was not checked there. Not a legal clearance. People who hear "ライブーン" may type the wrong number of e's (a guess, not checked); whether to hold the look-alike domains is open
 - Anyone can stream, video and voice
 - First version: stream, watch, comment, follow
 - No tips and no paid items
@@ -32,7 +32,7 @@ Nothing is built yet. Everything below was agreed with the owner in a sounding-b
 - Latency: the streamer chooses per stream between low latency (WebRTC; heavier on the server, so a lower viewer cap) and higher latency but light (HLS). MediaMTX converts one input into both, per its README
 - Video quality is capped at 720p for now
 - First version is for Japan (Japanese screens). Build so other languages can be added later; overseas comes in a later version. Before going overseas, check each country's rules for streaming platforms (not researched), and plan for reports arriving while the owner is asleep
-- Sign-in is Google only (no passwords to keep, harder to mass-create throwaway accounts)
+- Sign-in is Google only (no passwords to keep, harder to mass-create throwaway accounts). The sign-in sends `hl=ja` so Google's screens are in Japanese whatever the account's language (`src/lib/auth-client.ts`; the owner asked on 2026-10-31 after seeing the consent screen in English; checked that `hl=ja` turns Google's sign-in page Japanese). Google names the app "kkweb.io" there, not Liveeen; why is not checked (Google may show the name only after brand verification)
 - The owner does not want to use Japanese companies' services (rejected さくらのVPS for that reason)
 
 ## Cost
@@ -78,7 +78,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - MediaMTX uses `authMethod: http` and asks `/api/media/auth` on every publish and read (`src/lib/media-auth.ts`)
 - Each streamer has one channel (`channel` table). The channel id is the MediaMTX path; the stream key is stored as SHA-256
 - Publish passes only when the key matches that channel: WHIP Bearer token, RTMP `?key=` after the path, or RTMP password
-- The key is shown only when it is created or reset (Claude's call, since only the hash is stored; the owner has not seen the screen yet)
+- The key is shown only when it is reset on `/broadcast/obs` (Claude's call, since only the hash is stored)
 - The browser cannot hold the key, so `/broadcast` gets a 10-minute signed token from a server action (`src/lib/media-token.ts`, `MEDIA_TOKEN_SECRET`). Credentials containing `.` are treated as tokens; stream keys never contain `.`
 - Publish is refused for a channel the owner has banned, whatever the key or token (`channel.banned_at`)
 - Read passes for anyone (watching needs no sign-in) until the monthly cap is reached (see the monthly cap)
@@ -102,7 +102,13 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 ## The broadcast screen (`/broadcast`)
 
-- Sign in → declare 18+ (checkbox) → the channel is created and the key shown → OBS settings (RTMP and WHIP) and browser streaming
+- Sign in → declare 18+ (checkbox) → the channel is created → browser streaming at the top, then the address, latency, signed-out comments, a link to `/broadcast/obs`, and the blocked list
+- Redone on 2026-10-31 after the owner tried it on an iPhone (「確かにひどすぎるな」: a small preview, no comments while streaming, OBS settings in the way). The owner left the shape to Claude (「まかせる」); it follows the YouTube app's live screen:
+  - Before starting, the streamer picks カメラ or 画像と声（カメラを使わない）. Image mode asks only for the microphone, because a streamer without a camera found the camera prompt scary (reported by the owner on 2026-10-31). The picked image is drawn to a 1280×720 canvas, scaled to fit on black; with no image, the streamer's name in white on black (`src/lib/still-image.ts`). The canvas is redrawn 5 times a second, because a canvas with no new frames cannot answer the keyframe request a new viewer causes. Image mode shows the preview before starting
+  - While live, the screen is the video full screen over the header (`ui.liveScreen`), with the ライブ tag and 配信を終える at the top and the comments over the lower 45 % (`Comments` with `overlay`), newest at the bottom next to the input. The streamer's ブロック works there
+  - If the camera or mic track ends (another app took it, the device stopped it), the stream ends with カメラかマイクが止まったため、配信を終えました. A note before starting says switching to another app may stop the picture or sound (on iPhone Safari stops capture in the background; not checked on a phone)
+  - OBS settings, the key reset and a comments panel moved to `/broadcast/obs` (`src/components/obs-setup.tsx`); signed out or without a channel it redirects to `/broadcast`. The key made with the channel is no longer shown; the streamer resets it on `/broadcast/obs`
+  - Checked 2026-10-31 locally in headless Chrome at 390 px with a fake camera: image mode asked only for audio, a viewer received the image stream and their comment showed on the live screen with ブロック; camera mode showed the camera full screen; 配信を終える returned to the start screen; `/broadcast/obs` showed the settings and comments, and redirected when signed out. Not checked on a phone
 - Wording is provisional. Each part is a card (see Design rules)
 - Google sign-in: Google Cloud project `liveeen` (made 2026-10-31, billing account kk-web attached by default), OAuth client `liveeen-web`, redirect URIs `https://liveeen.kkweb.io/api/auth/callback/google` and `http://localhost:3000/api/auth/callback/google`. The consent screen is External and **in production** since 2026-10-31 (published after `/privacy` and `/terms` went live; homepage, privacy and terms URLs set on the branding page). Its user support email stays piro.haniwa@gmail.com: the form offers only the signed-in account. Checked 2026-10-31: signing in on liveeen.kkweb.io with piro.haniwa@gmail.com came back signed in. Signing in with kk.web.kawamura@gmail.com (the owner allowed its use on 2026-10-31; never a test user) also worked, after Google's consent screen; that account now exists in production with no display name The client secret is in this Mac's Keychain as `liveeen-google-client-secret`; the first secret showed up in a session log, was disabled, and was deleted on 2026-10-31 (only the one ending vCqs remains). `.env.local` still has placeholder Google ids; local checks used a session row and a hand-signed `better-auth.session_token` cookie
 - Browser streaming asks for H264 Constrained Baseline (`42e01f`) first. With Chrome's first H264 entry (Baseline `42001f`), Chrome on this Mac encoded about 10 frames with VideoToolbox and stopped; `42e01f` and High `640034` kept going. Without any preference Chrome sends VP8, which HLS cannot carry
@@ -111,11 +117,13 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 ## Latency choice and the watch screen (`/<channel id>`)
 
 - The streamer picks the latency on `/broadcast` (`channel.latency_mode`: `hls` default, or `low`). It applies to viewers from their next connection
-- OBS over RTMP in low-latency mode is handled by telling the streamer, not by transcoding (the owner left it to Claude's recommendation on 2026-10-31; transcoding would need the video too because of B-frames, and costs server CPU). While `low` is chosen, the OBS section of `/broadcast` says to stream with WHIP from OBS 30 or later, because over RTMP viewers get no sound and, depending on the video settings, no picture (wording provisional). OBS's WHIP output sends Opus and sets B-frames to 0 itself (`plugins/obs-webrtc/whip-service.cpp`, checked 2026-10-31; WHIP arrived in OBS 30.0.0 per its release notes). Not checked with a real OBS
+- OBS over RTMP in low-latency mode is handled by telling the streamer, not by transcoding (the owner left it to Claude's recommendation on 2026-10-31; transcoding would need the video too because of B-frames, and costs server CPU). While `low` is chosen, `/broadcast/obs` says to stream with WHIP from OBS 30 or later, because over RTMP viewers get no sound and, depending on the video settings, no picture (wording provisional). OBS's WHIP output sends Opus and sets B-frames to 0 itself (`plugins/obs-webrtc/whip-service.cpp`, checked 2026-10-31; WHIP arrived in OBS 30.0.0 per its release notes). Not checked with a real OBS
 - Checked 2026-10-31 in Chrome: the note shows while `low` is chosen, disappears on switching to HLS, comes back on switching to `low`, and each state stays after a reload
 - The watch screen plays `low` with WebRTC (WHEP) and `hls` with HLS (hls.js; Safari plays HLS natively). No sign-in. When nothing is live it shows 配信していません and retries every 5 s
 - The streamer's URL is `/@<handle>` (see Handles). A channel whose streamer has not picked a handle yet is at `/<channel id>`
 - Checked 2026-10-30 in Chrome with ffmpeg over RTMP: HLS and WebRTC both play 1280×720; HLS notices a stream starting and ending within seconds. WebRTC took about 16 s after the stream ended to show 配信していません (the connection has to fail first); since 2026-10-31 the page asks the server when Chrome reports `disconnected` (the same rule as the broadcast screen, `src/lib/whep.ts`), and it showed 配信していません 6.8 s after ffmpeg ended (measured locally). Over RTMP, WebRTC viewers get no sound (AAC; see below). Not checked in Safari or on a phone
+- The low-latency player sometimes stayed black (seen 2026-10-31, 1 in 4 loads in WebKit). Cause: the player ignored whether a WHEP connection had been thrown away, so when two connections overlapped (React's development double effect, or a re-render while connecting) the discarded one could set the `<video>` last and then close. `onStream` now does nothing once the connection is discarded (`src/components/player.tsx`). After the fix, 12 of 12 loads played in WebKit (Playwright's WebKit 26, headless) and in Chrome. The time to the first picture is the wait for the next keyframe: about 1.3 s in WebKit and 3.7 s in Chrome with ffmpeg's 2-second keyframe interval; Chrome asks for a keyframe every second, but an RTMP source cannot answer
+- Checked 2026-10-31 in Playwright's WebKit (headless, standing in for Safari): HLS played 1280×720 in 0.8 s through hls.js, and WHEP played as above. Real Safari and iPhone not checked
 
 ## The top page (`/`)
 
@@ -137,7 +145,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 
 - `/terms` and `/privacy`, made 2026-10-31 for publishing the Google consent screen. The owner chose the operator name **kk-web** and the contact **kk.web.kawamura@gmail.com** (`src/components/document-page.tsx`). liveeen@liveeen.kkweb.io was considered first but cannot receive: the site's CNAME on that name rules out MX records, and kkweb.io's zone is near its 200-record limit
 - The text describes what is built (data kept, not kept, processors, moderation, the monthly cap). Claude wrote it; the owner saw it and said 「公開しちゃって」. When what is stored or who processes it changes, change `/privacy` too
-- There is no account deletion screen; the policy says to ask by email
+- `/settings` has アカウントを消す (added 2026-10-31 when the owner asked to fix everything open). It asks for confirmation, deletes the `user` row so everything tied to it goes by `on delete cascade`, cuts a live stream, clears the sign-in cookies (the 5-minute cookie cache would otherwise keep the deleted user signed in) and returns to the top page (`src/lib/account.ts`). Claude's calls: a streamer the owner banned cannot delete from the screen (deleting and signing in again would lift the ban) and is told to ask by email; an IP block against the person stays with `user_id` set to null (otherwise deleting and coming back would lift it). `/privacy` says both. Checked 2026-10-31 locally: cancel keeps the account; deleting removed the user, channel and follow, kept the IP block, signed out, and the old `/@handle` gave 404; a banned user got the message and stayed
 
 ## Display names
 
@@ -198,6 +206,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 - Stored in `comment_block` (`db/migrations/0015_comment_block.sql`, `src/lib/blocks.ts`). The IP is kept only as an HMAC with `COMMENT_TOKEN_SECRET` (`src/lib/ip-key.ts`), IPv6 by its first 64 bits because one line gets a whole /64. The IP comes from `x-forwarded-for`, which Vercel overwrites so it cannot be spoofed (https://vercel.com/docs/headers/request-headers#x-forwarded-for)
 - How it reaches the relay (Claude's call): the comment token now carries the IP key and whether the holder is the channel's streamer. The relay attaches a signed author token to each comment for the streamer only; the streamer's page sends it to `blockCommenterAction`, which stores the block, then to the relay, which removes the person's comments (`remove`), closes their connections (code 4003) and refuses tokens made before the block for the next 10 minutes. After that, the web app gives them no token (`commentTokenAction` answers `blocked`) and the page shows この配信者のチャンネルではコメントできません (wording provisional). 戻す works from the next token
 - Someone on the same IP as the streamer is blocked by account only, both in the relay and in the table, so the streamer's household is not blocked with them. A guest on the streamer's IP therefore cannot be blocked (Claude's call)
+- The streamer's own comments carry no author token, so ブロック does not show on them (fixed 2026-10-31: the relay used to attach it to every comment for the streamer, and pressing it on their own was refused; `test/relay.test.ts` covers it). Checked in Chrome: the streamer's own comment shows no ブロック
 - IP blocking also catches others behind the same address, such as a mobile carrier's shared IPs (not measured)
 - Checked 2026-10-31 in Chrome with two local users (both on the same local IP, so the block was by account): the viewer saw no ブロック button; after the streamer blocked them, their comment disappeared from both windows, their input was replaced by the sentence, and it stayed after a reload; `/broadcast` listed 見る人 with the time; after 戻す and a reload the viewer could comment again. Blocking by IP, and guests, are covered only by the relay tests (`test/relay.test.ts`), not checked in a browser
 
@@ -288,7 +297,7 @@ Decided 2026-10-30. The owner left the choice to Claude ("まかせる").
 ## Not decided or not checked
 
 - How many viewers one server can serve, per latency mode (measure on the server)
-- Trademarks
+- Trademarks beyond the WIPO search (see Agreed)
 
 Sources:
 
