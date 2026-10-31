@@ -12,3 +12,7 @@ The mark is a play triangle flying off like a paper plane, with two motion lines
 `unbounded-bold-logo.ttf` is Unbounded Bold (SIL Open Font License) cut down by Google Fonts to the letters of "Liveeen", for `og.html`.
 
 The paths are the same in all the files; change them together.
+
+## The character
+
+`marmot.png` is Liveeen's character, a marmot. The owner picked it on 2026-10-31 from three ChatGPT drafts (flat with outlines, soft 3D, riding the mark); this is the flat one as ChatGPT returned it (1254 px, white background). `src/images/marmot.png` is it with the white background removed (only white connected to the edges, with the edge pixels made partly transparent so no white fringe shows on the dark theme), cropped and scaled to 540 px tall with `sips`. It shows on the top page when nobody is live.

@@ -1,5 +1,7 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { connection } from 'next/server';
+import marmot from '@/images/marmot.png';
 import { Avatar } from '@/components/avatar';
 import { LiveThumbnail } from '@/components/live-thumbnail';
 import { followedAmong, listsFollowedOnTop } from '@/lib/follows';
@@ -114,9 +116,11 @@ export default async function Home() {
     <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
       <h1 className={ui.heading}>配信中</h1>
       {channels.length === 0 && (
-        <p className="flex flex-1 items-center justify-center py-24 text-muted">
-          いま配信している人はいません
-        </p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16">
+          {/* Liveeen のキャラクター（design/README.md） */}
+          <Image src={marmot} alt="" className="h-44 w-auto" />
+          <p className="text-muted">いま配信している人はいません</p>
+        </div>
       )}
       {split.followed.length > 0 && (
         <section className="flex flex-col gap-4">
