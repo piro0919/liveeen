@@ -72,13 +72,13 @@
   "obs": {
     "title": "OBS で配信 | Liveeen",
     "heading": "OBS で配信",
-    "back": "<link>配信する</link>へ戻る",
+    "back": "<link>配信するへ戻る</link>",
     "lowLatencyNote": "低遅延では、OBS 30 以降の WHIP で配信してください。RTMP では見ている人に音が届かず、映像の設定によっては映像も届きません。",
     "rtmpServer": "RTMP のサーバー",
     "rtmpKey": "RTMP のストリームキー",
     "whipServer": "WHIP のサーバー",
     "whipToken": "WHIP の Bearer トークン",
-    "keyPlaceholder": "（鍵）",
+    "keyPlaceholder": "••••••••",
     "keyNote": "鍵は作り直したときにだけ表示します。初めて使うときや分からなくなったときは、作り直してください。",
     "resetKey": "鍵を作り直す"
   },

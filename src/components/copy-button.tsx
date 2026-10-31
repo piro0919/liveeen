@@ -11,7 +11,7 @@ export function CopyButton({ value }: { value: string }) {
   return (
     <button
       type="button"
-      className={`shrink-0 whitespace-nowrap ${ui.textButton}`}
+      className={ui.tonalButton}
       onClick={() => {
         navigator.clipboard.writeText(value).then(
           () => toast(tToast('copied')),

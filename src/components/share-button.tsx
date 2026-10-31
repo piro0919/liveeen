@@ -31,7 +31,7 @@ export function ShareButton({ title }: { title: string }) {
   }
 
   return (
-    <button type="button" className={ui.textButton} onClick={() => void share()}>
+    <button type="button" className={ui.tonalButton} onClick={() => void share()}>
       {t('button')}
     </button>
   );

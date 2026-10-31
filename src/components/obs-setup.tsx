@@ -20,7 +20,7 @@ type Props = {
 /** OBS に写す値。写し間違えやすいので、コピーのボタンを添える */
 function Value({ value }: { value: string }) {
   return (
-    <dd className="mb-2 flex items-start justify-between gap-3">
+    <dd className="mb-2 flex items-center justify-between gap-3">
       <span className="min-w-0 font-mono break-all">{value}</span>
       <CopyButton value={value} />
     </dd>
@@ -59,7 +59,7 @@ export function ObsSetup({ channelId, latencyMode, rtmpUrl, whipUrl }: Props) {
           <dd className="mb-2 font-mono break-all">{t('keyPlaceholder')}</dd>
         )}
       </dl>
-      <p>{t('keyNote')}</p>
+      <p className={ui.note}>{t('keyNote')}</p>
       <form action={resetKey}>
         <button type="submit" className={ui.primaryButton} disabled={resetting}>
           {t('resetKey')}

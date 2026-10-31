@@ -104,9 +104,9 @@ export function BrowserPushChoice({ publicKey }: { publicKey: string }) {
 
   // iPhone の Safari は、ホーム画面に追加して開いたときだけ Web Push を使える
   if (state === 'unsupported')
-    return <p>{t(needsManualInstall ? 'unsupportedIos' : 'unsupported')}</p>;
+    return <p className={ui.note}>{t(needsManualInstall ? 'unsupportedIos' : 'unsupported')}</p>;
   if (state === 'denied') {
-    return <p>{t('denied')}</p>;
+    return <p className={ui.note}>{t('denied')}</p>;
   }
   return (
     <label className="flex items-center gap-2">

@@ -85,28 +85,24 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
           </h1>
         )}
         {/* 見ている人の数。手本の YouTube はタイトルの下に出す */}
-        <div className="flex items-center justify-between gap-3 px-4 sm:px-0">
-          <ViewerCount channelId={channel.id} whilePlaying className={ui.note} />
-          {/* 住所を広める手段。名前・フォロー・通報の行はスマホの幅で埋まっているので、人数の行の右に置く */}
-          <span className="ml-auto">
-            <ShareButton title={channel.title ?? name} />
-          </span>
-        </div>
-        {/* スマホの幅でも1行に収める。名前とフォローの組が残りの幅を取り、名前は入りきらなければ省く。通報の理由を選ぶ欄だけが次の行に出る */}
-        <div className="flex flex-wrap items-center gap-3 px-4 sm:px-0">
+        <ViewerCount channelId={channel.id} whilePlaying className={`px-4 sm:px-0 ${ui.note}`} />
+        {/* 手本は YouTube のアプリ：配信者の行は名前と登録のボタンだけにし、名前に幅を残す */}
+        <div className="flex items-center gap-3 px-4 sm:px-0">
           <Avatar name={name} src={channel.avatar} size="lg" />
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex min-w-0 flex-col">
-              {/* タイトルが無ければ、配信者の名前がこの画面の見出し */}
-              {channel.title ? (
-                <span className="truncate font-bold">{name}</span>
-              ) : (
-                <h1 className="truncate font-bold">{name}</h1>
-              )}
-              {channel.handle && <span className={`truncate ${ui.note}`}>@{channel.handle}</span>}
-            </div>
-            {!own && <FollowButton channelId={channel.id} following={following} />}
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* タイトルが無ければ、配信者の名前がこの画面の見出し */}
+            {channel.title ? (
+              <span className="truncate font-bold">{name}</span>
+            ) : (
+              <h1 className="truncate font-bold">{name}</h1>
+            )}
+            {channel.handle && <span className={`truncate ${ui.note}`}>@{channel.handle}</span>}
           </div>
+          {!own && <FollowButton channelId={channel.id} following={following} />}
+        </div>
+        {/* 共有と通報は、YouTube のアプリと同じく配信者の行の下にボタンで並べる。通報の理由を選ぶ欄は次の行に出る */}
+        <div className="flex flex-wrap items-center gap-2 px-4 sm:px-0">
+          <ShareButton title={channel.title ?? name} />
           {!own && <ReportButton channelId={channel.id} reported={reported} />}
         </div>
       </div>
