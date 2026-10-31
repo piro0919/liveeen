@@ -29,6 +29,11 @@ describe('コメントの札', () => {
     const token = signCommentToken(SECRET, 'ch', COMMENTER, NOW);
     expect(verifyCommentToken(SECRET, token, 'ch', NOW)).toEqual({
       ...COMMENTER,
+      // 札に入れなかった項目は既定の値で埋める
+      moderator: false,
+      followedAt: null,
+      settings: null,
+      ownerIpKey: null,
       issuedAt: NOW,
       expiresAt: NOW + COMMENT_TOKEN_TTL_MS,
     });
@@ -55,7 +60,20 @@ describe('書いた人の札', () => {
   const author = { userId: 'u1', displayName: 'ぴろ', ipKey: 'ip-1' };
 
   it('同じ鍵・同じチャンネルなら中身を返す', () => {
-    expect(verifyAuthor(SECRET, signAuthor(SECRET, 'ch', author), 'ch')).toEqual(author);
+    expect(verifyAuthor(SECRET, signAuthor(SECRET, 'ch', author), 'ch')).toEqual({
+      ...author,
+      privileged: false,
+    });
+  });
+
+  it('札から利用者の id と IP の鍵は読めず、書き換えれば null', () => {
+    const token = signAuthor(SECRET, 'ch', author);
+    const decoded = Buffer.from(token, 'base64url').toString('latin1');
+    expect(decoded).not.toContain('u1');
+    expect(decoded).not.toContain('ip-1');
+    const raw = Buffer.from(token, 'base64url');
+    raw[raw.length - 1] ^= 1;
+    expect(verifyAuthor(SECRET, raw.toString('base64url'), 'ch')).toBeNull();
   });
 
   it('ほかのチャンネル・違う鍵・コメントの札は null', () => {

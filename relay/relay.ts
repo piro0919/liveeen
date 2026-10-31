@@ -8,16 +8,26 @@ import {
   isGuestId,
   normalizeComment,
   type RelayMessage,
+  ROLE_CHANGED,
   TOKEN_EXPIRED,
 } from '../src/lib/comment';
 import {
+  type CommentSettings,
+  followerMayWrite,
+  followersOnlyMessage,
+  hasBlockedWord,
+  NO_RULES,
+} from '../src/lib/comment-settings';
+import {
   type Author,
   COMMENT_TOKEN_TTL_MS,
-  type Commenter,
+  type RelayCommand,
   signAuthor,
   signCommentProof,
+  type VerifiedCommenter,
   verifyAuthor,
   verifyCommentToken,
+  verifyRelayCommand,
   verifyRemoval,
 } from '../src/lib/comment-token';
 
@@ -25,8 +35,8 @@ import {
 const HISTORY_SIZE = 50;
 /** 1つのつなぎから続けて書ける間隔。連投で流れを埋めさせない */
 const POST_INTERVAL_MS = 1000;
-/** 届いた1通の大きさの上限。コメントの上限（src/lib/comment.ts）より十分大きい */
-const MAX_PAYLOAD_BYTES = 4096;
+/** 届いた1通の大きさの上限。コメントの上限（src/lib/comment.ts）と、禁止語を入れた指示の札（src/lib/comment-settings.ts）より十分大きい */
+const MAX_PAYLOAD_BYTES = 16_384;
 /** 切れたつなぎを見つけるために、生きているか聞く間隔 */
 const PING_INTERVAL_MS = 30_000;
 /** 配信の名前として受け付ける形（src/lib/media-auth.ts と同じ） */
@@ -38,9 +48,15 @@ const THUMBNAIL_MAX_AGE_S = 30;
 /** チャンネルごとの見ている人の数を返す住所 */
 const VIEWERS_PATH = '/viewers';
 
-type Writer = Commenter & { issuedAt: number; expiresAt: number };
-/** 覚えておくコメント。書いた人は、ブロックされたときに消すために持つ */
-type Entry = { comment: Comment; userId: string; ipKey: string | null; author: string };
+type Writer = VerifiedCommenter;
+/** 覚えておくコメント。書いた人は、ブロックされたときに消すために持つ。privileged は配信者かモデレーターが書いたもの */
+type Entry = {
+  comment: Comment;
+  userId: string;
+  ipKey: string | null;
+  author: string;
+  privileged: boolean;
+};
 /**
  * 配信者のブロック。止めた時刻より前に作られた札では書かせない。後の札はサイトが出さない（src/lib/blocks.ts）。
  * それより前の札は COMMENT_TOKEN_TTL_MS で切れるので、それだけ覚えておけばよい
@@ -52,7 +68,33 @@ type Room = {
   blocks: Block[];
   /** 見ている人の数を流すまでの待ち。出入りが続いても、まとめて1度だけ流す */
   viewersTimer?: ReturnType<typeof setTimeout>;
+  /** コメントの決まり。サイトからの指示か、つないできた人の札のうち新しいほうを使う */
+  settings: CommentSettings;
+  /** 配信者がつないだときの IP の鍵。モデレーターのブロックで、配信者と同じ回線の人を IP で止めないために使う */
+  ownerIpKey: string | null;
+  /**
+   * モデレーターになった・外れた人と、その時刻（サイトの時計）。それより前に作られた札では書かせない。
+   * 外れた人が前の札でつなぎ直して、モデレーターのまま振る舞うのを止める。札の期限（COMMENT_TOKEN_TTL_MS）が過ぎれば要らない
+   */
+  roleChanges: Map<string, number>;
+  /** 人ごとの最後に書いた時刻。低速モードと連投の間隔を、つなぎごとでなく人ごとに数える（タブを増やしても抜けられない） */
+  lastPosts: Map<string, number>;
 };
+
+/** 覚えておく「最後に書いた時刻」の数がこれを超えたら、古いものを捨てる */
+const LAST_POSTS_PRUNE_SIZE = 5000;
+/** 低速モードの最長の間隔より長く。これより前に書いた人は覚えておかなくてよい */
+const LAST_POSTS_KEEP_MS = 600_000;
+
+/** 間隔を数える単位。ログインした人は id、ゲストは札ごとに id が替わるので IP（分からなければ札の id） */
+function posterKey(writer: Writer): string {
+  return isGuestId(writer.userId) && writer.ipKey ? `ip:${writer.ipKey}` : writer.userId;
+}
+
+/** 配信者かモデレーター。ブロックでき、低速モード・禁止語・フォロワー限定にかからない */
+function privileged(writer: Writer | null): boolean {
+  return writer !== null && (writer.owner || writer.moderator);
+}
 
 type Options = {
   port: number;
@@ -95,22 +137,28 @@ function blockedWriter(room: Room, writer: Writer, now: number): boolean {
   );
 }
 
-/** 見せるコメント。自分のコメントには mine を付け、ほかの人のコメントには配信者にだけ書いた人の札を付ける */
+/**
+ * 見せるコメント。自分のコメントには mine を付け、ほかの人のコメントには配信者とモデレーターにだけ書いた人の札を付ける。
+ * 配信者とモデレーターのコメントには札を付けない（止められないので、ブロックを出さない）
+ */
 function shown(entry: Entry, writer: Writer | null): Comment {
   if (writer && writer.userId === entry.userId) return { ...entry.comment, mine: true };
-  if (writer?.owner) return { ...entry.comment, author: entry.author };
+  if (privileged(writer) && !entry.privileged) return { ...entry.comment, author: entry.author };
   return entry.comment;
 }
 
-/** 届いた1通。書くコメントか、配信者のブロックか、運営が消すもの */
+/** 届いた1通。書くコメントか、ブロックか、運営が消すものか、サイトからの指示 */
 function parseMessage(
   data: unknown,
-): { text: string } | { block: string } | { remove: string } | null {
+): { text: string } | { block: string } | { remove: string } | { command: string } | null {
   try {
     const parsed: unknown = JSON.parse(String(data));
     if (typeof parsed !== 'object' || parsed === null) return null;
     if ('block' in parsed && typeof parsed.block === 'string') return { block: parsed.block };
     if ('remove' in parsed && typeof parsed.remove === 'string') return { remove: parsed.remove };
+    if ('command' in parsed && typeof parsed.command === 'string') {
+      return { command: parsed.command };
+    }
     if ('text' in parsed && typeof parsed.text === 'string') {
       const text = normalizeComment(parsed.text);
       return text ? { text } : null;
@@ -167,11 +215,12 @@ export function startRelay({
   web.listen(port, host);
   const alive = new WeakSet<WebSocket>();
 
-  /** 配信者がブロックした。その人のコメントを消し、つなぎを閉じる */
-  function block(room: Room, author: Author, owner: Writer): void {
+  /** 配信者かモデレーターがブロックした。その人のコメントを消し、つなぎを閉じる */
+  function block(room: Room, author: Author, blocker: Writer): void {
     const at = now();
-    // 配信者と同じ回線の人を IP で止めると、配信者まで書けなくなるので、そのときは id だけで止める
-    const ipKey = author.ipKey === owner.ipKey ? null : author.ipKey;
+    // 配信者やブロックした人と同じ回線の人を IP で止めると、その人たちまで書けなくなるので、そのときは id だけで止める
+    const ipKey =
+      author.ipKey === blocker.ipKey || author.ipKey === room.ownerIpKey ? null : author.ipKey;
     const added: Block = { userId: author.userId, ipKey, at };
     room.blocks = [...room.blocks.filter((b) => at - b.at < COMMENT_TOKEN_TTL_MS), added];
     const removed = room.history.filter((entry) => sameAuthor(added, entry.userId, entry.ipKey));
@@ -179,9 +228,35 @@ export function startRelay({
     const ids = removed.map((entry) => entry.comment.id);
     for (const [client, writer] of room.clients) {
       if (ids.length > 0) send(client, { type: 'remove', ids });
-      if (writer && !writer.owner && blockedWriter(room, writer, at))
+      if (writer && !privileged(writer) && blockedWriter(room, writer, at))
         client.close(BLOCKED, 'blocked');
     }
+  }
+
+  /**
+   * サイトからの指示。決まりは新しければ入れ替え、見る画面に札をもらい直させる（書けるかどうかの知らせを出し直すため）。
+   * モデレーターが変わった人は、それより前の札を使えなくしてから、つなぎ直させる
+   */
+  function apply(room: Room, command: RelayCommand, issuedAt: number): void {
+    if (command.kind === 'settings') {
+      if (command.settings.at < room.settings.at) return;
+      room.settings = command.settings;
+      for (const client of room.clients.keys()) send(client, { type: 'rules' });
+      return;
+    }
+    for (const [userId, at] of room.roleChanges) {
+      if (now() - at >= COMMENT_TOKEN_TTL_MS) room.roleChanges.delete(userId);
+    }
+    room.roleChanges.set(command.userId, issuedAt);
+    for (const [client, writer] of room.clients) {
+      if (writer?.userId === command.userId) client.close(ROLE_CHANGED, 'role changed');
+    }
+  }
+
+  /** その札が、モデレーターが変わる前に作られたものか */
+  function staleRole(room: Room, writer: Writer): boolean {
+    const at = room.roleChanges.get(writer.userId);
+    return at !== undefined && writer.issuedAt <= at;
   }
 
   /** 出入りがあった。少し待ってから、部屋の全員にいまの人数を流す */
@@ -215,12 +290,32 @@ export function startRelay({
 
     let room = rooms.get(channelId);
     if (!room) {
-      room = { clients: new Map(), history: [], blocks: [] };
+      room = {
+        clients: new Map(),
+        history: [],
+        blocks: [],
+        settings: NO_RULES,
+        ownerIpKey: null,
+        roleChanges: new Map(),
+        lastPosts: new Map(),
+      };
       rooms.set(channelId, room);
     }
     const joined = room;
-    // ブロックより前の札でつなぎ直してきた人は、読むだけにする
-    const writer = commenter && !blockedWriter(joined, commenter, now()) ? commenter : null;
+    // 中継が立ち上がり直したあとも決まりを効かせるため、札の決まりが新しければ使う
+    if (commenter?.settings && commenter.settings.at > joined.settings.at) {
+      joined.settings = commenter.settings;
+    }
+    // 配信者の回線は、配信者がつないでいなくても、サイトが札に入れて教える
+    if (commenter?.owner) joined.ownerIpKey = commenter.ipKey;
+    else if (joined.ownerIpKey === null && commenter?.ownerIpKey) {
+      joined.ownerIpKey = commenter.ownerIpKey;
+    }
+    // ブロックより前の札、モデレーターが変わる前の札でつなぎ直してきた人は、読むだけにする
+    const writer =
+      commenter && !blockedWriter(joined, commenter, now()) && !staleRole(joined, commenter)
+        ? commenter
+        : null;
     joined.clients.set(socket, writer);
     alive.add(socket);
     send(socket, {
@@ -229,7 +324,6 @@ export function startRelay({
     });
     viewersChanged(joined);
 
-    let lastPostAt = -Infinity;
     socket.on('pong', () => alive.add(socket));
     socket.on('message', (data) => {
       const message = parseMessage(data);
@@ -244,6 +338,17 @@ export function startRelay({
         }
         return;
       }
+      // サイトからの指示。消すものと同じく、サイトのサーバーが札なしでつないで送ってくる（src/lib/comment-removal.ts の commandRelay）
+      if (message && 'command' in message) {
+        const verified = verifyRelayCommand(secret, message.command, channelId, now());
+        if (verified) {
+          apply(joined, verified.command, verified.issuedAt);
+          send(socket, { type: 'applied' });
+        } else {
+          send(socket, { type: 'error', message: '指示の札が合いません' });
+        }
+        return;
+      }
       if (!writer) {
         send(socket, { type: 'error', message: 'コメントするにはログインしてください' });
         return;
@@ -251,7 +356,8 @@ export function startRelay({
       if (!message) return;
       if ('block' in message) {
         const author = verifyAuthor(secret, message.block, channelId);
-        if (writer.owner && author && author.userId !== writer.userId) {
+        // 配信者とモデレーターだけが止められる。配信者とモデレーターは止められない
+        if (privileged(writer) && author && author.userId !== writer.userId && !author.privileged) {
           block(joined, author, writer);
         }
         return;
@@ -263,11 +369,35 @@ export function startRelay({
         socket.close(TOKEN_EXPIRED, 'token expired');
         return;
       }
-      if (at - lastPostAt < POST_INTERVAL_MS) {
-        send(socket, { type: 'error', message: '少し待ってから書いてください' });
+      // 配信者とモデレーターは、配信者の決めた決まりにかからない
+      const ruled = !privileged(writer);
+      const { settings } = joined;
+      if (ruled && !followerMayWrite(settings, writer.followedAt, at)) {
+        send(socket, {
+          type: 'error',
+          message: followersOnlyMessage(settings.followersOnlyMinutes ?? 0),
+        });
         return;
       }
-      lastPostAt = at;
+      const slowMs = ruled ? settings.slowSeconds * 1000 : 0;
+      const poster = posterKey(writer);
+      const lastPostAt = joined.lastPosts.get(poster) ?? -Infinity;
+      if (at - lastPostAt < Math.max(POST_INTERVAL_MS, slowMs)) {
+        send(socket, {
+          type: 'error',
+          message:
+            slowMs > POST_INTERVAL_MS
+              ? `低速モードです。${settings.slowSeconds}秒あけて書いてください`
+              : '少し待ってから書いてください',
+        });
+        return;
+      }
+      if (joined.lastPosts.size > LAST_POSTS_PRUNE_SIZE) {
+        for (const [key, time] of joined.lastPosts) {
+          if (at - time > LAST_POSTS_KEEP_MS) joined.lastPosts.delete(key);
+        }
+      }
+      joined.lastPosts.set(poster, at);
       const comment = {
         id: randomUUID(),
         name: writer.displayName,
@@ -275,6 +405,11 @@ export function startRelay({
         at,
         guest: isGuestId(writer.userId),
       };
+      // 禁止語を含むコメントは、書いた人の画面にだけ流す。ほかの人には届かず、覚えもしない。書いた人には止められたことが分からない
+      if (ruled && hasBlockedWord(message.text, settings.blockedWords)) {
+        send(socket, { type: 'comment', comment: { ...comment, mine: true } });
+        return;
+      }
       const entry: Entry = {
         comment: { ...comment, proof: signCommentProof(secret, channelId, comment) },
         userId: writer.userId,
@@ -283,7 +418,9 @@ export function startRelay({
           userId: writer.userId,
           displayName: writer.displayName,
           ipKey: writer.ipKey,
+          privileged: !ruled,
         }),
+        privileged: !ruled,
       };
       joined.history = [...joined.history, entry].slice(-HISTORY_SIZE);
       for (const [client, viewer] of joined.clients) {

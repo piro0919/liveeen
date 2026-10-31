@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import { BlockList } from '@/components/block-list';
 import { BroadcastSetup } from '@/components/broadcast-setup';
+import { CommentRulesForm } from '@/components/comment-rules-form';
+import { ModeratorList } from '@/components/moderator-list';
+import { NO_RULES } from '@/lib/comment-settings';
+import { commentSettingsOf, moderatorsOf } from '@/lib/moderation';
 import { DisplayNameForm } from '@/components/display-name-form';
 import { HandleForm } from '@/components/handle-form';
 import { SignInButton } from '@/components/sign-in-button';
@@ -41,7 +45,15 @@ export default async function BroadcastPage() {
             relayUrl={env.NEXT_PUBLIC_COMMENT_RELAY_URL}
             bgmUrl={env.NEXT_PUBLIC_BGM_URL}
           />
-          {channel && <BlockList blocks={await blocksOf(channel.id)} />}
+          {channel && (
+            <>
+              <div className={ui.card}>
+                <CommentRulesForm settings={(await commentSettingsOf(channel.id)) ?? NO_RULES} />
+              </div>
+              <ModeratorList moderators={await moderatorsOf(channel.id)} />
+              <BlockList blocks={await blocksOf(channel.id)} />
+            </>
+          )}
         </>
       ) : (
         <SignInButton />

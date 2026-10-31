@@ -4,10 +4,12 @@ import type { Duplex } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { startRelay } from '../relay/relay';
-import { removeFromRelay } from '@/lib/comment-removal';
-import { BLOCKED, guestId, type RelayMessage, TOKEN_EXPIRED } from '@/lib/comment';
+import { commandRelay, removeFromRelay } from '@/lib/comment-removal';
+import { BLOCKED, guestId, type RelayMessage, ROLE_CHANGED, TOKEN_EXPIRED } from '@/lib/comment';
+import { type CommentSettings, NO_RULES } from '@/lib/comment-settings';
 import {
   COMMENT_TOKEN_TTL_MS,
+  signAuthor,
   signCommentToken,
   signRemoval,
   verifyCommentProof,
@@ -55,9 +57,32 @@ async function connect(channelId: string, token?: string) {
 function tokenFor(
   name: string,
   channelId = CHANNEL,
-  { ipKey = `ip-${name}`, owner = false }: { ipKey?: string | null; owner?: boolean } = {},
+  {
+    ipKey = `ip-${name}`,
+    owner = false,
+    moderator = false,
+    followedAt = null,
+    settings,
+    ownerIpKey = null,
+  }: {
+    ipKey?: string | null;
+    owner?: boolean;
+    moderator?: boolean;
+    followedAt?: number | null;
+    settings?: CommentSettings;
+    ownerIpKey?: string | null;
+  } = {},
 ) {
-  const commenter = { userId: `id-${name}`, displayName: name, ipKey, owner };
+  const commenter = {
+    userId: `id-${name}`,
+    displayName: name,
+    ipKey,
+    owner,
+    moderator,
+    followedAt,
+    settings,
+    ownerIpKey,
+  };
   return signCommentToken(SECRET, channelId, commenter, clock);
 }
 
@@ -454,5 +479,319 @@ describe('見ている人の数', () => {
     await left;
     expect(await (await fetch(`${base}/viewers`)).json()).toEqual({});
     owner.socket.close();
+  });
+});
+
+describe('コメントの決まり', () => {
+  beforeEach(() => {
+    // サイトからの指示の札は、いまの時刻で作られる（src/lib/comment-removal.ts の commandRelay）
+    clock = Date.now();
+  });
+
+  /** 決まりを入れた札。at はサイトで決まりを変えた時刻 */
+  function rules(partial: Partial<CommentSettings>): CommentSettings {
+    return { ...NO_RULES, at: clock, ...partial };
+  }
+
+  /** コメントを書き、次に届いたものを返す。その前に届いているはずのものを数で渡す */
+  async function post(
+    client: Awaited<ReturnType<typeof connect>>,
+    text: string,
+    already: number,
+  ): Promise<RelayMessage> {
+    await client.nth(already);
+    client.socket.send(JSON.stringify({ text }));
+    return client.nth(already + 1);
+  }
+
+  it('低速モードでは、決めた秒数がたつまで書かせない', async () => {
+    const settings = rules({ slowSeconds: 10 });
+    const writer = await connect(CHANNEL, tokenFor('ぴろ', CHANNEL, { settings }));
+    expect(await post(writer, '1', 1)).toMatchObject({ type: 'comment' });
+    clock += 5000;
+    expect(await post(writer, '2', 2)).toEqual({
+      type: 'error',
+      message: '低速モードです。10秒あけて書いてください',
+    });
+    clock += 5000;
+    expect(await post(writer, '3', 3)).toMatchObject({ type: 'comment', comment: { text: '3' } });
+  });
+
+  it('配信者とモデレーターは低速モードにかからない', async () => {
+    const settings = rules({ slowSeconds: 10 });
+    const owner = await connect(CHANNEL, tokenFor('配信者', CHANNEL, { owner: true, settings }));
+    expect(await post(owner, 'a', 1)).toMatchObject({ type: 'comment' });
+    clock += 1000;
+    expect(await post(owner, 'b', 2)).toMatchObject({ type: 'comment', comment: { text: 'b' } });
+    const mod = await connect(CHANNEL, tokenFor('モデ', CHANNEL, { moderator: true, settings }));
+    expect(await post(mod, 'c', 1)).toMatchObject({ type: 'comment' });
+    clock += 1000;
+    expect(await post(mod, 'd', 2)).toMatchObject({ type: 'comment', comment: { text: 'd' } });
+  });
+
+  it('禁止語を含むコメントは書いた人にだけ見せ、ほかの人に流さず、覚えない', async () => {
+    const settings = rules({ blockedWords: ['ばか', 'baka'] });
+    const writer = await connect(CHANNEL, tokenFor('ぴろ', CHANNEL, { settings }));
+    const viewer = await connect(CHANNEL);
+    expect(await post(writer, 'ばかだなあ', 1)).toMatchObject({
+      type: 'comment',
+      comment: { mine: true, text: 'ばかだなあ' },
+    });
+    clock += 1000;
+    // 全角と大文字も同じに見る
+    expect(await post(writer, 'ＢＡＫＡ！', 2)).toMatchObject({
+      type: 'comment',
+      comment: { mine: true },
+    });
+    clock += 1000;
+    expect(await post(writer, 'こんにちは', 3)).toMatchObject({ type: 'comment' });
+    // 見る人に届いたのは、禁止語の無い1通だけ
+    expect(await viewer.nth(2)).toMatchObject({ type: 'comment', comment: { text: 'こんにちは' } });
+    const late = await connect(CHANNEL);
+    expect(await late.nth(1)).toMatchObject({
+      type: 'history',
+      comments: [{ text: 'こんにちは' }],
+    });
+  });
+
+  it('モデレーターは禁止語にかからない', async () => {
+    const settings = rules({ blockedWords: ['ばか'] });
+    const mod = await connect(CHANNEL, tokenFor('モデ', CHANNEL, { moderator: true, settings }));
+    const viewer = await connect(CHANNEL);
+    await post(mod, 'ばかと書いたら止めます', 1);
+    expect(await viewer.nth(2)).toMatchObject({ type: 'comment' });
+  });
+
+  it('フォロワー限定では、フォローして決めた分数がたった人だけ書ける', async () => {
+    const settings = rules({ followersOnlyMinutes: 10 });
+    const stranger = await connect(CHANNEL, tokenFor('通りすがり', CHANNEL, { settings }));
+    expect(await post(stranger, 'やあ', 1)).toEqual({
+      type: 'error',
+      message: 'この配信者をフォローして10分たつとコメントできます',
+    });
+    const fresh = await connect(
+      CHANNEL,
+      tokenFor('さっき', CHANNEL, { settings, followedAt: clock - 5 * 60_000 }),
+    );
+    expect(await post(fresh, 'やあ', 1)).toMatchObject({ type: 'error' });
+    const fan = await connect(
+      CHANNEL,
+      tokenFor('古参', CHANNEL, { settings, followedAt: clock - 10 * 60_000 }),
+    );
+    expect(await post(fan, 'やあ', 1)).toMatchObject({
+      type: 'comment',
+      comment: { text: 'やあ' },
+    });
+  });
+
+  it('サイトからの指示で、つないでいる人にもその場で決まりを効かせる。古い決まりでは上書きしない', async () => {
+    const relayUrl = `ws://localhost:${relay.port()}`;
+    const writer = await connect(CHANNEL, tokenFor('ぴろ'));
+    await writer.nth(1);
+    await commandRelay(relayUrl, SECRET, CHANNEL, {
+      kind: 'settings',
+      settings: rules({ followersOnlyMinutes: 0 }),
+    });
+    expect(await writer.nth(2)).toEqual({ type: 'rules' });
+    expect(await post(writer, 'やあ', 2)).toEqual({
+      type: 'error',
+      message: 'この配信者をフォローしている人だけコメントできます',
+    });
+    // あとから来た人の、古い札の決まりでは戻らない
+    const stale = await connect(
+      CHANNEL,
+      tokenFor('別の人', CHANNEL, { settings: { ...NO_RULES, at: clock - 1 } }),
+    );
+    expect(await post(stale, 'やあ', 1)).toMatchObject({ type: 'error' });
+    clock += 1000;
+    await commandRelay(relayUrl, SECRET, CHANNEL, { kind: 'settings', settings: rules({}) });
+    expect(await post(writer, 'やあ', 4)).toMatchObject({ type: 'comment' });
+  });
+
+  it('中継が立ち上がり直しても、つないできた人の札の決まりを使う', async () => {
+    const settings = rules({ followersOnlyMinutes: 0 });
+    const first = await connect(CHANNEL, tokenFor('ぴろ', CHANNEL, { settings }));
+    const other = await connect(CHANNEL, tokenFor('別の人'));
+    expect(await post(first, 'やあ', 1)).toMatchObject({ type: 'error' });
+    expect(await post(other, 'やあ', 1)).toMatchObject({ type: 'error' });
+  });
+
+  it('署名の違う指示は聞かない', async () => {
+    const relayUrl = `ws://localhost:${relay.port()}`;
+    await expect(
+      commandRelay(relayUrl, 'wrong-secret', CHANNEL, {
+        kind: 'settings',
+        settings: rules({ followersOnlyMinutes: 0 }),
+      }),
+    ).rejects.toThrow('指示の札が合いません');
+    const writer = await connect(CHANNEL, tokenFor('ぴろ'));
+    expect(await post(writer, 'やあ', 1)).toMatchObject({ type: 'comment' });
+  });
+
+  it('モデレーターにも書いた人の札を付け、配信者とモデレーターのコメントには付けない', async () => {
+    const owner = await connect(CHANNEL, tokenFor('配信者', CHANNEL, { owner: true }));
+    const mod = await connect(CHANNEL, tokenFor('モデ', CHANNEL, { moderator: true }));
+    const other = await connect(CHANNEL, tokenFor('別のモデ', CHANNEL, { moderator: true }));
+    const troll = await connect(CHANNEL, tokenFor('荒らし'));
+    await post(owner, '配信者です', 1);
+    await post(other, 'モデです', 2);
+    await post(troll, '荒らす', 3);
+    const toMod = await Promise.all([mod.nth(2), mod.nth(3), mod.nth(4)]);
+    const authors = toMod.map((m) => (m.type === 'comment' ? m.comment.author : 'x'));
+    expect(authors[0]).toBeUndefined();
+    expect(authors[1]).toBeUndefined();
+    expect(authors[2]).toEqual(expect.any(String));
+  });
+
+  it('モデレーターがブロックすると、その人のつなぎを閉じる。モデレーターは止められない', async () => {
+    const mod = await connect(CHANNEL, tokenFor('モデ', CHANNEL, { moderator: true }));
+    const other = await connect(CHANNEL, tokenFor('別のモデ', CHANNEL, { moderator: true }));
+    const troll = await connect(CHANNEL, tokenFor('荒らし'));
+    const owner = await connect(CHANNEL, tokenFor('配信者', CHANNEL, { owner: true }));
+    await post(troll, '荒らす', 1);
+    const toMod = await mod.nth(2);
+    const closed = new Promise<number>((resolve) => troll.socket.once('close', resolve));
+    mod.socket.send(
+      JSON.stringify({ block: toMod.type === 'comment' ? toMod.comment.author : '' }),
+    );
+    expect(await closed).toBe(BLOCKED);
+    // 別のモデレーターのコメントは、配信者から見ても札が無く、止められない
+    clock += 1000;
+    // 届いているのは、つないだときの流れ・荒らしのコメント・消す知らせ
+    const fromOther = await post(other, 'モデです', 3);
+    expect(fromOther).toMatchObject({ type: 'comment', comment: { mine: true } });
+    const toOwner = await owner.nth(4);
+    expect(toOwner.type === 'comment' && toOwner.comment.author).toBeUndefined();
+  });
+
+  it('配信者かモデレーターだった人の札では止めない', async () => {
+    const mod = await connect(CHANNEL, tokenFor('モデ', CHANNEL, { moderator: true }));
+    const otherToken = tokenFor('別のモデ', CHANNEL, { moderator: true });
+    await mod.nth(1);
+    const author = signAuthor(SECRET, CHANNEL, {
+      userId: 'id-別のモデ',
+      displayName: '別のモデ',
+      ipKey: 'ip-別のモデ',
+      privileged: true,
+    });
+    mod.socket.send(JSON.stringify({ block: author }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    clock += 1000;
+    // ブロックより前の札でつなぎ直しても書ける
+    const other = await connect(CHANNEL, otherToken);
+    expect(await post(other, 'まだ書ける', 1)).toMatchObject({ type: 'comment' });
+  });
+
+  it('モデレーターと同じ IP の人も、配信者と同じ IP の人も、IP では止めない', async () => {
+    const sameHomeToken = tokenFor('同じ家', CHANNEL, { ipKey: 'ip-home' });
+    const sameRoomToken = tokenFor('同じ部屋', CHANNEL, { ipKey: 'ip-mod' });
+    await connect(CHANNEL, tokenFor('配信者', CHANNEL, { owner: true, ipKey: 'ip-home' }));
+    const mod = await connect(
+      CHANNEL,
+      tokenFor('モデ', CHANNEL, { moderator: true, ipKey: 'ip-mod' }),
+    );
+    const family = await connect(CHANNEL, tokenFor('家族', CHANNEL, { ipKey: 'ip-home' }));
+    await post(family, 'やあ', 1);
+    const toMod1 = await mod.nth(2);
+    const roommate = await connect(CHANNEL, tokenFor('同居', CHANNEL, { ipKey: 'ip-mod' }));
+    await post(roommate, 'やあ', 1);
+    const toMod2 = await mod.nth(3);
+    for (const message of [toMod1, toMod2]) {
+      mod.socket.send(
+        JSON.stringify({ block: message.type === 'comment' ? message.comment.author : '' }),
+      );
+    }
+    await mod.nth(5);
+    clock += 1000;
+    // ブロックより前に作られた札。IP で止めていれば書けない
+    const sameHome = await connect(CHANNEL, sameHomeToken);
+    expect(await post(sameHome, '書ける', 1)).toMatchObject({ type: 'comment' });
+    const sameRoom = await connect(CHANNEL, sameRoomToken);
+    expect(await post(sameRoom, '書ける', 1)).toMatchObject({ type: 'comment' });
+  });
+
+  it('モデレーターが変わった人のつなぎだけを閉じ、つなぎ直させる', async () => {
+    const viewer = await connect(CHANNEL, tokenFor('見る人'));
+    const other = await connect(CHANNEL, tokenFor('別の人'));
+    await viewer.nth(1);
+    const closed = new Promise<number>((resolve) => viewer.socket.once('close', resolve));
+    await commandRelay(`ws://localhost:${relay.port()}`, SECRET, CHANNEL, {
+      kind: 'roles',
+      userId: 'id-見る人',
+    });
+    expect(await closed).toBe(ROLE_CHANGED);
+    expect(other.socket.readyState).toBe(WebSocket.OPEN);
+  });
+});
+
+describe('レビューで直した決まり', () => {
+  beforeEach(() => {
+    clock = Date.now();
+  });
+
+  async function post(
+    client: Awaited<ReturnType<typeof connect>>,
+    text: string,
+    already: number,
+  ): Promise<RelayMessage> {
+    await client.nth(already);
+    client.socket.send(JSON.stringify({ text }));
+    return client.nth(already + 1);
+  }
+
+  it('外されたモデレーターは、外される前の札でつなぎ直しても書けない', async () => {
+    const oldToken = tokenFor('モデ', CHANNEL, { moderator: true });
+    const mod = await connect(CHANNEL, oldToken);
+    await mod.nth(1);
+    const closed = new Promise<number>((resolve) => mod.socket.once('close', resolve));
+    clock += 1;
+    await commandRelay(`ws://localhost:${relay.port()}`, SECRET, CHANNEL, {
+      kind: 'roles',
+      userId: 'id-モデ',
+    });
+    expect(await closed).toBe(ROLE_CHANGED);
+    const again = await connect(CHANNEL, oldToken);
+    expect(await post(again, 'まだモデ', 1)).toMatchObject({ type: 'error' });
+    // 指示のあとにサイトが作った札なら書ける
+    clock = Date.now() + 1000;
+    const fresh = await connect(CHANNEL, tokenFor('モデ'));
+    expect(await post(fresh, '戻った', 1)).toMatchObject({ type: 'comment' });
+  });
+
+  it('低速モードはつなぎごとでなく人ごとに数える', async () => {
+    const settings = { ...NO_RULES, slowSeconds: 10, at: clock };
+    const first = await connect(CHANNEL, tokenFor('ぴろ', CHANNEL, { settings }));
+    expect(await post(first, '1', 1)).toMatchObject({ type: 'comment' });
+    clock += 2000;
+    const second = await connect(CHANNEL, tokenFor('ぴろ', CHANNEL, { settings }));
+    expect(await post(second, '2', 1)).toMatchObject({ type: 'error' });
+  });
+
+  it('決まりが変わったら、つないでいる全員に知らせる', async () => {
+    const viewer = await connect(CHANNEL, tokenFor('ぴろ'));
+    await viewer.nth(1);
+    await commandRelay(`ws://localhost:${relay.port()}`, SECRET, CHANNEL, {
+      kind: 'settings',
+      settings: { ...NO_RULES, slowSeconds: 5, at: clock },
+    });
+    expect(await viewer.nth(2)).toEqual({ type: 'rules' });
+  });
+
+  it('配信者がつないでいなくても、札で教わった配信者の回線は IP で止めない', async () => {
+    const sameHomeToken = tokenFor('同じ家', CHANNEL, { ipKey: 'ip-home' });
+    const mod = await connect(
+      CHANNEL,
+      tokenFor('モデ', CHANNEL, { moderator: true, ownerIpKey: 'ip-home' }),
+    );
+    const family = await connect(CHANNEL, tokenFor('家族', CHANNEL, { ipKey: 'ip-home' }));
+    await post(family, 'やあ', 1);
+    const toMod = await mod.nth(2);
+    mod.socket.send(
+      JSON.stringify({ block: toMod.type === 'comment' ? toMod.comment.author : '' }),
+    );
+    await mod.nth(3);
+    clock += 1000;
+    const sameHome = await connect(CHANNEL, sameHomeToken);
+    expect(await post(sameHome, '書ける', 1)).toMatchObject({ type: 'comment' });
   });
 });

@@ -10,6 +10,15 @@ export async function isFollowing(userId: string, channelId: string): Promise<bo
   return rowCount === 1;
 }
 
+/** そのチャンネルをフォローした時刻（ミリ秒）。していなければ null。フォロワー限定のコメントに使う */
+export async function followedAtOf(userId: string, channelId: string): Promise<number | null> {
+  const { rows } = await db().query<{ createdAt: Date }>(
+    'select created_at as "createdAt" from follow where user_id = $1 and channel_id = $2',
+    [userId, channelId],
+  );
+  return rows[0]?.createdAt.getTime() ?? null;
+}
+
 /** フォローする。自分のチャンネルはフォローできない */
 export async function follow(userId: string, channelId: string): Promise<void> {
   await db().query(

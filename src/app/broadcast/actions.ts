@@ -11,6 +11,13 @@ import {
 } from '@/lib/channels';
 import { normalizeStreamTitle } from '@/lib/stream-title';
 import { unblockCommenter } from '@/lib/blocks';
+import { commandRelay } from '@/lib/comment-removal';
+import {
+  FOLLOWERS_ONLY_CHOICES,
+  parseBlockedWords,
+  SLOW_MODE_CHOICES,
+} from '@/lib/comment-settings';
+import { removeModerator, setCommentSettings } from '@/lib/moderation';
 import { isLatencyMode } from '@/lib/latency';
 import { publishing } from '@/lib/live';
 import { signMediaToken } from '@/lib/media-token';
@@ -79,6 +86,67 @@ export async function setGuestCommentsAction(allowed: boolean): Promise<void> {
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   await setGuestComments(userId, allowed);
+  refresh();
+}
+
+export type CommentRulesState = { error: string | null; saved: boolean };
+
+/**
+ * コメントの決まり（低速モード・フォロワー限定・禁止語）を変える。
+ * 中継に送って、つないでいる人にもその場で効かせる。届かなくても、次に札をもらった人から効く
+ */
+export async function setCommentRulesAction(
+  _: CommentRulesState,
+  form: FormData,
+): Promise<CommentRulesState> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  const slowSeconds = Number(form.get('slow'));
+  if (!(SLOW_MODE_CHOICES as readonly number[]).includes(slowSeconds)) {
+    throw new Error(`低速モードの選び方が違います: ${String(form.get('slow'))}`);
+  }
+  const followers = String(form.get('followers') ?? '');
+  const followersOnlyMinutes = followers === '' ? null : Number(followers);
+  if (!(FOLLOWERS_ONLY_CHOICES as readonly (number | null)[]).includes(followersOnlyMinutes)) {
+    throw new Error(`フォロワー限定の選び方が違います: ${followers}`);
+  }
+  const words = parseBlockedWords(String(form.get('words') ?? ''));
+  if (!words.ok) return { error: words.error, saved: false };
+  const saved = await setCommentSettings(userId, {
+    slowSeconds,
+    followersOnlyMinutes,
+    blockedWords: words.words,
+  });
+  if (!saved) throw new Error('チャンネルがありません');
+  const secret = env.COMMENT_TOKEN_SECRET;
+  if (secret) {
+    await commandRelay(env.NEXT_PUBLIC_COMMENT_RELAY_URL, secret, saved.channelId, {
+      kind: 'settings',
+      settings: saved.settings,
+    }).catch(() => {
+      // 中継に届かなくても、次に札をもらった人から効く
+    });
+  }
+  refresh();
+  return { error: null, saved: true };
+}
+
+/** モデレーターを外す。中継に知らせて、その人をつなぎ直させ、その場から外す */
+export async function removeModeratorAction(moderatorId: string): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  const channel = await channelOf(userId);
+  if (!channel) throw new Error('チャンネルがありません');
+  await removeModerator(channel.id, moderatorId);
+  const secret = env.COMMENT_TOKEN_SECRET;
+  if (secret) {
+    await commandRelay(env.NEXT_PUBLIC_COMMENT_RELAY_URL, secret, channel.id, {
+      kind: 'roles',
+      userId: moderatorId,
+    }).catch(() => {
+      // 中継に届かなくても、その人が次につなぎ直したときから外れる（遅くとも札の期限の10分）
+    });
+  }
   refresh();
 }
 

@@ -9,16 +9,17 @@ export type CommentBlock = { id: string; displayName: string; createdAt: Date };
 /**
  * コメントした人を止める（db/migrations/0015_comment_block.sql）。
  * ログインした人は id と IP、ゲストは IP で止める。
- * 配信者と同じ回線の人を IP で止めると、配信者の家族まで書けなくなるので、そのときは id だけで止める（中継と同じ。relay/relay.ts）。
+ * 配信者やブロックした人（モデレーター）と同じ回線の人を IP で止めると、その家族まで書けなくなるので、
+ * そのときは id だけで止める（中継と同じ。relay/relay.ts）。sparedIpKeys はその回線の IP の鍵。
  * IP で止められないゲストは止められないので、false を返す
  */
 export async function blockCommenter(
   channelId: string,
   author: Author,
-  ownerIpKey: string | null,
+  sparedIpKeys: (string | null)[],
 ): Promise<boolean> {
   const userId = isGuestId(author.userId) ? null : author.userId;
-  const ipKey = author.ipKey === ownerIpKey ? null : author.ipKey;
+  const ipKey = author.ipKey !== null && sparedIpKeys.includes(author.ipKey) ? null : author.ipKey;
   if (!userId && !ipKey) return false;
   await db().query(
     `insert into comment_block (channel_id, user_id, ip_key, display_name) values ($1, $2, $3, $4)`,

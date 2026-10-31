@@ -20,6 +20,9 @@ export const ui = {
   /** 1行の入力欄。iPhone は 16px より小さい字の入力欄に触れると画面を拡大するので、スマホでは 16px */
   input:
     'h-10 min-w-0 rounded-full border border-line bg-background px-4 text-base outline-none transition-colors focus:border-accent sm:h-9 sm:text-sm',
+  /** 複数行の入力欄（禁止語）。1行の入力欄と同じ縁と字の大きさ */
+  textarea:
+    'min-h-24 min-w-0 rounded-2xl border border-line bg-background px-4 py-2 text-base outline-none transition-colors focus:border-accent sm:text-sm',
   /** 上の帯。画面の幅いっぱいで、下に細い線。地を少し透かす */
   headerBar: 'border-b border-line bg-background/85 backdrop-blur-md',
   /** 囲む枠（コメント・通報の理由） */

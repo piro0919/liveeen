@@ -109,6 +109,7 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
             viewer={viewer}
             guestComments={channel.guestComments}
             own={own}
+            following={following}
             reportedComments={reportedComments}
           />
         </div>

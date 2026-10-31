@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
+  appointModeratorAction,
   blockCommenterAction,
   commentTokenAction,
   reportCommentAction,
@@ -11,6 +12,7 @@ import {
   type Comment,
   COMMENT_MAX,
   type RelayMessage,
+  ROLE_CHANGED,
   TOKEN_EXPIRED,
 } from '@/lib/comment';
 import { CommentOutbox } from '@/lib/comment-outbox';
@@ -69,8 +71,10 @@ type Props = {
   viewer: 'signed-out' | 'no-name' | 'ready';
   /** ログインしていない人も書けるか。配信者が選ぶ */
   guestComments: boolean;
-  /** 配信者が自分のチャンネルを見ている。コメントした人をブロックできる */
+  /** 配信者が自分のチャンネルを見ている。コメントした人をモデレーターにできる（ブロックは、中継が書いた人の札を付けたコメントにだけ出す） */
   own: boolean;
+  /** 見ている人がこのチャンネルをフォローしているか。変わったら札をもらい直す（フォロワー限定のため） */
+  following?: boolean | null;
   /** ログインした人が通報したコメントの id。null ならコメントを通報できない（ログインしていないか、配信者） */
   reportedComments: string[] | null;
   /** 配信中の画面の映像に重ねて出す。地を塗らず、見出しを出さない */
@@ -88,6 +92,7 @@ export function Comments({
   viewer,
   guestComments,
   own,
+  following = null,
   reportedComments,
   overlay = false,
 }: Props) {
@@ -99,6 +104,10 @@ export function Comments({
   const [editingGuestName, setEditingGuestName] = useState(false);
   // 配信者に止められていれば、書く欄を出さない
   const [blocked, setBlocked] = useState(false);
+  // 配信者の決まり（フォロワー限定）でいまは書けなければ、書く欄の代わりに理由を出す
+  const [notice, setNotice] = useState<string | null>(null);
+  // モデレーターにした人の札。同じ人のほかのコメントにも「モデレーターにしました」と出す
+  const [appointed, setAppointed] = useState(() => new Set<string>());
   // 通報したコメント。読み込み直しても「通報しました」のままにするため、サーバーから受け取った分から始める
   const [reported, setReported] = useState(() => new Set(reportedComments ?? []));
   const socket = useRef<WebSocket | null>(null);
@@ -138,6 +147,7 @@ export function Comments({
       if (cancelled) return;
       const token = result?.token ?? null;
       setBlocked(result?.blocked ?? false);
+      setNotice(result?.notice ?? null);
       const query = token ? `?token=${encodeURIComponent(token)}` : '';
       const ws = new WebSocket(`${relayUrl}/${channelId}${query}`);
       socket.current = ws;
@@ -150,6 +160,12 @@ export function Comments({
       };
       // 札を取り替えるために自分で閉じたか
       let refreshing = false;
+      /** 新しい札でつなぎ直す。閉じ終わるまでの間に押されても、黙って捨てないよう先に止める */
+      const renew = () => {
+        refreshing = true;
+        setConnected(false);
+        ws.close();
+      };
       ws.onmessage = (event) => {
         const message = JSON.parse(String(event.data)) as RelayMessage;
         if (message.type === 'history') setComments(message.comments);
@@ -162,6 +178,8 @@ export function Comments({
           setError(message.message);
           restore(outbox.current.refused());
         } else if (message.type === 'viewers') setViewers(channelId, message.count);
+        // 配信者が決まりを変えた。書ける人は札をもらい直し、書けるかどうかの知らせを出し直す
+        else if (message.type === 'rules' && writer) renew();
       };
       ws.onclose = (event) => {
         clearTimeout(refresh);
@@ -172,9 +190,15 @@ export function Comments({
         if (cancelled) return;
         // 送ったのに返事の来ないまま切れた文は、届いたか分からないので書く欄に戻す
         restore(outbox.current.closed());
-        // 札を取り替えるとき、札が切れたか、ブロックされて閉じられたときは、待たずに新しい札でつなぐ（止められていれば札は出ない）
+        // 札を取り替えるとき、札が切れたか、ブロックされたか、モデレーターになった・外れたときは、
+        // 待たずに新しい札でつなぐ（止められていれば札は出ない）
         const wait =
-          refreshing || event.code === TOKEN_EXPIRED || event.code === BLOCKED ? 0 : RETRY_MS;
+          refreshing ||
+          event.code === TOKEN_EXPIRED ||
+          event.code === BLOCKED ||
+          event.code === ROLE_CHANGED
+            ? 0
+            : RETRY_MS;
         if (wait > 0) {
           setUnreachable(true);
           // つながらない間の人数は分からない。札の取り替えのときは、すぐつなぎ直すので消さない
@@ -183,12 +207,9 @@ export function Comments({
         retry = setTimeout(() => void connect(), wait);
       };
       if (token) {
-        refresh = setTimeout(() => {
-          // 閉じ終わるまでの間に押されても、黙って捨てないよう先に止める
-          refreshing = true;
-          setConnected(false);
-          ws.close();
-        }, REFRESH_MS);
+        // フォローしてまだ時間がたっていない人は、書けるようになる時刻にも札をもらい直す
+        const writable = result?.writableAt ? result.writableAt - Date.now() : Infinity;
+        refresh = setTimeout(renew, Math.max(0, Math.min(REFRESH_MS, writable)));
       }
     }
 
@@ -202,7 +223,7 @@ export function Comments({
       setConnected(false);
       setViewers(channelId, null);
     };
-  }, [channelId, relayUrl, viewer, writer, guestName]);
+  }, [channelId, relayUrl, viewer, writer, guestName, following]);
 
   // 新しいコメントが来たら下まで送る
   useEffect(() => {
@@ -222,7 +243,28 @@ export function Comments({
     setError(null);
   }
 
-  /** 配信者が、コメントした人を止める。サイトに覚えさせてから、中継にも知らせてその場で効かせる */
+  /** 配信者が、コメントした人をモデレーターにする。サイトが中継に知らせ、その人はつなぎ直してから効く */
+  async function appoint(comment: Comment) {
+    const { author } = comment;
+    if (!author) return;
+    if (
+      !window.confirm(
+        `${comment.name}さんをモデレーターにしますか？このチャンネルでコメントした人をブロックできるようになります`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await appointModeratorAction(channelId, author);
+    } catch {
+      setError('モデレーターにできませんでした');
+      return;
+    }
+    setError(null);
+    setAppointed((names) => new Set(names).add(author));
+  }
+
+  /** 配信者かモデレーターが、コメントした人を止める。サイトに覚えさせてから、中継にも知らせてその場で効かせる */
   async function block(comment: Comment) {
     const { author } = comment;
     if (!author) return;
@@ -233,7 +275,14 @@ export function Comments({
     ) {
       return;
     }
-    await blockCommenterAction(channelId, author);
+    try {
+      await blockCommenterAction(channelId, author);
+    } catch {
+      // 相手がモデレーターになっていた、などで断られた
+      setError('ブロックできませんでした');
+      return;
+    }
+    setError(null);
     // つなぎ直しの最中なら、つながったときに送る
     outbox.current.block(socket.current, author);
   }
@@ -282,7 +331,8 @@ export function Comments({
                 {comment.guest && '（ゲスト）'}
               </span>{' '}
               {comment.text}
-              {own && comment.author && (
+              {/* 書いた人の札は、配信者とモデレーターにだけ中継が付ける（relay/relay.ts） */}
+              {comment.author && (
                 <>
                   {' '}
                   <button
@@ -292,6 +342,23 @@ export function Comments({
                   >
                     ブロック
                   </button>
+                </>
+              )}
+              {/* 配信中の画面は狭いので、モデレーターを選ぶのは見る画面と OBS の画面だけ */}
+              {own && !overlay && comment.author && !comment.guest && (
+                <>
+                  {' '}
+                  {appointed.has(comment.author) ? (
+                    <span className={ui.note}>モデレーターにしました</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className={ui.textButton}
+                      onClick={() => void appoint(comment)}
+                    >
+                      モデレーターにする
+                    </button>
+                  )}
                 </>
               )}
               {reportedComments && !comment.mine && comment.proof && (
@@ -340,7 +407,8 @@ export function Comments({
         )}
         {unreachable && <p className="text-sm">コメントにつながっていません。つなぎ直しています</p>}
         {blocked && <p className="text-sm">この配信者のチャンネルではコメントできません</p>}
-        {writer && !blocked && !editingGuestName && (
+        {notice && !blocked && <p className="text-sm">{notice}</p>}
+        {writer && !blocked && !notice && !editingGuestName && (
           <form action={post} className="flex gap-2">
             <input
               value={text}

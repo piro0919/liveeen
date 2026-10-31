@@ -39,6 +39,8 @@ export function isGuestId(userId: string): boolean {
 export const TOKEN_EXPIRED = 4001;
 /** 中継が、配信者にブロックされた人のつなぎを閉じるときの番号。見る画面は札をもらい直し、読むだけでつなぐ */
 export const BLOCKED = 4003;
+/** 中継が、モデレーターになった人・外れた人のつなぎを閉じるときの番号。見る画面はすぐ新しい札でつなぎ直す */
+export const ROLE_CHANGED = 4004;
 
 /** 中継から見る画面に送るもの。remove はブロックされた人や運営が消したコメントを画面から消す */
 export type RelayMessage =
@@ -47,6 +49,10 @@ export type RelayMessage =
   | { type: 'remove'; ids: string[] }
   /** 運営の消す札を受け取った知らせ。送ってきたつなぎ（サイトのサーバー）にだけ返す */
   | { type: 'removed'; id: string }
+  /** サイトからの指示（src/lib/comment-token.ts の RelayCommand）を受け取った知らせ。送ってきたつなぎにだけ返す */
+  | { type: 'applied' }
+  /** 配信者がコメントの決まりを変えた。見る画面は札をもらい直す（書けるかどうかの知らせを出し直す） */
+  | { type: 'rules' }
   /** いまその配信を開いている人の数。配信者自身は数えない（relay/relay.ts） */
   | { type: 'viewers'; count: number }
   | { type: 'error'; message: string };
