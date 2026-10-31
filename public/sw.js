@@ -27,7 +27,9 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // ブラウザが送り口を取り替えたら、同じ鍵で取り直してサーバーに知らせる（鯉魂と同じ）。
-// 知らせないと、サーバーは捨てられた送り口に送り続け、通知が届かなくなる（src/app/api/push/renew/route.ts）
+// 知らせないと、サーバーは捨てられた送り口に送り続け、通知が届かなくなる（src/app/api/push/renew/route.ts）。
+// 前の送り口を渡さないブラウザ（Chromium や Safari では渡さないことがある）では、どの行かが分からないので何もしない。
+// その人は設定で切に見えるので、入れ直せば届く
 self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil(
     (async () => {

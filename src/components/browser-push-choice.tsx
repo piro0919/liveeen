@@ -52,10 +52,10 @@ async function subscribe(publicKey: string): Promise<PushState> {
   const saved = await safely(() =>
     savePushSubscriptionAction({ endpoint, p256dh: keys.p256dh, auth: keys.auth }),
   );
-  // 届かなければ、覚えてもらえていない送り口を残さない
-  if (!saved) {
+  // 届かないか、知らない通知の仕組みだったら、覚えてもらえていない送り口を残さない
+  if (saved !== 'saved') {
     await subscription.unsubscribe();
-    return 'off';
+    return saved === 'unsupported' ? 'unsupported' : 'off';
   }
   return 'on';
 }

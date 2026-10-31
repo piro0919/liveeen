@@ -6,7 +6,8 @@ import type { ReportReason } from './report-reason';
 
 /**
  * 通報する。同じ配信に二度目は数えない（理由も変えない）。自分のチャンネルは通報できない。
- * その配信への1件目なら true（運営に知らせる。src/lib/report-notice.ts）。文の中の select は書き込む前の report を見る
+ * その配信への1件目なら true（運営に知らせる。src/lib/report-notice.ts）。文の中の select は書き込む前の report を見る。
+ * ほぼ同時に2人が通報すると、どちらも1件目に見えて知らせが2通になることがある（害は小さいので許す）
  */
 export async function report(
   userId: string,

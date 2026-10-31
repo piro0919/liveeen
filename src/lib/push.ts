@@ -98,8 +98,14 @@ export async function sendLivePushes(started: LiveStarted): Promise<void> {
     publicKey: env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     privateKey: env.VAPID_PRIVATE_KEY,
   };
+  // 登録のときにも見ているが、行は前の決まりのときに入ったものもある。送らずに消す
+  const foreign = subscriptions.filter(({ endpoint }) => !isPushServiceEndpoint(endpoint));
+  if (foreign.length > 0) {
+    await db().query('delete from push_subscription where endpoint = any($1::text[])', [
+      foreign.map(({ endpoint }) => endpoint),
+    ]);
+  }
   await Promise.all(
-    // 登録のときにも見ているが、行は前の決まりのときに入ったものもある
     subscriptions
       .filter(({ endpoint }) => isPushServiceEndpoint(endpoint))
       .map(async ({ endpoint, p256dh, auth }) => {

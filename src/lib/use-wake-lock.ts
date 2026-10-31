@@ -13,9 +13,12 @@ export function useWakeLock(active: boolean): void {
     if (!active || !('wakeLock' in navigator)) return;
     let lock: WakeLockSentinel | null = null;
     let done = false;
+    // 取りに行っている途中。待つあいだに画面が戻ってきても、二つ目を取らない（取った片方が外れずに残る）
+    let pending = false;
 
     const request = async () => {
-      if (document.visibilityState !== 'visible' || lock) return;
+      if (document.visibilityState !== 'visible' || lock || pending) return;
+      pending = true;
       try {
         const next = await navigator.wakeLock.request('screen');
         // 取れるのを待つあいだに止めていたら、すぐ返す
@@ -28,6 +31,8 @@ export function useWakeLock(active: boolean): void {
         }
       } catch {
         // 何もしない
+      } finally {
+        pending = false;
       }
     };
 

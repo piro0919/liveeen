@@ -37,18 +37,24 @@ export async function setEmailsLiveStartedAction(on: boolean): Promise<void> {
 
 /** 送り口の形。ブラウザから来るものなので、DB に入れる前に確かめる */
 const pushSubscriptionInput = z.object({
-  // ブラウザ各社の通知の仕組みの住所だけ（src/lib/push-message.ts）
-  endpoint: z.url().refine(isPushServiceEndpoint),
+  endpoint: z.url(),
   p256dh: z.string().min(1),
   auth: z.string().min(1),
 });
 
-/** このブラウザでブラウザ通知を受け取る */
-export async function savePushSubscriptionAction(input: PushSubscriptionInput): Promise<true> {
+/**
+ * このブラウザでブラウザ通知を受け取る。送り口がブラウザ各社の通知の仕組みの住所でなければ覚えず、
+ * 'unsupported' を返す（src/lib/push-message.ts。画面は「このブラウザでは使えません」を出す）
+ */
+export async function savePushSubscriptionAction(
+  input: PushSubscriptionInput,
+): Promise<'saved' | 'unsupported'> {
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
-  await savePushSubscription(userId, pushSubscriptionInput.parse(input));
-  return true;
+  const subscription = pushSubscriptionInput.parse(input);
+  if (!isPushServiceEndpoint(subscription.endpoint)) return 'unsupported';
+  await savePushSubscription(userId, subscription);
+  return 'saved';
 }
 
 /** このブラウザでブラウザ通知を受け取るのをやめる */
