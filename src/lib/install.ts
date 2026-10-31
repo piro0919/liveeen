@@ -1,23 +1,21 @@
-/** iOS / iPadOS か（vocafy と同じ）。iPad の Safari は Mac を名乗るので、触れる Mac は iPad とみなす */
-export function isAppleDevice(agent: string, maxTouchPoints: number): boolean {
-  const lower = agent.toLowerCase();
-  return /iphone|ipad|ipod/.test(lower) || (lower.includes('macintosh') && maxTouchPoints > 1);
-}
-
 /**
- * 「ホーム画面に追加」を押したときにすること。Chrome 系はブラウザの確認（prompt）を出す。
- * iOS は API が無いので、共有ボタンから追加する手順を案内する（guide）。入れた後と、どちらもできない端末では出さない（null）
+ * 「ホーム画面に追加」を押したときにすること（use-pwa の usePwa の値から決める）。
+ * Chrome 系はブラウザの確認（prompt）を出す。iOS は API が無いので、共有ボタンから追加する手順を案内する（guide）。
+ * 入れた後と、どちらもできない端末と、確認をやめた後では出さない（null）。
+ * やめた後に出さないのは、ブラウザの確認は1つの知らせにつき1回しか出せず、もう一度押しても何も起きないため
  */
 export function installChoice({
   canInstall,
   isInstalled,
-  isApple,
+  needsManualInstall,
+  dismissed,
 }: {
   canInstall: boolean;
   isInstalled: boolean;
-  isApple: boolean;
+  needsManualInstall: boolean;
+  dismissed: boolean;
 }): 'prompt' | 'guide' | null {
   if (isInstalled) return null;
-  if (canInstall) return 'prompt';
-  return isApple ? 'guide' : null;
+  if (canInstall) return dismissed ? null : 'prompt';
+  return needsManualInstall ? 'guide' : null;
 }

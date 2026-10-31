@@ -36,7 +36,7 @@
   },
   "browserPush": {
     "unsupported": "このブラウザではブラウザ通知を使えません",
-    "unsupportedIos": "iPhone では、このサイトをホーム画面に追加して、そこから開くと受け取れます",
+    "unsupportedIos": "iPhone・iPad では、このサイトをホーム画面に追加して、そこから開くと受け取れます",
     "denied": "ブラウザの設定でこのサイトの通知が止められています",
     "label": "このブラウザに通知する"
   },

@@ -7,7 +7,7 @@ import {
   hasPushSubscriptionAction,
   savePushSubscriptionAction,
 } from '@/app/settings/actions';
-import { useIsAppleDevice } from './install-app';
+import { usePwa } from 'use-pwa';
 import { ui } from '@/lib/ui';
 
 /** 受け取る service worker（public/sw.js） */
@@ -70,7 +70,8 @@ export function BrowserPushChoice({ publicKey }: { publicKey: string }) {
   const t = useTranslations('browserPush');
   const [state, setState] = useState<PushState>('loading');
   const [saving, startTransition] = useTransition();
-  const isApple = useIsAppleDevice();
+  // iOS でまだホーム画面に追加していない。ホーム画面から開いてもまだ使えない端末には、ふつうの文を出す
+  const { needsManualInstall } = usePwa();
 
   useEffect(() => {
     let cancelled = false;
@@ -91,7 +92,8 @@ export function BrowserPushChoice({ publicKey }: { publicKey: string }) {
   }, []);
 
   // iPhone の Safari は、ホーム画面に追加して開いたときだけ Web Push を使える
-  if (state === 'unsupported') return <p>{t(isApple ? 'unsupportedIos' : 'unsupported')}</p>;
+  if (state === 'unsupported')
+    return <p>{t(needsManualInstall ? 'unsupportedIos' : 'unsupported')}</p>;
   if (state === 'denied') {
     return <p>{t('denied')}</p>;
   }

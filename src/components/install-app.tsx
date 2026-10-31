@@ -1,11 +1,11 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { usePwa } from 'use-pwa';
-import { installChoice, isAppleDevice } from '@/lib/install';
+import { installChoice } from '@/lib/install';
 import { ui } from '@/lib/ui';
 
 const PWAPrompt = dynamic(() => import('react-ios-pwa-prompt'), { ssr: false });
@@ -13,18 +13,8 @@ const PWAPrompt = dynamic(() => import('react-ios-pwa-prompt'), { ssr: false });
 /** 案内の板を出すまで待つ時間（ミリ秒）。押してすぐ出すと、押した操作の続きで閉じることがある（vocafy と同じ） */
 const PROMPT_DELAY_MS = 100;
 
-function noop() {
-  return () => {};
-}
-
-/** 端末の判定は window を見る。サーバー側では決まらないので、載ってから読む */
-export function useIsAppleDevice(): boolean {
-  return useSyncExternalStore(
-    noop,
-    () => isAppleDevice(navigator.userAgent, navigator.maxTouchPoints),
-    () => false,
-  );
-}
+/** 案内の板が開いている間、本文のスクロールを止める印（react-ios-pwa-prompt の CSS モジュールの名前） */
+const NO_SCROLL_PREFIX = '_noScroll_';
 
 /**
  * 設定の「アプリ」の欄（vocafy・鯉魂と同じ形）。ホーム画面に置けば、すぐ開けて、iPhone でも通知が届く。
@@ -32,10 +22,23 @@ export function useIsAppleDevice(): boolean {
  */
 export function InstallApp() {
   const t = useTranslations('installApp');
-  const { canInstall, install, isInstalled } = usePwa();
-  const isApple = useIsAppleDevice();
+  const { canInstall, install, isInstalled, needsManualInstall } = usePwa();
+  const [dismissed, setDismissed] = useState(false);
   const [guide, setGuide] = useState(false);
-  const choice = installChoice({ canInstall, isInstalled, isApple });
+  // 案内の部品は、出すたびに訪問回数を localStorage に書く（読み書きを try で包んでいない）。押されるまで載せない
+  const [guideMounted, setGuideMounted] = useState(false);
+  const choice = installChoice({ canInstall, isInstalled, needsManualInstall, dismissed });
+
+  // 案内の部品は、自分の閉じる操作でしかスクロールの止めを外さない。開いたまま画面を離れたら、ここで外す
+  useEffect(
+    () => () => {
+      for (const name of [...document.body.classList]) {
+        if (name.startsWith(NO_SCROLL_PREFIX)) document.body.classList.remove(name);
+      }
+    },
+    [],
+  );
+
   if (!choice) return null;
   return (
     <div className={ui.card}>
@@ -44,11 +47,21 @@ export function InstallApp() {
       <button
         type="button"
         className={ui.tonalButton}
-        onClick={() => (choice === 'prompt' ? void install() : setGuide(true))}
+        onClick={() => {
+          if (choice === 'guide') {
+            setGuideMounted(true);
+            setGuide(true);
+            return;
+          }
+          void install().then((result) => {
+            if (result?.outcome === 'dismissed') setDismissed(true);
+          });
+        }}
       >
         {t('button')}
       </button>
       {choice === 'guide' &&
+        guideMounted &&
         createPortal(
           <PWAPrompt
             isShown={guide}
