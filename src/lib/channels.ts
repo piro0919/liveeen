@@ -90,3 +90,14 @@ export async function setStreamTitle(userId: string, title: string | null): Prom
 export async function setGuestComments(userId: string, allowed: boolean): Promise<void> {
   await db().query('update channel set guest_comments = $2 where user_id = $1', [userId, allowed]);
 }
+
+/** 検索に知らせる配信者のページ（src/app/sitemap.ts）。ハンドルを選んでいて、運営が止めていないチャンネル */
+export async function listedChannels(): Promise<{ id: string; handle: string }[]> {
+  const { rows } = await db().query<{ id: string; handle: string }>(
+    `select channel.id, profile.handle
+     from channel join profile on profile.user_id = channel.user_id
+     where profile.handle is not null and channel.banned_at is null
+     order by channel.id`,
+  );
+  return rows;
+}

@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { useTranslations } from 'next-intl';
 import { setDisplayNameAction, type DisplayNameState } from '@/app/settings/actions';
 import { DISPLAY_NAME_MAX } from '@/lib/display-name';
+import { guarded } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 const INITIAL: DisplayNameState = { error: null, saved: false };
@@ -15,7 +16,7 @@ const INITIAL: DisplayNameState = { error: null, saved: false };
 export function DisplayNameForm({ name }: { name: string | null }) {
   const t = useTranslations('displayNameForm');
   const tForm = useTranslations('form');
-  const [state, save, saving] = useActionState(setDisplayNameAction, INITIAL);
+  const [state, save, saving] = useActionState(guarded(setDisplayNameAction), INITIAL);
   return (
     <form action={save} className="flex flex-col gap-2">
       <label className="flex flex-col gap-1">

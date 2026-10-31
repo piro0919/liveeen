@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { useTranslations } from 'next-intl';
 import { type HandleState, setHandleAction } from '@/app/settings/actions';
 import { HANDLE_MAX, HANDLE_MIN } from '@/lib/handle';
+import { guarded } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 const INITIAL: HandleState = { error: null, saved: false };
@@ -15,7 +16,7 @@ const INITIAL: HandleState = { error: null, saved: false };
 export function HandleForm({ handle }: { handle: string | null }) {
   const t = useTranslations('handleForm');
   const tForm = useTranslations('form');
-  const [state, save, saving] = useActionState(setHandleAction, INITIAL);
+  const [state, save, saving] = useActionState(guarded(setHandleAction), INITIAL);
   return (
     <form action={save} className="flex flex-col gap-2">
       <label className="flex flex-col gap-1">

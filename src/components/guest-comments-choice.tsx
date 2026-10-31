@@ -3,6 +3,7 @@
 import { useOptimistic, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { setGuestCommentsAction } from '@/app/broadcast/actions';
+import { safely } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 /**
@@ -26,7 +27,7 @@ export function GuestCommentsChoice({ allowed }: { allowed: boolean }) {
             const next = event.target.checked;
             startTransition(async () => {
               setShown(next);
-              await setGuestCommentsAction(next);
+              await safely(() => setGuestCommentsAction(next));
             });
           }}
         />

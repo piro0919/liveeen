@@ -2,6 +2,8 @@
 
 import { randomUUID } from 'node:crypto';
 import { refresh } from 'next/cache';
+import { after } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { avatarOf } from '@/lib/avatars';
 import { blockCommenter, commenterBlocked } from '@/lib/blocks';
 import { isBot } from '@/lib/bot';
@@ -23,6 +25,7 @@ import { normalizeDisplayName } from '@/lib/display-name';
 import { follow, followedAtOf, unfollow } from '@/lib/follows';
 import { liveStream, publishing } from '@/lib/live';
 import { isReportReason } from '@/lib/report-reason';
+import { notifyAdminsOfReport } from '@/lib/report-notice';
 import { report } from '@/lib/reports';
 import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
@@ -47,7 +50,11 @@ export async function reportAction(channelId: string, reason: string): Promise<R
   if (!isReportReason(reason)) throw new Error(`通報の理由が違います: ${reason}`);
   const live = await liveStream(channelId);
   if (!live) return 'offline';
-  await report(userId, live, reason);
+  if (await report(userId, live, reason)) {
+    const tReason = await getTranslations('reportReasons');
+    const reasonName = tReason(reason);
+    after(() => notifyAdminsOfReport('stream', reasonName));
+  }
   return 'reported';
 }
 
@@ -236,5 +243,7 @@ export async function reportCommentAction(
   if (!comment.proof || !verifyCommentProof(secret, channelId, shown, String(comment.proof))) {
     throw new Error('コメントの印が合いません');
   }
-  await reportComment(userId, channelId, shown);
+  if (await reportComment(userId, channelId, shown)) {
+    after(() => notifyAdminsOfReport('comment', null));
+  }
 }

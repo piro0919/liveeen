@@ -10,7 +10,9 @@ import { DISPLAY_NAME_MAX, normalizeDisplayName } from '@/lib/display-name';
 import { setEmailsLiveStarted, setListsFollowedOnTop } from '@/lib/follows';
 import { HANDLE_MAX, HANDLE_MIN, normalizeHandle } from '@/lib/handle';
 import { kickStream } from '@/lib/live';
+import { isPushServiceEndpoint } from '@/lib/push-message';
 import { setDisplayName, setHandle } from '@/lib/profiles';
+import { withinLimit } from '@/lib/rate-limit';
 import {
   deletePushSubscription,
   hasPushSubscription,
@@ -35,23 +37,26 @@ export async function setEmailsLiveStartedAction(on: boolean): Promise<void> {
 
 /** 送り口の形。ブラウザから来るものなので、DB に入れる前に確かめる */
 const pushSubscriptionInput = z.object({
-  endpoint: z.url().startsWith('https://'),
+  // ブラウザ各社の通知の仕組みの住所だけ（src/lib/push-message.ts）
+  endpoint: z.url().refine(isPushServiceEndpoint),
   p256dh: z.string().min(1),
   auth: z.string().min(1),
 });
 
 /** このブラウザでブラウザ通知を受け取る */
-export async function savePushSubscriptionAction(input: PushSubscriptionInput): Promise<void> {
+export async function savePushSubscriptionAction(input: PushSubscriptionInput): Promise<true> {
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   await savePushSubscription(userId, pushSubscriptionInput.parse(input));
+  return true;
 }
 
 /** このブラウザでブラウザ通知を受け取るのをやめる */
-export async function deletePushSubscriptionAction(endpoint: string): Promise<void> {
+export async function deletePushSubscriptionAction(endpoint: string): Promise<true> {
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   await deletePushSubscription(userId, endpoint);
+  return true;
 }
 
 /** このブラウザの送り口が、ログインしている人のものとして覚えてあるか */
@@ -130,6 +135,7 @@ export async function uploadAvatarAction(form: FormData): Promise<AvatarState> {
   const image = Buffer.from(await file.arrayBuffer());
   const contentType = sniffAvatarImage(image);
   if (!contentType) return { error: t('unusable') };
+  if (!(await withinLimit(userId, 'avatarUpload'))) return { error: t('tooMany') };
   await saveAvatarImage(userId, contentType, image);
   refresh();
   return { error: null };

@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { reportAction } from '@/app/[channelId]/actions';
 import { signIn } from '@/lib/auth-client';
 import { REPORT_REASONS } from '@/lib/report-reason';
+import { safely } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 type Props = {
@@ -28,7 +29,9 @@ export function ReportButton({ channelId, reported }: Props) {
   function send(form: FormData) {
     const reason = String(form.get('reason') ?? '');
     startTransition(async () => {
-      const result = await reportAction(channelId, reason);
+      const result = await safely(() => reportAction(channelId, reason));
+      // 届かなければ、選んだ理由のまま開いておき、もう一度送れるようにする
+      if (result === undefined) return;
       setChoosing(false);
       if (result === 'reported') setDone(true);
       else setMessage(t('offline'));

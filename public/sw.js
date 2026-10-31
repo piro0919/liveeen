@@ -25,3 +25,27 @@ self.addEventListener('notificationclick', (event) => {
     }),
   );
 });
+
+// ブラウザが送り口を取り替えたら、同じ鍵で取り直してサーバーに知らせる（鯉魂と同じ）。
+// 知らせないと、サーバーは捨てられた送り口に送り続け、通知が届かなくなる（src/app/api/push/renew/route.ts）
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(
+    (async () => {
+      const old = event.oldSubscription;
+      const key = old?.options?.applicationServerKey;
+      if (!old || !key) return;
+      const next =
+        event.newSubscription ??
+        (await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: key,
+        }));
+      const { endpoint, keys } = next.toJSON();
+      await fetch('/api/push/renew', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ oldEndpoint: old.endpoint, endpoint, keys }),
+      });
+    })(),
+  );
+});

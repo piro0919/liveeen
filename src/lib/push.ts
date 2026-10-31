@@ -1,11 +1,22 @@
 import 'server-only';
 import webpush from 'web-push';
 import { db } from './db';
-import { type LiveStarted, liveStartedMessage, subscriptionGone } from './push-message';
+import {
+  isPushServiceEndpoint,
+  type LiveStarted,
+  liveStartedMessage,
+  subscriptionGone,
+} from './push-message';
 import { env } from '@/env';
 
 /** 届かなかったときに送り口が持っておく長さ。配信の始まりの知らせは、遅れて届いても意味が薄い */
 const TTL_SECONDS = 600;
+
+/** 1人が持てる送り口の数。ブラウザごとに1つなので、使う端末の数より十分多くする */
+const PUSH_SUBSCRIPTIONS_PER_USER = 10;
+
+/** 1つの送り口を待つ長さ（ミリ秒）。web-push は既定では待ち続け、配信が始まったときの送信がそこで止まる */
+const SEND_TIMEOUT_MS = 10_000;
 
 /** ブラウザ（public/sw.js の pushManager.subscribe）から受け取る送り口 */
 export type PushSubscriptionInput = { endpoint: string; p256dh: string; auth: string };
@@ -18,8 +29,37 @@ export async function savePushSubscription(
   await db().query(
     `insert into push_subscription (endpoint, user_id, p256dh, auth) values ($1, $2, $3, $4)
      on conflict (endpoint) do update
-     set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth`,
+     set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth,
+       created_at = now()`,
     [subscription.endpoint, userId, subscription.p256dh, subscription.auth],
+  );
+  // 1人の送り口は新しいほうから決まった数まで。送り口は好きな値を何度でも送ってこられるので、
+  // 積まれると配信が始まったときの送信がそれだけ重くなる
+  await db().query(
+    `delete from push_subscription
+     where user_id = $1 and endpoint not in (
+       select endpoint from push_subscription where user_id = $1
+       order by created_at desc limit $2
+     )`,
+    [userId, PUSH_SUBSCRIPTIONS_PER_USER],
+  );
+}
+
+/**
+ * ブラウザが取り替えた送り口を、前の送り口の行に書き換える（public/sw.js の pushsubscriptionchange）。
+ * 前の行が無ければ何もしない。新しい送り口が別の行にもうあれば、前の行を消す
+ */
+export async function renewPushSubscription(
+  oldEndpoint: string,
+  subscription: PushSubscriptionInput,
+): Promise<void> {
+  await db().query(
+    `with old as (delete from push_subscription where endpoint = $1 returning user_id)
+     insert into push_subscription (endpoint, user_id, p256dh, auth)
+     select $2, user_id, $3, $4 from old
+     on conflict (endpoint) do update
+     set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth`,
+    [oldEndpoint, subscription.endpoint, subscription.p256dh, subscription.auth],
   );
 }
 
@@ -59,19 +99,23 @@ export async function sendLivePushes(started: LiveStarted): Promise<void> {
     privateKey: env.VAPID_PRIVATE_KEY,
   };
   await Promise.all(
-    subscriptions.map(async ({ endpoint, p256dh, auth }) => {
-      try {
-        await webpush.sendNotification({ endpoint, keys: { p256dh, auth } }, payload, {
-          vapidDetails,
-          TTL: TTL_SECONDS,
-        });
-      } catch (error) {
-        if (error instanceof webpush.WebPushError && subscriptionGone(error.statusCode)) {
-          await db().query('delete from push_subscription where endpoint = $1', [endpoint]);
-          return;
+    // 登録のときにも見ているが、行は前の決まりのときに入ったものもある
+    subscriptions
+      .filter(({ endpoint }) => isPushServiceEndpoint(endpoint))
+      .map(async ({ endpoint, p256dh, auth }) => {
+        try {
+          await webpush.sendNotification({ endpoint, keys: { p256dh, auth } }, payload, {
+            vapidDetails,
+            TTL: TTL_SECONDS,
+            timeout: SEND_TIMEOUT_MS,
+          });
+        } catch (error) {
+          if (error instanceof webpush.WebPushError && subscriptionGone(error.statusCode)) {
+            await db().query('delete from push_subscription where endpoint = $1', [endpoint]);
+            return;
+          }
+          console.error('ブラウザ通知を送れませんでした', error);
         }
-        console.error('ブラウザ通知を送れませんでした', error);
-      }
-    }),
+      }),
   );
 }

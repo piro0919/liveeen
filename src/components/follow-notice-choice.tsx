@@ -4,6 +4,7 @@ import { useOptimistic, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { setEmailsLiveStartedAction, setListsFollowedOnTopAction } from '@/app/settings/actions';
 import { BrowserPushChoice } from './browser-push-choice';
+import { safely } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 /** 選んだその場で保存する切り替え。保存が終わるのを待たずに、押したほうへ印を動かす */
@@ -59,12 +60,16 @@ export function FollowNoticeChoice({
       <legend className={`mb-1 ${ui.subheading}`}>{t('legend')}</legend>
       <SavedCheckbox
         checked={listOnTop}
-        save={setListsFollowedOnTopAction}
+        save={(on) => safely(() => setListsFollowedOnTopAction(on))}
         label={t('listOnTop')}
       />
       {pushPublicKey && <BrowserPushChoice publicKey={pushPublicKey} />}
       {emailEnabled && (
-        <SavedCheckbox checked={email} save={setEmailsLiveStartedAction} label={t('email')} />
+        <SavedCheckbox
+          checked={email}
+          save={(on) => safely(() => setEmailsLiveStartedAction(on))}
+          label={t('email')}
+        />
       )}
     </fieldset>
   );

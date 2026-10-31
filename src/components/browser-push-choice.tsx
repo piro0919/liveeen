@@ -8,6 +8,7 @@ import {
   savePushSubscriptionAction,
 } from '@/app/settings/actions';
 import { usePwa } from 'use-pwa';
+import { safely } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 /** 受け取る service worker（public/sw.js） */
@@ -48,14 +49,22 @@ async function subscribe(publicKey: string): Promise<PushState> {
   });
   const { endpoint, keys } = subscription.toJSON();
   if (!endpoint || !keys?.p256dh || !keys.auth) throw new Error('送り口を作れませんでした');
-  await savePushSubscriptionAction({ endpoint, p256dh: keys.p256dh, auth: keys.auth });
+  const saved = await safely(() =>
+    savePushSubscriptionAction({ endpoint, p256dh: keys.p256dh, auth: keys.auth }),
+  );
+  // 届かなければ、覚えてもらえていない送り口を残さない
+  if (!saved) {
+    await subscription.unsubscribe();
+    return 'off';
+  }
   return 'on';
 }
 
 async function unsubscribe(): Promise<PushState> {
   const subscription = await currentSubscription();
   if (subscription) {
-    await deletePushSubscriptionAction(subscription.endpoint);
+    // 届かなければ、サーバーに残ったまま切ったことにしない
+    if (!(await safely(() => deletePushSubscriptionAction(subscription.endpoint)))) return 'on';
     await subscription.unsubscribe();
   }
   return 'off';
@@ -82,7 +91,9 @@ export function BrowserPushChoice({ publicKey }: { publicKey: string }) {
       else {
         const subscription = await currentSubscription();
         next =
-          subscription && (await hasPushSubscriptionAction(subscription.endpoint)) ? 'on' : 'off';
+          subscription && (await safely(() => hasPushSubscriptionAction(subscription.endpoint)))
+            ? 'on'
+            : 'off';
       }
       if (!cancelled) setState(next);
     })();

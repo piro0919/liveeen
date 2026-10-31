@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { setAvatarChoiceAction, uploadAvatarAction } from '@/app/settings/actions';
 import type { AvatarChoice } from '@/lib/avatar';
 import { shrinkAvatarImage } from '@/lib/avatar-image';
+import { safely } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 import { Avatar } from './avatar';
 
@@ -51,7 +52,8 @@ export function AvatarForm({ name, src, choice, hasGoogleImage }: Props) {
                 }
                 const form = new FormData();
                 form.set('image', image);
-                setError((await uploadAvatarAction(form)).error);
+                const result = await safely(() => uploadAvatarAction(form));
+                if (result) setError(result.error);
               });
             }}
           />
@@ -64,7 +66,7 @@ export function AvatarForm({ name, src, choice, hasGoogleImage }: Props) {
             onClick={() =>
               startTransition(async () => {
                 setError(null);
-                await setAvatarChoiceAction('google');
+                await safely(() => setAvatarChoiceAction('google'));
               })
             }
           >
@@ -79,7 +81,7 @@ export function AvatarForm({ name, src, choice, hasGoogleImage }: Props) {
             onClick={() =>
               startTransition(async () => {
                 setError(null);
-                await setAvatarChoiceAction('initial');
+                await safely(() => setAvatarChoiceAction('initial'));
               })
             }
           >

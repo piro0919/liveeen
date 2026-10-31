@@ -4,6 +4,7 @@ import { useOptimistic, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { setFollowingAction } from '@/app/[channelId]/actions';
 import { signIn } from '@/lib/auth-client';
+import { safely } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 type Props = {
@@ -32,7 +33,7 @@ export function FollowButton({ channelId, following }: Props) {
         }
         startTransition(async () => {
           setShown(!shown);
-          await setFollowingAction(channelId, !shown);
+          await safely(() => setFollowingAction(channelId, !shown));
         });
       }}
     >

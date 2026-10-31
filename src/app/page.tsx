@@ -12,6 +12,7 @@ import { splitFollowed } from '@/lib/live-paths';
 import { currentUserId } from '@/lib/session';
 import { thumbnailUrl } from '@/lib/thumbnail';
 import { viewerCounts } from '@/lib/viewers';
+import { LiveRefresh } from '@/components/live-refresh';
 import { ui } from '@/lib/ui';
 import { env } from '@/env';
 
@@ -127,6 +128,7 @@ export default async function Home() {
   const split = splitFollowed(channels, followed);
   return (
     <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
+      <LiveRefresh />
       <h1 className={ui.heading}>{t('heading')}</h1>
       {channels.length === 0 && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16">

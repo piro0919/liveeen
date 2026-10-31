@@ -20,22 +20,27 @@ export type ReportedComment = {
 
 /**
  * コメントを通報する（db/migrations/0016_comment_report.sql）。通報されたコメントは、そのときの本文・名前・時刻ごと残す。
- * 同じ人の二度目は数えない。中身が中継の流したものかは、呼ぶ側が先に確かめる
+ * 同じ人の二度目は数えない。中身が中継の流したものかは、呼ぶ側が先に確かめる。
+ * そのコメントへの1件目なら true（運営に知らせる。src/lib/report-notice.ts）
  */
 export async function reportComment(
   userId: string,
   channelId: string,
   comment: Pick<Comment, 'id' | 'name' | 'text' | 'at' | 'guest'>,
-): Promise<void> {
-  await db().query(
+): Promise<boolean> {
+  const { rows } = await db().query<{ first: boolean }>(
     `with saved as (
        insert into reported_comment (comment_id, channel_id, display_name, guest, body, commented_at)
        select $1, id, $3, $4, $5, $6 from channel where id = $2
        on conflict (comment_id) do nothing
+       returning 1
+     ), reported as (
+       insert into comment_report (comment_id, user_id)
+       select $1, $7 where exists (select 1 from channel where id = $2)
+       on conflict do nothing
+       returning 1
      )
-     insert into comment_report (comment_id, user_id)
-     select $1, $7 where exists (select 1 from channel where id = $2)
-     on conflict do nothing`,
+     select exists (select 1 from saved) and exists (select 1 from reported) as first`,
     [
       comment.id,
       channelId,
@@ -46,6 +51,7 @@ export async function reportComment(
       userId,
     ],
   );
+  return rows[0]?.first ?? false;
 }
 
 /**

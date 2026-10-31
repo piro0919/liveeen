@@ -7,6 +7,7 @@ import { FollowButton } from '@/components/follow-button';
 import { Avatar } from '@/components/avatar';
 import { Player, PlayerMessage } from '@/components/player';
 import { ReportButton } from '@/components/report-button';
+import { ShareButton } from '@/components/share-button';
 import { ViewerCount } from '@/components/viewer-count';
 import { channelByHandle, channelById, channelOf } from '@/lib/channels';
 import { isFollowing } from '@/lib/follows';
@@ -84,7 +85,13 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
           </h1>
         )}
         {/* 見ている人の数。手本の YouTube はタイトルの下に出す */}
-        <ViewerCount channelId={channel.id} whilePlaying className={`px-4 sm:px-0 ${ui.note}`} />
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-0">
+          <ViewerCount channelId={channel.id} whilePlaying className={ui.note} />
+          {/* 住所を広める手段。名前・フォロー・通報の行はスマホの幅で埋まっているので、人数の行の右に置く */}
+          <span className="ml-auto">
+            <ShareButton title={channel.title ?? name} />
+          </span>
+        </div>
         {/* スマホの幅でも1行に収める。名前とフォローの組が残りの幅を取り、名前は入りきらなければ省く。通報の理由を選ぶ欄だけが次の行に出る */}
         <div className="flex flex-wrap items-center gap-3 px-4 sm:px-0">
           <Avatar name={name} src={channel.avatar} size="lg" />

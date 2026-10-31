@@ -10,6 +10,7 @@ import { BrowserPublisher } from './browser-publisher';
 import { GuestCommentsChoice } from './guest-comments-choice';
 import { LatencyChoice } from './latency-choice';
 import { StreamTitleForm } from './stream-title-form';
+import { guarded } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 const NO_KEY: KeyState = { key: null };
@@ -28,7 +29,7 @@ type Props = {
  */
 export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl }: Props) {
   const t = useTranslations('broadcast.setup');
-  const [, create, creating] = useActionState(createChannelAction, NO_KEY);
+  const [, create, creating] = useActionState(guarded(createChannelAction), NO_KEY);
 
   if (!channel) {
     return (

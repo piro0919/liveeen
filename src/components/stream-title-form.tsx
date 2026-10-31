@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { useTranslations } from 'next-intl';
 import { setStreamTitleAction, type StreamTitleState } from '@/app/broadcast/actions';
 import { STREAM_TITLE_MAX } from '@/lib/stream-title';
+import { guarded } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 const INITIAL: StreamTitleState = { error: null, saved: false };
@@ -12,7 +13,7 @@ const INITIAL: StreamTitleState = { error: null, saved: false };
 export function StreamTitleForm({ title }: { title: string | null }) {
   const t = useTranslations('streamTitleForm');
   const tForm = useTranslations('form');
-  const [state, save, saving] = useActionState(setStreamTitleAction, INITIAL);
+  const [state, save, saving] = useActionState(guarded(setStreamTitleAction), INITIAL);
   return (
     <form action={save} className="flex flex-col gap-2">
       <label className="flex flex-col gap-1">

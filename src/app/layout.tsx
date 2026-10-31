@@ -6,6 +6,7 @@ import { PageAnalytics } from '@/components/page-analytics';
 import { Progress } from '@/components/progress';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { Toaster } from '@/components/toaster';
 import { env } from '@/env';
 import './globals.css';
 
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
             {children}
             <SiteFooter />
           </Progress>
+          <Toaster />
         </NextIntlClientProvider>
         <PageAnalytics />
         <ExternalBrowser />

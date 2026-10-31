@@ -10,6 +10,7 @@ import {
   FOLLOWERS_ONLY_CHOICES,
   SLOW_MODE_CHOICES,
 } from '@/lib/comment-settings';
+import { guarded } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 const INITIAL: CommentRulesState = { error: null, saved: false };
@@ -22,7 +23,7 @@ const INITIAL: CommentRulesState = { error: null, saved: false };
 export function CommentRulesForm({ settings }: { settings: CommentSettings }) {
   const t = useTranslations('commentRules');
   const tForm = useTranslations('form');
-  const [state, save, saving] = useActionState(setCommentRulesAction, INITIAL);
+  const [state, save, saving] = useActionState(guarded(setCommentRulesAction), INITIAL);
   return (
     <form action={save} className="flex flex-col gap-4">
       <h2 className={ui.subheading}>{t('heading')}</h2>

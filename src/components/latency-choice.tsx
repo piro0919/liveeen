@@ -4,6 +4,7 @@ import { useOptimistic, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { setLatencyModeAction } from '@/app/broadcast/actions';
 import type { LatencyMode } from '@/lib/latency';
+import { safely } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
 
 /** 並びは画面に出す順。文言は messages/ja.json の latency */
@@ -29,7 +30,7 @@ export function LatencyChoice({ mode }: { mode: LatencyMode }) {
             onChange={() =>
               startTransition(async () => {
                 setShown(option);
-                await setLatencyModeAction(option);
+                await safely(() => setLatencyModeAction(option));
               })
             }
           />

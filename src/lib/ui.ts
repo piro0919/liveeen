@@ -51,6 +51,9 @@ export const ui = {
   /** 配信中の札。差し色で塗る */
   liveTag:
     'inline-flex items-center gap-1 rounded-md bg-live px-1.5 py-0.5 text-xs font-bold text-white',
+  /** 一瞬だけ出す知らせ（src/components/toaster.tsx）。設定のまとまりと同じ面に細い縁 */
+  toast:
+    'flex items-center justify-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-bold text-foreground',
   /** 失敗の理由 */
   error: 'text-sm text-danger',
   /** 配信中の画面。映像を画面いっぱいに出し、上の帯にも重ねる（YouTube のアプリの配信と同じ） */

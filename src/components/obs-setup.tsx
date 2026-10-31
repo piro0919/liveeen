@@ -4,6 +4,8 @@ import { useActionState } from 'react';
 import { useTranslations } from 'next-intl';
 import { resetStreamKeyAction, type KeyState } from '@/app/broadcast/actions';
 import type { LatencyMode } from '@/lib/latency';
+import { guarded } from '@/lib/safe-action';
+import { CopyButton } from './copy-button';
 import { ui } from '@/lib/ui';
 
 const NO_KEY: KeyState = { key: null };
@@ -15,12 +17,22 @@ type Props = {
   whipUrl: string;
 };
 
+/** OBS に写す値。写し間違えやすいので、コピーのボタンを添える */
+function Value({ value }: { value: string }) {
+  return (
+    <dd className="mb-2 flex items-start justify-between gap-3">
+      <span className="min-w-0 font-mono break-all">{value}</span>
+      <CopyButton value={value} />
+    </dd>
+  );
+}
+
 /**
  * OBS に入れる設定（/broadcast/obs）。鍵は作り直したときにだけ見せる（DB には SHA-256 でしか無い）
  */
 export function ObsSetup({ channelId, latencyMode, rtmpUrl, whipUrl }: Props) {
   const t = useTranslations('obs');
-  const [reset, resetKey, resetting] = useActionState(resetStreamKeyAction, NO_KEY);
+  const [reset, resetKey, resetting] = useActionState(guarded(resetStreamKeyAction), NO_KEY);
   const key = reset.key;
   return (
     <section className={ui.card}>
@@ -31,15 +43,21 @@ export function ObsSetup({ channelId, latencyMode, rtmpUrl, whipUrl }: Props) {
       )}
       <dl className="flex flex-col gap-1">
         <dt>{t('rtmpServer')}</dt>
-        <dd className="mb-2 font-mono break-all">{rtmpUrl}</dd>
+        <Value value={rtmpUrl} />
         <dt>{t('rtmpKey')}</dt>
-        <dd className="mb-2 font-mono break-all">
-          {key ? `${channelId}?key=${key}` : `${channelId}?key=${t('keyPlaceholder')}`}
-        </dd>
+        {key ? (
+          <Value value={`${channelId}?key=${key}`} />
+        ) : (
+          <dd className="mb-2 font-mono break-all">{`${channelId}?key=${t('keyPlaceholder')}`}</dd>
+        )}
         <dt>{t('whipServer')}</dt>
-        <dd className="mb-2 font-mono break-all">{whipUrl}</dd>
+        <Value value={whipUrl} />
         <dt>{t('whipToken')}</dt>
-        <dd className="mb-2 font-mono break-all">{key ?? t('keyPlaceholder')}</dd>
+        {key ? (
+          <Value value={key} />
+        ) : (
+          <dd className="mb-2 font-mono break-all">{t('keyPlaceholder')}</dd>
+        )}
       </dl>
       <p>{t('keyNote')}</p>
       <form action={resetKey}>

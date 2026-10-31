@@ -5,6 +5,24 @@
     "retry": "もう一度",
     "home": "トップへ"
   },
+  "toast": {
+    "actionFailed": "うまく届きませんでした。もう一度お試しください",
+    "copied": "コピーしました",
+    "copyFailed": "コピーできませんでした",
+    "linkCopied": "配信の住所をコピーしました",
+    "shareFailed": "共有できませんでした"
+  },
+  "copy": {
+    "button": "コピー"
+  },
+  "share": {
+    "button": "共有"
+  },
+  "notFound": {
+    "title": "ページが見つかりません",
+    "message": "住所がまちがっているか、配信者がハンドルを変えたかもしれません",
+    "home": "トップへ"
+  },
   "displayName": {
     "errors": {
       "empty": "名前を入れてください",
@@ -31,6 +49,7 @@
     "unusable": "この画像は使えません",
     "missing": "画像を選んでください",
     "tooLarge": "画像が大きすぎます",
+    "tooMany": "画像を替えるのは1時間に10回までです。しばらくおいてください",
     "useGoogle": "Google の写真にする",
     "useInitial": "名前の1文字にする"
   },
@@ -135,7 +154,8 @@
   },
   "signIn": {
     "header": "ログイン",
-    "body": "Google でログイン"
+    "body": "Google でログイン",
+    "consent": "ログインすると、<terms>利用規約</terms>と<privacy>プライバシーポリシー</privacy>に同意したことになります"
   },
   "signOut": {
     "button": "ログアウト",

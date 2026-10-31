@@ -4,14 +4,29 @@ import { streamKey } from './delist';
 import type { LivePath } from './live-paths';
 import type { ReportReason } from './report-reason';
 
-/** 通報する。同じ配信に二度目は数えない（理由も変えない）。自分のチャンネルは通報できない */
-export async function report(userId: string, live: LivePath, reason: ReportReason): Promise<void> {
-  await db().query(
-    `insert into report (channel_id, stream_started_at, user_id, reason)
-     select id, $2, $3, $4 from channel where id = $1 and user_id <> $3
-     on conflict do nothing`,
+/**
+ * 通報する。同じ配信に二度目は数えない（理由も変えない）。自分のチャンネルは通報できない。
+ * その配信への1件目なら true（運営に知らせる。src/lib/report-notice.ts）。文の中の select は書き込む前の report を見る
+ */
+export async function report(
+  userId: string,
+  live: LivePath,
+  reason: ReportReason,
+): Promise<boolean> {
+  const { rows } = await db().query<{ first: boolean }>(
+    `with added as (
+       insert into report (channel_id, stream_started_at, user_id, reason)
+       select id, $2, $3, $4 from channel where id = $1 and user_id <> $3
+       on conflict do nothing
+       returning 1
+     )
+     select exists (select 1 from added)
+       and not exists (
+         select 1 from report where channel_id = $1 and stream_started_at = $2
+       ) as first`,
     [live.channelId, live.startedAt, userId, reason],
   );
+  return rows[0]?.first ?? false;
 }
 
 /** その配信をもう通報したか */

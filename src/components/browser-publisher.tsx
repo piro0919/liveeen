@@ -15,6 +15,7 @@ import { loadImage, type StillImage, stillImageStream } from '@/lib/still-image'
 import { useScreenErrorText } from '@/lib/screen-error';
 import { captureCamera, captureMicrophone, publishWhip, type WhipSession } from '@/lib/whip';
 import { ui } from '@/lib/ui';
+import { useWakeLock } from '@/lib/use-wake-lock';
 import { BgmPicker } from './bgm-picker';
 import { Comments } from './comments';
 import { ViewerCount } from './viewer-count';
@@ -54,6 +55,7 @@ export function BrowserPublisher({
   const still = useRef<StillImage | null>(null);
   const session = useRef<WhipSession | null>(null);
   const [status, setStatus] = useState<Status>('idle');
+  useWakeLock(status === 'live');
   const [source, setSource] = useState<Source>('camera');
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [error, setError] = useState<string | null>(null);
