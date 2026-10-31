@@ -2,6 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { refresh } from 'next/cache';
+import { avatarOf } from '@/lib/avatars';
 import { blockCommenter, commenterBlocked } from '@/lib/blocks';
 import { channelOf } from '@/lib/channels';
 import { type Comment, guestId, isGuestId } from '@/lib/comment';
@@ -89,8 +90,9 @@ export async function commentTokenAction(
   if (userId) {
     const owner = context.ownerId === userId;
     // 互いに関係ない問い合わせは、まとめて投げる（関数は sin1、DB はシンガポールでも、往復が積み重なる）
-    const [displayName, blocked, moderator, followedAt] = await Promise.all([
+    const [displayName, avatar, blocked, moderator, followedAt] = await Promise.all([
       displayNameOf(userId),
+      avatarOf(userId),
       owner ? false : commenterBlocked(channelId, userId, ipKey),
       owner ? false : isModerator(channelId, userId),
       followedAtOf(userId, channelId),
@@ -107,6 +109,7 @@ export async function commentTokenAction(
       followedAt,
       settings,
       ownerIpKey: context.ownerIpKey,
+      avatar: avatar.src,
     };
     const minutes = settings.followersOnlyMinutes;
     const waiting = !owner && !moderator && !followerMayWrite(settings, followedAt, now);

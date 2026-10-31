@@ -45,7 +45,7 @@ function LiveCard({ channel, viewers }: { channel: LiveChannel; viewers: number 
           </span>
         </div>
         <div className="flex gap-3">
-          <Avatar name={name} />
+          <Avatar name={name} src={channel.avatar} />
           {/* 手本は YouTube の札：タイトルを太字で2行まで、その下に配信者の名前。タイトルが無ければ名前を太字にする */}
           <div className="flex min-w-0 flex-col">
             {channel.title ? (

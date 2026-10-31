@@ -1,3 +1,7 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+
 /** コメントの数だけ呼ばれるので、1つを使い回す */
 const graphemes = new Intl.Segmenter('ja', { granularity: 'grapheme' });
 
@@ -20,14 +24,44 @@ const SIZES = {
 } as const;
 
 /**
- * 人の丸い印。顔写真は持たないので、名前の最初の1文字を出す（Google の写真は本名や顔が出るので使わない）
+ * 人の丸い印。既定は Google の写真、本人がアップロードした画像に差し替えられる（src/lib/avatar.ts）。
+ * src が無いか、画像が読めなければ名前の最初の1文字を出す
  */
-export function Avatar({ name, size = 'md' }: { name: string; size?: keyof typeof SIZES }) {
+export function Avatar({
+  name,
+  src,
+  size = 'md',
+}: {
+  name: string;
+  src?: string | null;
+  size?: keyof typeof SIZES;
+}) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const image = useRef<HTMLImageElement>(null);
+  // 画面が動き出す前に読み込みが失敗していると onError を受け取れないので、動き出したときにも見る
+  useEffect(() => {
+    if (src && image.current?.complete && image.current.naturalWidth === 0) setFailedSrc(src);
+  }, [src]);
+  const className = `inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-hover font-bold ${SIZES[size]}`;
+  if (src && failedSrc !== src) {
+    return (
+      <span aria-hidden className={className}>
+        {/* Google の写真とアップロードした画像。どちらも小さく、Next.js の画像の最適化を通す先ではない */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          ref={image}
+          src={src}
+          alt=""
+          // Google の写真は、ほかのサイトから読んだと分かると断られることがある
+          referrerPolicy="no-referrer"
+          className="size-full object-cover"
+          onError={() => setFailedSrc(src)}
+        />
+      </span>
+    );
+  }
   return (
-    <span
-      aria-hidden
-      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-surface-hover font-bold ${SIZES[size]}`}
-    >
+    <span aria-hidden className={className}>
       {initialOf(name)}
     </span>
   );

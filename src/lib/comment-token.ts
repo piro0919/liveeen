@@ -35,6 +35,8 @@ export type Commenter = {
   settings?: CommentSettings;
   /** 配信者がコメントにつないだときの IP の鍵。中継が立ち上がり直したあとも、配信者の回線を IP で止めないため */
   ownerIpKey?: string | null;
+  /** 印の画像の住所（src/lib/avatar.ts）。無ければ null。札を作った時点のもの */
+  avatar?: string | null;
 };
 
 /**
@@ -59,6 +61,7 @@ type Payload = {
   f?: number | null;
   s?: CommentSettings;
   k?: string | null;
+  v?: string | null;
   e: number;
 };
 type AuthorPayload = {
@@ -109,6 +112,7 @@ export function signCommentToken(
     f: commenter.followedAt ?? null,
     s: commenter.settings,
     k: commenter.ownerIpKey ?? null,
+    v: commenter.avatar ?? null,
     e: now + COMMENT_TOKEN_TTL_MS,
   };
   return sign(secret, payload);
@@ -142,6 +146,7 @@ export function verifyCommentToken(
     followedAt: payload.f ?? null,
     settings: payload.s ?? null,
     ownerIpKey: payload.k ?? null,
+    avatar: payload.v ?? null,
     issuedAt: payload.e - COMMENT_TOKEN_TTL_MS,
     expiresAt: payload.e,
   };

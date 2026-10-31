@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { AvatarForm } from '@/components/avatar-form';
 import { BlockList } from '@/components/block-list';
 import { BroadcastSetup } from '@/components/broadcast-setup';
 import { CommentRulesForm } from '@/components/comment-rules-form';
@@ -8,6 +9,7 @@ import { commentSettingsOf, moderatorsOf } from '@/lib/moderation';
 import { DisplayNameForm } from '@/components/display-name-form';
 import { HandleForm } from '@/components/handle-form';
 import { SignInButton } from '@/components/sign-in-button';
+import { avatarOf } from '@/lib/avatars';
 import { blocksOf } from '@/lib/blocks';
 import { channelOf } from '@/lib/channels';
 import { displayNameOf, handleOf } from '@/lib/profiles';
@@ -18,7 +20,7 @@ import { ui } from '@/lib/ui';
 export const metadata: Metadata = { title: '配信する | Liveeen' };
 
 /**
- * 配信を始める画面。配信はログインが要る。名前は配信の一覧に出るので、まだ付けていなければ先に付けてもらう。
+ * 配信を始める画面。配信はログインが要る。名前は配信の一覧に出るので、まだ付けていなければ先に付けてもらう。そのときアイコンも見せる。
  * 名前の次に、配信の住所になるハンドルを選んでもらう（チャンネルを作る前の人も、もう作ってある人も）
  */
 export default async function BroadcastPage() {
@@ -30,9 +32,15 @@ export default async function BroadcastPage() {
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:px-6">
       <h1 className={ui.heading}>配信する</h1>
       {userId && !displayName ? (
-        <div className={ui.card}>
-          <DisplayNameForm name={null} />
-        </div>
+        <>
+          <div className={ui.card}>
+            <DisplayNameForm name={null} />
+          </div>
+          {/* Google の写真は顔や本名が写っていることがあるので、配信の前に、ほかの人に見えることを見せて変えられるようにする */}
+          <div className={ui.card}>
+            <AvatarForm name="?" {...await avatarOf(userId)} />
+          </div>
+        </>
       ) : userId && !handle ? (
         <div className={ui.card}>
           <HandleForm handle={null} />

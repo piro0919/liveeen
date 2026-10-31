@@ -34,6 +34,7 @@ describe('コメントの札', () => {
       followedAt: null,
       settings: null,
       ownerIpKey: null,
+      avatar: null,
       issuedAt: NOW,
       expiresAt: NOW + COMMENT_TOKEN_TTL_MS,
     });

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { avatarOf } from '@/lib/avatars';
 import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
 import { ui } from '@/lib/ui';
@@ -8,11 +9,13 @@ import { SignInButton } from './sign-in-button';
 
 /**
  * どの画面にも出す上の帯。画面の幅いっぱいで、上に貼りつく。左に印とロゴ、右にログイン。
- * ログインしていれば「配信する」と、名前の印（設定へ）
+ * ログインしていれば「配信する」と、本人の印（設定へ）
  */
 export async function SiteHeader() {
   const userId = await currentUserId();
-  const name = userId ? await displayNameOf(userId) : null;
+  const [name, avatar] = userId
+    ? await Promise.all([displayNameOf(userId), avatarOf(userId)])
+    : [null, null];
   return (
     <header className={`sticky top-0 z-10 ${ui.headerBar}`}>
       <div className="mx-auto flex h-14 w-full max-w-screen-2xl items-center justify-between gap-4 px-4 sm:px-6">
@@ -26,7 +29,7 @@ export async function SiteHeader() {
               配信する
             </Link>
             <Link href="/settings" aria-label="設定">
-              <Avatar name={name ?? '?'} size="md" />
+              <Avatar name={name ?? '?'} src={avatar?.src} size="md" />
             </Link>
           </div>
         ) : (

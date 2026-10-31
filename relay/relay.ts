@@ -404,6 +404,7 @@ export function startRelay({
         text: message.text,
         at,
         guest: isGuestId(writer.userId),
+        ...(writer.avatar ? { avatar: writer.avatar } : {}),
       };
       // 禁止語を含むコメントは、書いた人の画面にだけ流す。ほかの人には届かず、覚えもしない。書いた人には止められたことが分からない
       if (ruled && hasBlockedWord(message.text, settings.blockedWords)) {

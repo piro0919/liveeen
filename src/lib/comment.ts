@@ -16,6 +16,8 @@ export type Comment = {
   text: string;
   at: number;
   guest: boolean;
+  /** 書いた人の印の画像（src/lib/avatar.ts）。無ければ名前の1文字。ゲストには無い */
+  avatar?: string;
   /** 書いた人の札（src/lib/comment-token.ts の signAuthor）。配信者にだけ付ける。ブロックに使う */
   author?: string;
   /** 中継が流したそのままである印（src/lib/comment-token.ts の signCommentProof）。通報に使う */

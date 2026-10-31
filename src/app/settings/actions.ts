@@ -3,6 +3,8 @@
 import { refresh } from 'next/cache';
 import { z } from 'zod';
 import { clearAuthCookies, deleteAccount } from '@/lib/account';
+import { AVATAR_IMAGE_MAX_BYTES, sniffAvatarImage } from '@/lib/avatar';
+import { saveAvatarImage, setAvatarChoice } from '@/lib/avatars';
 import { normalizeDisplayName } from '@/lib/display-name';
 import { setEmailsLiveStarted, setListsFollowedOnTop } from '@/lib/follows';
 import { normalizeHandle } from '@/lib/handle';
@@ -102,4 +104,33 @@ export async function deleteAccountAction(): Promise<DeleteAccountResult> {
   if (result.channelId && !(await kickStream(result.channelId))) await kickStream(result.channelId);
   await clearAuthCookies();
   return 'deleted';
+}
+
+/** 印の欄の結果。使えない画像なら理由を出す */
+export type AvatarState = { error: string | null };
+
+/**
+ * 印にする画像を受け取る。ブラウザで 256 px 四方に縮めてから送ってくる（src/components/avatar-form.tsx）。
+ * 種類は中身の頭で見分け、ブラウザの言う種類は信じない
+ */
+export async function uploadAvatarAction(form: FormData): Promise<AvatarState> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  const file = form.get('image');
+  if (!(file instanceof File)) return { error: '画像を選んでください' };
+  if (file.size > AVATAR_IMAGE_MAX_BYTES) return { error: '画像が大きすぎます' };
+  const image = Buffer.from(await file.arrayBuffer());
+  const contentType = sniffAvatarImage(image);
+  if (!contentType) return { error: 'この画像は使えません' };
+  await saveAvatarImage(userId, contentType, image);
+  refresh();
+  return { error: null };
+}
+
+/** 印を Google の写真か名前の1文字に戻す。アップロードした画像は消す */
+export async function setAvatarChoiceAction(choice: 'google' | 'initial'): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  await setAvatarChoice(userId, choice === 'initial' ? 'initial' : 'google');
+  refresh();
 }

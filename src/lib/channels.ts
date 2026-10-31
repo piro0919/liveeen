@@ -1,4 +1,5 @@
 import 'server-only';
+import { AVATAR_COLUMNS, type AvatarRow, avatarJoin, avatarOfRow } from './avatars';
 import { db } from './db';
 import type { LatencyMode } from './latency';
 import { hashStreamKey, newChannelId, newStreamKey } from './stream-key';
@@ -15,32 +16,40 @@ export type Channel = {
   displayName: string | null;
   /** 配信のタイトル（db/migrations/0017_stream_title.sql）。付けていなければ null */
   title: string | null;
+  /** 配信者の印の画像（src/lib/avatar.ts）。null なら名前の1文字 */
+  avatar: string | null;
 };
 
 const SELECT_CHANNEL = `select channel.id, channel.latency_mode as "latencyMode", channel.title,
-  channel.guest_comments as "guestComments", profile.handle, profile.display_name as "displayName"
-  from channel left join profile on profile.user_id = channel.user_id`;
+  channel.guest_comments as "guestComments", profile.handle, profile.display_name as "displayName",
+  ${AVATAR_COLUMNS}
+  from channel left join profile on profile.user_id = channel.user_id
+  ${avatarJoin('channel.user_id')}`;
+
+type ChannelRow = Omit<Channel, 'avatar'> & AvatarRow;
+
+function channelOfRow({ googleImage, avatarChoice, avatarKey, ...channel }: ChannelRow): Channel {
+  return { ...channel, avatar: avatarOfRow({ googleImage, avatarChoice, avatarKey }) };
+}
+
+async function selectChannel(where: string, value: string): Promise<Channel | null> {
+  const { rows } = await db().query<ChannelRow>(`${SELECT_CHANNEL} where ${where}`, [value]);
+  return rows[0] ? channelOfRow(rows[0]) : null;
+}
 
 /** その人のチャンネル。まだ作っていなければ null */
 export async function channelOf(userId: string): Promise<Channel | null> {
-  const { rows } = await db().query<Channel>(`${SELECT_CHANNEL} where channel.user_id = $1`, [
-    userId,
-  ]);
-  return rows[0] ?? null;
+  return selectChannel('channel.user_id = $1', userId);
 }
 
 /** id からチャンネル。無ければ null */
 export async function channelById(id: string): Promise<Channel | null> {
-  const { rows } = await db().query<Channel>(`${SELECT_CHANNEL} where channel.id = $1`, [id]);
-  return rows[0] ?? null;
+  return selectChannel('channel.id = $1', id);
 }
 
 /** ハンドルからチャンネル。無ければ null（ハンドルだけ選んでチャンネルをまだ作っていない人も null） */
 export async function channelByHandle(handle: string): Promise<Channel | null> {
-  const { rows } = await db().query<Channel>(`${SELECT_CHANNEL} where profile.handle = $1`, [
-    handle,
-  ]);
-  return rows[0] ?? null;
+  return selectChannel('profile.handle = $1', handle);
 }
 
 /**

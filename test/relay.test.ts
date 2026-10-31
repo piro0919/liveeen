@@ -64,6 +64,7 @@ function tokenFor(
     followedAt = null,
     settings,
     ownerIpKey = null,
+    avatar = null,
   }: {
     ipKey?: string | null;
     owner?: boolean;
@@ -71,6 +72,7 @@ function tokenFor(
     followedAt?: number | null;
     settings?: CommentSettings;
     ownerIpKey?: string | null;
+    avatar?: string | null;
   } = {},
 ) {
   const commenter = {
@@ -82,6 +84,7 @@ function tokenFor(
     followedAt,
     settings,
     ownerIpKey,
+    avatar,
   };
   return signCommentToken(SECRET, channelId, commenter, clock);
 }
@@ -103,6 +106,27 @@ describe('コメントの中継', () => {
       got.type === 'comment' && { ...got, comment: { ...got.comment, mine: true } },
     );
     expect(elsewhere.received).toEqual([{ type: 'history', comments: [] }]);
+  });
+
+  it('札に印の画像があればコメントに付けて流し、無ければ付けない', async () => {
+    const pictured = await connect(
+      CHANNEL,
+      tokenFor('ぴろ', CHANNEL, { avatar: '/api/avatar/k1' }),
+    );
+    const plain = await connect(CHANNEL, tokenFor('みる'));
+    const viewer = await connect(CHANNEL);
+    await pictured.nth(1);
+    await plain.nth(1);
+    await viewer.nth(1);
+    pictured.socket.send(JSON.stringify({ text: '写真あり' }));
+    expect(await viewer.nth(2)).toMatchObject({
+      type: 'comment',
+      comment: { name: 'ぴろ', avatar: '/api/avatar/k1' },
+    });
+    plain.socket.send(JSON.stringify({ text: '写真なし' }));
+    const got = await viewer.nth(3);
+    expect(got).toMatchObject({ type: 'comment', comment: { name: 'みる' } });
+    expect(got.type === 'comment' ? got.comment : null).not.toHaveProperty('avatar');
   });
 
   it('ログインしていない人の札で書いたコメントには guest の印が付く', async () => {

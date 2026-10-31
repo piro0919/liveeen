@@ -1,5 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
+import { AVATAR_COLUMNS, type AvatarRow, avatarJoin, avatarOfRow } from './avatars';
 import { db } from './db';
 import { withoutDelisted } from './delist';
 import { kickPath } from './kick';
@@ -21,6 +22,8 @@ export type LiveChannel = LivePath & {
   handle: string | null;
   /** 配信のタイトル。付けていなければ null */
   title: string | null;
+  /** 配信者の印の画像（src/lib/avatar.ts）。null なら名前の1文字 */
+  avatar: string | null;
 };
 
 /** 配信サーバー（MediaMTX）の API を呼ぶ。合言葉があれば付ける（本番の Caddy が求める。deploy/Caddyfile） */
@@ -54,14 +57,18 @@ export async function liveStream(channelId: string): Promise<LivePath | null> {
 export async function liveRegisteredChannels(): Promise<LiveChannel[]> {
   const paths = livePathsOf(await mediaApi(`/v3/paths/list?itemsPerPage=${ITEMS_PER_PAGE}`));
   if (paths.length === 0) return [];
-  const { rows } = await db().query<{
-    id: string;
-    displayName: string | null;
-    handle: string | null;
-    title: string | null;
-  }>(
-    `select channel.id, profile.display_name as "displayName", profile.handle, channel.title
+  const { rows } = await db().query<
+    {
+      id: string;
+      displayName: string | null;
+      handle: string | null;
+      title: string | null;
+    } & AvatarRow
+  >(
+    `select channel.id, profile.display_name as "displayName", profile.handle, channel.title,
+       ${AVATAR_COLUMNS}
      from channel left join profile on profile.user_id = channel.user_id
+     ${avatarJoin('channel.user_id')}
      where channel.id = any($1) and channel.banned_at is null`,
     [paths.map((path) => path.channelId)],
   );
@@ -69,7 +76,15 @@ export async function liveRegisteredChannels(): Promise<LiveChannel[]> {
   return paths.flatMap((path) => {
     const row = byId.get(path.channelId);
     return row
-      ? [{ ...path, displayName: row.displayName, handle: row.handle, title: row.title }]
+      ? [
+          {
+            ...path,
+            displayName: row.displayName,
+            handle: row.handle,
+            title: row.title,
+            avatar: avatarOfRow(row),
+          },
+        ]
       : [];
   });
 }

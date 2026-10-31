@@ -324,7 +324,7 @@ export function Comments({
       >
         {comments.map((comment) => (
           <li key={comment.id} className="flex gap-3 text-sm">
-            <Avatar name={comment.name} size="xs" />
+            <Avatar name={comment.name} src={comment.avatar} size="xs" />
             <p className="min-w-0 wrap-break-word">
               <span className={overlay ? ui.overlayName : 'text-muted'}>
                 {comment.name}
