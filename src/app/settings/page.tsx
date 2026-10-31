@@ -3,6 +3,7 @@ import { DisplayNameForm } from '@/components/display-name-form';
 import { FollowNoticeChoice } from '@/components/follow-notice-choice';
 import { HandleForm } from '@/components/handle-form';
 import { SignInButton } from '@/components/sign-in-button';
+import { SignOutButton } from '@/components/sign-out-button';
 import { emailEnabled } from '@/lib/email';
 import { emailsLiveStarted, listsFollowedOnTop } from '@/lib/follows';
 import { displayNameOf, handleOf } from '@/lib/profiles';
@@ -37,6 +38,7 @@ export default async function SettingsPage() {
               pushPublicKey={env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}
             />
           </div>
+          <SignOutButton />
         </>
       ) : (
         <SignInButton />

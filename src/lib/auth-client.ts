@@ -9,3 +9,8 @@ const authClient = createAuthClient();
 export function signIn() {
   return authClient.signIn.social({ provider: 'google', callbackURL: window.location.href });
 }
+
+/** ログアウトする */
+export function signOut() {
+  return authClient.signOut();
+}
