@@ -29,8 +29,13 @@ export function splitFollowed<T extends LivePath>(
 
 /** 映像が届いている配信だけを、始まったのが新しい順に。形の合わない応答は空の一覧として扱う */
 export function livePathsOf(body: unknown): LivePath[] {
+  return livePathsOrNull(body) ?? [];
+}
+
+/** livePathsOf と同じ。形の合わない応答は null（答えが無かったのと同じに扱いたいとき。relay/thumbnails.ts） */
+export function livePathsOrNull(body: unknown): LivePath[] | null {
   const parsed = pathList.safeParse(body);
-  if (!parsed.success) return [];
+  if (!parsed.success) return null;
   return parsed.data.items
     .filter((item) => item.ready && item.readyTime)
     .map((item) => ({ channelId: item.name, startedAt: new Date(item.readyTime as string) }))

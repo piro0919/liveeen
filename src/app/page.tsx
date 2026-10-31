@@ -24,6 +24,7 @@ const startedAtFormat = new Intl.DateTimeFormat('ja-JP', {
  */
 function LiveCard({ channel }: { channel: LiveChannel }) {
   const name = channel.displayName ?? channel.channelId;
+  const thumbnail = thumbnailUrl(env.NEXT_PUBLIC_COMMENT_RELAY_URL, channel.channelId);
   return (
     <li>
       <Link
@@ -31,10 +32,8 @@ function LiveCard({ channel }: { channel: LiveChannel }) {
         className="group flex flex-col gap-3"
       >
         <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-surface group-hover:bg-surface-hover">
-          <LiveThumbnail
-            name={name}
-            src={thumbnailUrl(env.NEXT_PUBLIC_COMMENT_RELAY_URL, channel.channelId)}
-          />
+          {/* 住所は1分ごとに変わる。変わったら撮れなかったことを忘れて、もう一度読ませる */}
+          <LiveThumbnail key={thumbnail} name={name} src={thumbnail} />
           <span className={`absolute bottom-2 left-2 ${ui.liveTag}`}>ライブ</span>
         </div>
         <div className="flex gap-3">

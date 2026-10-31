@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { livePathsOf } from '../src/lib/live-paths';
+import { livePathsOrNull } from '../src/lib/live-paths';
 
 /** 縮小画像を撮り直す間隔 */
 const CAPTURE_INTERVAL_MS = 60_000;
@@ -12,12 +12,12 @@ const ITEMS_PER_PAGE = 1000;
 /** 縮小画像の横幅。トップの札は広い画面でも横 400px ほど */
 const THUMBNAIL_WIDTH = 640;
 
-/** 1つの配信から1枚撮る。撮れなければ null */
-export type Capture = (channelId: string) => Promise<Buffer | null>;
+/** 1つの配信から1枚撮る。撮れなければ null。signal が切れたら撮るのをやめる */
+export type Capture = (channelId: string, signal: AbortSignal) => Promise<Buffer | null>;
 
 /** ffmpeg で HLS から最初の1枚を JPEG にする */
 export function ffmpegCapture(hlsUrl: string): Capture {
-  return (channelId) =>
+  return (channelId, signal) =>
     new Promise((resolve) => {
       const ffmpeg = spawn(
         'ffmpeg',
@@ -26,7 +26,8 @@ export function ffmpegCapture(hlsUrl: string): Capture {
           ...['-frames:v', '1', '-vf', `scale=${THUMBNAIL_WIDTH}:-2`],
           ...['-f', 'image2', '-c:v', 'mjpeg', '-q:v', '5', 'pipe:1'],
         ],
-        { stdio: ['ignore', 'pipe', 'ignore'] },
+        // 中継を止めたとき、撮っている途中の ffmpeg を残さない
+        { stdio: ['ignore', 'pipe', 'ignore'], signal, killSignal: 'SIGKILL' },
       );
       const chunks: Buffer[] = [];
       const timer = setTimeout(() => ffmpeg.kill('SIGKILL'), CAPTURE_TIMEOUT_MS);
@@ -62,7 +63,7 @@ export function startThumbnails({
   intervalMs = CAPTURE_INTERVAL_MS,
 }: Options) {
   const images = new Map<string, Buffer>();
-  let stopped = false;
+  const stopping = new AbortController();
   let timer: NodeJS.Timeout | undefined;
 
   async function liveIds(): Promise<string[] | null> {
@@ -70,7 +71,9 @@ export function startThumbnails({
       signal: AbortSignal.timeout(API_TIMEOUT_MS),
     }).catch(() => null);
     if (!response?.ok) return null;
-    return livePathsOf(await response.json()).map((path) => path.channelId);
+    // 形の合わない答えを「配信がない」と読むと、持っている画像を全部捨ててしまう
+    const paths = livePathsOrNull(await response.json().catch(() => null));
+    return paths?.map((path) => path.channelId) ?? null;
   }
 
   /** 1巡。配信サーバーが答えなければ、持っている画像はそのまま */
@@ -79,15 +82,15 @@ export function startThumbnails({
     if (!ids) return;
     for (const id of images.keys()) if (!ids.includes(id)) images.delete(id);
     for (const id of ids) {
-      if (stopped) return;
-      const image = await capture(id);
+      if (stopping.signal.aborted) return;
+      const image = await capture(id, stopping.signal);
       if (image) images.set(id, image);
     }
   }
 
   async function loop(): Promise<void> {
     await round();
-    if (!stopped) timer = setTimeout(() => void loop(), intervalMs);
+    if (!stopping.signal.aborted) timer = setTimeout(() => void loop(), intervalMs);
   }
   const first = loop();
 
@@ -98,7 +101,7 @@ export function startThumbnails({
     /** 1巡を回す（確かめ用） */
     round,
     stop: () => {
-      stopped = true;
+      stopping.abort();
       clearTimeout(timer);
     },
   };

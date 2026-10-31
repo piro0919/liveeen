@@ -57,6 +57,39 @@ describe('startThumbnails', () => {
   });
 });
 
+describe('startThumbnails の答えの形', () => {
+  it('形の合わない答えは、配信がないとは読まず、持っている画像を残す', async () => {
+    let call = 0;
+    const thumbnails = startThumbnails({
+      apiUrl: 'http://media',
+      fetch: () => Promise.resolve(Response.json(call++ === 0 ? pathList(['a']) : { paths: [] })),
+      capture: (id) => Promise.resolve(Buffer.from(id)),
+      intervalMs: 60_000,
+    });
+    await thumbnails.firstRound;
+    await thumbnails.round();
+    thumbnails.stop();
+    expect(thumbnails.get('a')).toEqual(Buffer.from('a'));
+  });
+
+  it('止めると、撮っている途中のものにも止めの合図が届く', async () => {
+    let received: AbortSignal | undefined;
+    const thumbnails = startThumbnails({
+      apiUrl: 'http://media',
+      fetch: api(['a']),
+      capture: (_id, signal) => {
+        received = signal;
+        return Promise.resolve(null);
+      },
+      intervalMs: 60_000,
+    });
+    await thumbnails.firstRound;
+    expect(received?.aborted).toBe(false);
+    thumbnails.stop();
+    expect(received?.aborted).toBe(true);
+  });
+});
+
 describe('thumbnailUrl', () => {
   it('中継の住所を http に読み替え、撮り直しの間隔ごとに変わる印を付ける', () => {
     expect(thumbnailUrl('wss://media.liveeen.kkweb.io', 'abc_-1', 120_000)).toBe(
