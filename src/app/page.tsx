@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import { connection } from 'next/server';
-import { Avatar, initialOf } from '@/components/avatar';
+import { Avatar } from '@/components/avatar';
+import { LiveThumbnail } from '@/components/live-thumbnail';
 import { followedAmong, listsFollowedOnTop } from '@/lib/follows';
 import { channelPath } from '@/lib/handle';
 import { type LiveChannel, liveChannels } from '@/lib/live';
 import { splitFollowed } from '@/lib/live-paths';
 import { currentUserId } from '@/lib/session';
+import { thumbnailUrl } from '@/lib/thumbnail';
 import { ui } from '@/lib/ui';
+import { env } from '@/env';
 
 /** 配信の始まった時刻。初版は日本向け（CLAUDE.md）なので日本の時刻で出す */
 const startedAtFormat = new Intl.DateTimeFormat('ja-JP', {
@@ -17,7 +20,7 @@ const startedAtFormat = new Intl.DateTimeFormat('ja-JP', {
 
 /**
  * 配信の札。手本は YouTube の「ライブ配信中」の並び。
- * 配信の縮小画像はまだ作れない（配信サーバーが画像を出さない）ので、画像の枠には名前の1文字を大きく出す
+ * 画像は中継が1分おきに撮る縮小画像（relay/thumbnails.ts）。まだ撮れていなければ名前の1文字を大きく出す
  */
 function LiveCard({ channel }: { channel: LiveChannel }) {
   const name = channel.displayName ?? channel.channelId;
@@ -28,9 +31,10 @@ function LiveCard({ channel }: { channel: LiveChannel }) {
         className="group flex flex-col gap-3"
       >
         <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-surface group-hover:bg-surface-hover">
-          <span aria-hidden className="text-5xl font-bold text-muted">
-            {initialOf(name)}
-          </span>
+          <LiveThumbnail
+            name={name}
+            src={thumbnailUrl(env.NEXT_PUBLIC_COMMENT_RELAY_URL, channel.channelId)}
+          />
           <span className={`absolute bottom-2 left-2 ${ui.liveTag}`}>ライブ</span>
         </div>
         <div className="flex gap-3">

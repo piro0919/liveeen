@@ -2,5 +2,6 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["scripts/*.ts"],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "test/**/*.ts", "relay/**/*.ts"],
+  "ignoreBinaries": ["ffmpeg"],
   "ignoreDependencies": ["@commitlint/cli", "@secretlint/secretlint-rule-preset-recommend"]
 }

@@ -21,6 +21,12 @@
 		reverse_proxy {$UPSTREAM_HOST:127.0.0.1}:8090
 	}
 
+	# 配信の縮小画像。コメントの中継が撮って返す（relay/thumbnails.ts）
+	@thumbnails path /thumbnails/*
+	handle @thumbnails {
+		reverse_proxy {$UPSTREAM_HOST:127.0.0.1}:8090
+	}
+
 	# ブラウザからの配信（WHIP）と低遅延の視聴（WHEP）
 	@webrtc path_regexp ^/[A-Za-z0-9_-]+/wh[ie]p(/.*)?$
 	handle @webrtc {

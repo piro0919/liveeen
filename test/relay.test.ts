@@ -237,3 +237,45 @@ describe('コメントの中継', () => {
     expect(code).toBe(1008);
   });
 });
+
+describe('中継の縮小画像', () => {
+  const IMAGE = Buffer.from([0xff, 0xd8, 0xff]);
+  let withImages: ReturnType<typeof startRelay>;
+
+  beforeEach(() => {
+    withImages = startRelay({
+      port: 0,
+      secret: SECRET,
+      thumbnail: (channelId) => (channelId === CHANNEL ? IMAGE : undefined),
+    });
+  });
+
+  afterEach(async () => {
+    await withImages.close();
+  });
+
+  it('撮れているチャンネルの画像を JPEG で返す', async () => {
+    const response = await fetch(
+      `http://localhost:${withImages.port()}/thumbnails/${CHANNEL}.jpg?v=1`,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('image/jpeg');
+    expect(Buffer.from(await response.arrayBuffer())).toEqual(IMAGE);
+  });
+
+  it('撮れていないチャンネルと、形の合わない住所は 404', async () => {
+    const base = `http://localhost:${withImages.port()}`;
+    expect((await fetch(`${base}/thumbnails/other.jpg`)).status).toBe(404);
+    expect((await fetch(`${base}/thumbnails/../${CHANNEL}.jpg`)).status).toBe(404);
+    expect((await fetch(`${base}/${CHANNEL}`)).status).toBe(404);
+  });
+
+  it('画像を返す口でもコメントの中継はつながる', async () => {
+    const socket = new WebSocket(`ws://localhost:${withImages.port()}/${CHANNEL}`);
+    const first = await new Promise<string>((resolve) =>
+      socket.once('message', (data) => resolve(String(data))),
+    );
+    expect(JSON.parse(first)).toEqual({ type: 'history', comments: [] });
+    socket.close();
+  });
+});

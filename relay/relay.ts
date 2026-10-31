@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 import {
@@ -28,6 +29,10 @@ const MAX_PAYLOAD_BYTES = 4096;
 const PING_INTERVAL_MS = 30_000;
 /** 配信の名前として受け付ける形（src/lib/media-auth.ts と同じ） */
 const CHANNEL_PATTERN = /^\/([A-Za-z0-9_-]+)$/;
+/** 配信の縮小画像の住所（relay/thumbnails.ts）。`/thumbnails/<チャンネルの id>.jpg` */
+const THUMBNAIL_PATTERN = /^\/thumbnails\/([A-Za-z0-9_-]+)\.jpg$/;
+/** 縮小画像を見る人の手元に置いてよい時間。撮り直しの間隔（relay/thumbnails.ts）より短く */
+const THUMBNAIL_MAX_AGE_S = 30;
 
 type Writer = Commenter & { issuedAt: number; expiresAt: number };
 /** 覚えておくコメント。書いた人は、ブロックされたときに消すために持つ */
@@ -45,6 +50,8 @@ type Options = {
   host?: string;
   /** コメントの札の署名の鍵（src/lib/comment-token.ts） */
   secret: string;
+  /** そのチャンネルの縮小画像。無ければ undefined */
+  thumbnail?: (channelId: string) => Buffer | undefined;
   now?: () => number;
 };
 
@@ -90,11 +97,29 @@ function parseMessage(data: unknown): { text: string } | { block: string } | nul
 /**
  * コメントの中継。配信サーバーと同じ Akamai のサーバーで動かす（Vercel の関数は長くつなぎっぱなしにできない。CLAUDE.md）。
  * `ws://…/<チャンネルの id>?token=<札>` でつなぐ。札が無ければ読むだけ。
- * コメントは保存しない。チャンネルごとに直近のものだけを覚えておき、あとから来た人に見せる
+ * コメントは保存しない。チャンネルごとに直近のものだけを覚えておき、あとから来た人に見せる。
+ * 同じ口で、配信の縮小画像も返す（`GET /thumbnails/<チャンネルの id>.jpg`）
  */
-export function startRelay({ port, host, secret, now = Date.now }: Options) {
+export function startRelay({ port, host, secret, thumbnail, now = Date.now }: Options) {
   const rooms = new Map<string, Room>();
-  const server = new WebSocketServer({ port, host, maxPayload: MAX_PAYLOAD_BYTES });
+  const web = createServer((request: IncomingMessage, response: ServerResponse) => {
+    const channelId = THUMBNAIL_PATTERN.exec(
+      new URL(request.url ?? '/', 'http://relay').pathname,
+    )?.[1];
+    const image = request.method === 'GET' && channelId ? thumbnail?.(channelId) : undefined;
+    if (!image) {
+      response.writeHead(404).end();
+      return;
+    }
+    response
+      .writeHead(200, {
+        'Content-Type': 'image/jpeg',
+        'Cache-Control': `public, max-age=${THUMBNAIL_MAX_AGE_S}`,
+      })
+      .end(image);
+  });
+  const server = new WebSocketServer({ server: web, maxPayload: MAX_PAYLOAD_BYTES });
+  web.listen(port, host);
   const alive = new WeakSet<WebSocket>();
 
   /** 配信者がブロックした。その人のコメントを消し、つなぎを閉じる */
@@ -208,14 +233,17 @@ export function startRelay({ port, host, secret, now = Date.now }: Options) {
 
   return {
     /** 待ち受けを始めたら解ける。住所（host）を渡すと、待ち受けは後から始まる */
-    listening: new Promise<void>((resolve) => server.once('listening', () => resolve())),
+    listening: new Promise<void>((resolve) => web.once('listening', () => resolve())),
     /** 実際に開いた番号。0 を渡したときに空いている番号が入る */
-    port: () => (server.address() as AddressInfo).port,
+    port: () => (web.address() as AddressInfo).port,
     close: () =>
       new Promise<void>((resolve) => {
         clearInterval(ping);
         for (const socket of server.clients) socket.terminate();
-        server.close(() => resolve());
+        server.close();
+        web.close(() => resolve());
+        // 画像を取りに来た人のつなぎ（keep-alive）が残っていると閉じ終わらない
+        web.closeAllConnections();
       }),
   };
 }
