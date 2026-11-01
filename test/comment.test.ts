@@ -68,10 +68,13 @@ describe('書いた人の札', () => {
   });
 
   it('札から利用者の id と IP の鍵は読めず、書き換えれば null', () => {
-    const token = signAuthor(SECRET, 'ch', author);
+    // 暗号文は毎回違うので、短い id だと偶然同じ並びが出て落ちる（u1 で CI が1度落ちた）。偶然では出ない長さにする
+    const userId = 'user-id-that-must-not-be-readable';
+    const ipKey = 'ip-key-that-must-not-be-readable';
+    const token = signAuthor(SECRET, 'ch', { ...author, userId, ipKey });
     const decoded = Buffer.from(token, 'base64url').toString('latin1');
-    expect(decoded).not.toContain('u1');
-    expect(decoded).not.toContain('ip-1');
+    expect(decoded).not.toContain(userId);
+    expect(decoded).not.toContain(ipKey);
     const raw = Buffer.from(token, 'base64url');
     raw[raw.length - 1] ^= 1;
     expect(verifyAuthor(SECRET, raw.toString('base64url'), 'ch')).toBeNull();
