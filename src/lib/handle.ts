@@ -17,6 +17,11 @@ const RESERVED = new Set([
   'terms',
 ]);
 
+/** 住所の1段目がサイトの道か。違えば配信者の住所 */
+export function isSitePath(segment: string): boolean {
+  return RESERVED.has(segment);
+}
+
 /**
  * 本人が入れたハンドルを、保存してよい形にする。前後の空白を落とし、大文字は小文字にそろえる。
  * 使えなければ理由の鍵を返す（文言は messages/ja.json の handle.errors）。

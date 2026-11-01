@@ -117,8 +117,8 @@
     "capReached": "今月の視聴の上限に達したため、いまは見られません"
   },
   "settings": {
-    "title": "設定 | Liveeen",
-    "heading": "設定",
+    "title": "マイページ | Liveeen",
+    "heading": "マイページ",
     "following": "フォロー中の配信者"
   },
   "search": {
@@ -160,9 +160,12 @@
     "enacted": "{date} 制定"
   },
   "header": {
+    "home": "ホーム",
     "broadcast": "配信する",
+    "following": "フォロー中",
+    "menu": "メニュー",
     "search": "検索",
-    "settings": "設定"
+    "myPage": "マイページ"
   },
   "footer": {
     "terms": "利用規約",
@@ -301,7 +304,7 @@
   "liveEmail": {
     "subject": "{name} さんが配信を始めました",
     "body": "{name} さんが Liveeen で配信を始めました。",
-    "unsubscribe": "このメールを止めるときは、設定の「メールで知らせる」を切ってください。"
+    "unsubscribe": "このメールを止めるときは、マイページの「メールで知らせる」を切ってください。"
   },
   "livePush": {
     "title": "{name} さんが配信を始めました",

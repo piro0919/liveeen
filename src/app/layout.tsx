@@ -1,9 +1,10 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Unbounded } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { ExternalBrowser } from '@/components/external-browser';
 import { PageAnalytics } from '@/components/page-analytics';
 import { Progress } from '@/components/progress';
+import { SiteBottomNav } from '@/components/site-bottom-nav';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { Toaster } from '@/components/toaster';
@@ -23,15 +24,19 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image' },
 };
 
+/** cover でないと env(safe-area-inset-*) が 0 のままで、下のタブと配信中の画面の余白が効かない */
+export const viewport: Viewport = { viewportFit: 'cover' };
+
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="ja" className={`h-full antialiased ${unbounded.variable}`}>
-      <body className="flex min-h-full flex-col">
+      <body className="flex min-h-full flex-col px-safe">
         <NextIntlClientProvider>
           <Progress>
             <SiteHeader />
             {children}
             <SiteFooter />
+            <SiteBottomNav />
           </Progress>
           <Toaster />
         </NextIntlClientProvider>

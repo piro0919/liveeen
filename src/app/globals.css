@@ -81,6 +81,12 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* スマホを横にしたとき、切り欠きに中身が隠れないようにする */
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
 /* 配信中の画面のコメント。下の半分ほどに重ね、上の映像は見えるままにする */
 @utility h-live-comments {
   height: 45%;

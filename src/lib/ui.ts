@@ -8,6 +8,10 @@
 const BUTTON_BASE =
   'inline-flex h-10 w-fit shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-bold whitespace-nowrap transition duration-150 active:scale-95 disabled:opacity-50 disabled:active:scale-100 sm:h-9';
 
+/** 下のタブの1つの形。高さと字の大きさは YouTube のスマホ版に合わせた（CLAUDE.md） */
+const BOTTOM_TAB_BASE =
+  'flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px]';
+
 export const ui = {
   /** 主な操作（フォローする・保存・配信を始める）。差し色で塗る */
   primaryButton: `${BUTTON_BASE} bg-accent-fill text-white hover:brightness-110`,
@@ -28,6 +32,13 @@ export const ui = {
     'min-h-24 min-w-0 rounded-2xl border border-line bg-background px-4 py-2 text-base outline-none transition-colors focus:border-accent sm:text-sm',
   /** 上の帯。画面の幅いっぱいで、下に細い線。地を少し透かす */
   headerBar: 'border-b border-line bg-background/85 backdrop-blur-md',
+  /** スマホの下のタブの帯。上の帯と同じ地で、下に貼りつく */
+  bottomBar:
+    'sticky bottom-0 z-10 border-t border-line bg-background/85 pb-safe-bottom backdrop-blur-md sm:hidden',
+  /** 下のタブの1つ */
+  bottomTab: `${BOTTOM_TAB_BASE} text-muted`,
+  /** 下のタブの、いまの画面 */
+  bottomTabActive: `${BOTTOM_TAB_BASE} font-bold text-foreground`,
   /** 囲む枠（コメント・通報の理由） */
   panel: 'rounded-2xl bg-surface',
   /** 設定や配信の準備の1つのまとまり */
@@ -67,7 +78,7 @@ export const ui = {
   /** 失敗の理由 */
   error: 'text-sm text-danger',
   /** 配信中の画面。映像を画面いっぱいに出し、上の帯にも重ねる（YouTube のアプリの配信と同じ） */
-  liveScreen: 'fixed inset-0 z-50 flex h-dvh flex-col bg-black text-white',
+  liveScreen: 'fixed inset-0 z-50 flex h-dvh flex-col bg-black px-safe text-white',
   /** 配信中の画面の上に重ねるボタン。映像の明るさに関係なく読めるよう、黒を透かした地に白 */
   overlayButton: `${BUTTON_BASE} bg-black/50 text-white backdrop-blur-md hover:bg-black/70`,
   /** 配信中の画面の上に重ねるボタンの、入っている状態（ミュート中）。見落とさないよう差し色で塗る */
