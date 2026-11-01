@@ -91,6 +91,9 @@ jobs:
 
       - run: pnpm test
 
+      # 実際の Postgres で SQL を確かめる。テスト用の DB を作り直して使う
+      - run: pnpm test:db
+
       - run: pnpm build
 
       # 配信サーバーに載せるコメントの中継が一つのファイルにまとまるか（deploy/relay.Dockerfile と同じ手順）

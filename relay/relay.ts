@@ -324,6 +324,9 @@ export function startRelay({
     viewersChanged(joined);
 
     socket.on('pong', () => alive.add(socket));
+    // 上限を超えるフレームや壊れたフレームで ws は error を出してつなぎを閉じる。受け手が無いと中継ごと落ち、
+    // ログインしていない人の1通で全員のつなぎと直近のコメントが消える
+    socket.on('error', () => undefined);
     socket.on('message', (data) => {
       const message = parseMessage(data);
       // 運営が消すもの。サイトのサーバーが札なしでつなぎ、消す札を送ってくる（src/lib/comment-removal.ts）

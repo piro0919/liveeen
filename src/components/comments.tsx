@@ -1,7 +1,14 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import {
   appointModeratorAction,
   blockCommenterAction,
@@ -19,16 +26,19 @@ import {
   TOKEN_EXPIRED,
 } from '@/lib/comment';
 import { CommentOutbox } from '@/lib/comment-outbox';
+import { mergeHistory } from '@/lib/comment-history';
+import { isNearBottom } from '@/lib/comment-scroll';
 import { COMMENT_TOKEN_TTL_MS } from '@/lib/comment-token';
 import { DISPLAY_NAME_MAX, normalizeDisplayName } from '@/lib/display-name';
+import { hasVisibleText } from '@/lib/invisible';
+import { relayRetryMs } from '@/lib/relay-retry';
 import { ui } from '@/lib/ui';
+import { whenVisible } from '@/lib/when-visible';
 import { Avatar } from './avatar';
 import { DisplayNameForm } from './display-name-form';
 import { SignInButton } from './sign-in-button';
 import { setViewers } from './viewer-count';
 
-/** 中継が切れたとき、もう一度つなぎに行くまでの間 */
-const RETRY_MS = 3000;
 /** 札が切れるより、これだけ前に新しい札でつなぎ直す */
 const REFRESH_MARGIN_MS = 60_000;
 const REFRESH_MS = COMMENT_TOKEN_TTL_MS - REFRESH_MARGIN_MS;
@@ -45,11 +55,14 @@ let guestNameInMemory: string | null = null;
 const guestNameListeners = new Set<() => void>();
 
 function readGuestName(): string | null {
+  let name = guestNameInMemory;
   try {
-    return localStorage.getItem(GUEST_NAME_KEY) ?? guestNameInMemory;
+    name = localStorage.getItem(GUEST_NAME_KEY) ?? name;
   } catch {
-    return guestNameInMemory;
+    // 読めなければ手元の分を使う
   }
+  // 決まりが変わって使えなくなった名前（見えない文字を含むなど）は、札が出ないので、名前を聞き直す
+  return name !== null && normalizeDisplayName(name).ok ? name : null;
 }
 
 function saveGuestName(name: string): void {
@@ -140,6 +153,8 @@ export function Comments({
   const [unreachable, setUnreachable] = useState(false);
   const outbox = useRef(new CommentOutbox());
   const list = useRef<HTMLOListElement>(null);
+  // 一番下まで読んでいるか。上へ戻して読んでいる人を、新しいコメントで下へ連れ戻さない
+  const atBottom = useRef(true);
 
   const guest = viewer === 'signed-out' && guestComments;
   const writer = viewer === 'ready' || (guest && guestName !== null);
@@ -153,6 +168,28 @@ export function Comments({
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let refresh: ReturnType<typeof setTimeout> | undefined;
+    // 前に戻るのを待っている処理をやめる
+    let cancelWaiting = () => {};
+    // 中継に続けて届かなかった回数
+    let failures = 0;
+
+    /**
+     * 札をもらう（サーバーと DB に届く）処理は、タブが裏にあれば前に戻るまで待つ。
+     * 札が切れても、読むだけなら中継につないだままでいられる（書くときに中継が札の期限を見る）
+     */
+    function whileVisible(run: () => void) {
+      cancelWaiting();
+      cancelWaiting = () => {};
+      if (writer) cancelWaiting = whenVisible(run);
+      else run();
+    }
+
+    /** 中継に届かなかった。間を広げながらつなぎ直す */
+    function retryLater() {
+      const wait = relayRetryMs(failures);
+      failures += 1;
+      retry = setTimeout(() => whileVisible(() => void connect()), wait);
+    }
 
     /** 中継に戻された文を書く欄に戻す。その間に書き始めていれば、そちらを残す */
     function restore(returned: string | null) {
@@ -169,7 +206,7 @@ export function Comments({
         // 札をもらえなかった。黙って押せないままにせず、知らせて待ってからやり直す
         if (cancelled) return;
         setUnreachable(true);
-        retry = setTimeout(() => void connect(), RETRY_MS);
+        retryLater();
         return;
       }
       if (cancelled) return;
@@ -184,6 +221,7 @@ export function Comments({
       // 札なしのつなぎは読むだけで、送っても中継に断られる。札を持ってつながったときだけ送れる
       ws.onopen = () => {
         if (socket.current !== ws) return;
+        failures = 0;
         setConnected(token !== null);
         setUnreachable(false);
         if (token) outbox.current.opened(ws);
@@ -198,8 +236,9 @@ export function Comments({
       };
       ws.onmessage = (event) => {
         const message = JSON.parse(String(event.data)) as RelayMessage;
-        if (message.type === 'history') setComments(message.comments);
-        else if (message.type === 'remove') {
+        if (message.type === 'history') {
+          setComments((shown) => mergeHistory(shown, message.comments, SHOWN_MAX));
+        } else if (message.type === 'remove') {
           setComments((shown) => shown.filter((comment) => !message.ids.includes(comment.id)));
         } else if (message.type === 'comment') {
           if (message.comment.mine) outbox.current.accepted(message.comment.text);
@@ -213,6 +252,9 @@ export function Comments({
       };
       ws.onclose = (event) => {
         clearTimeout(refresh);
+        // 裏で待っていた札の取り替えは、閉じたこのつなぎのもの。残すと、新しいつなぎの送信欄を止めてしまう
+        cancelWaiting();
+        cancelWaiting = () => {};
         if (socket.current === ws) {
           socket.current = null;
           setConnected(false);
@@ -222,24 +264,27 @@ export function Comments({
         restore(outbox.current.closed());
         // 札を取り替えるとき、札が切れたか、ブロックされたか、モデレーターになった・外れたときは、
         // 待たずに新しい札でつなぐ（止められていれば札は出ない）
-        const wait =
+        const atOnce =
           refreshing ||
           event.code === TOKEN_EXPIRED ||
           event.code === BLOCKED ||
-          event.code === ROLE_CHANGED
-            ? 0
-            : RETRY_MS;
-        if (wait > 0) {
-          setUnreachable(true);
-          // つながらない間の人数は分からない。札の取り替えのときは、すぐつなぎ直すので消さない
-          setViewers(channelId, null);
+          event.code === ROLE_CHANGED;
+        if (atOnce) {
+          retry = setTimeout(() => void connect(), 0);
+          return;
         }
-        retry = setTimeout(() => void connect(), wait);
+        setUnreachable(true);
+        // つながらない間の人数は分からない。札の取り替えのときは、すぐつなぎ直すので消さない
+        setViewers(channelId, null);
+        retryLater();
       };
       if (token) {
         // フォローしてまだ時間がたっていない人は、書けるようになる時刻にも札をもらい直す
         const writable = result?.writableAt ? result.writableAt - Date.now() : Infinity;
-        refresh = setTimeout(renew, Math.max(0, Math.min(REFRESH_MS, writable)));
+        refresh = setTimeout(
+          () => whileVisible(renew),
+          Math.max(0, Math.min(REFRESH_MS, writable)),
+        );
       }
     }
 
@@ -248,6 +293,7 @@ export function Comments({
       cancelled = true;
       clearTimeout(retry);
       clearTimeout(refresh);
+      cancelWaiting();
       socket.current?.close();
       socket.current = null;
       setConnected(false);
@@ -255,14 +301,14 @@ export function Comments({
     };
   }, [channelId, relayUrl, viewer, writer, guestName, following]);
 
-  // 新しいコメントが来たら下まで送る
-  useEffect(() => {
+  // 一番下まで読んでいる人だけ、新しいコメントで下まで送る。描く前に送るので、位置の確かめと食い違わない
+  useLayoutEffect(() => {
     const element = list.current;
-    if (element) element.scrollTop = element.scrollHeight;
+    if (element && atBottom.current) element.scrollTop = element.scrollHeight;
   }, [comments]);
 
   function post() {
-    if (text.trim() === '') return;
+    if (!hasVisibleText(text)) return;
     const result = outbox.current.post(socket.current, text);
     if (result === 'invalid') {
       setError(t('errors.tooLong', { max: COMMENT_MAX }));
@@ -271,6 +317,8 @@ export function Comments({
     if (result === 'closed') return;
     setText('');
     setError(null);
+    // 自分で書いたら、上を読んでいても自分のコメントが見える所へ戻す
+    atBottom.current = true;
   }
 
   /** 配信者が、コメントした人をモデレーターにする。サイトが中継に知らせ、その人はつなぎ直してから効く */
@@ -354,6 +402,9 @@ export function Comments({
       )}
       <ol
         ref={list}
+        onScroll={(event) => {
+          atBottom.current = isNearBottom(event.currentTarget);
+        }}
         className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-2 ${overlay ? 'stack-bottom' : ''}`}
       >
         {comments.map((comment) => (

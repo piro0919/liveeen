@@ -1,15 +1,33 @@
 // ブラウザ通知（Web Push）を受け取る service worker。設定（/settings）で通知を入れたときに登録する。
 // 送ってくる中身の形は src/lib/push-message.ts
 
+/**
+ * 届いた中身を読む。読めなくても何か出す。出さないと、ブラウザが「裏で更新しました」の類を代わりに出し、
+ * 続くと通知の権限を止めるブラウザがある
+ */
+function readMessage(event) {
+  try {
+    const message = event.data?.json();
+    // url が無いと tag が空になり、renotify と合わせると showNotification が投げる
+    if (message?.title) return { url: '/', ...message };
+  } catch {
+    // 読めない中身。下の形で出す
+  }
+  return { title: 'Liveeen', url: '/' };
+}
+
 self.addEventListener('push', (event) => {
-  const message = event.data?.json();
-  if (!message) return;
+  const message = readMessage(event);
   event.waitUntil(
     self.registration.showNotification(message.title, {
       body: message.body,
       data: { url: message.url },
-      // 同じ配信者の知らせは1つにまとめる
+      icon: '/icon-192x192.png',
+      // Android の通知の帯に出す。色は使われず、形だけが出る（design/README.md）
+      badge: '/notification-badge.png',
+      // 同じ配信者の知らせは1つにまとめる。まとめても、また配信を始めたことは音で知らせる
       tag: message.url,
+      renotify: true,
     }),
   );
 });

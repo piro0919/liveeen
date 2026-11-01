@@ -49,7 +49,12 @@ const graphemes = new Intl.Segmenter('ja', { granularity: 'grapheme' });
 
 /** 比べる形にそろえる。全角と半角、大文字と小文字を同じに見る */
 function normalizeWord(input: string): string {
-  return input.normalize('NFKC').toLowerCase().trim();
+  // 無視される文字（ゼロ幅の文字、絵文字の結合の印、異体字の印など）を挟むと、見た目が同じまますり抜けられるので、落として比べる
+  return input
+    .normalize('NFKC')
+    .replace(/\p{Default_Ignorable_Code_Point}/gu, '')
+    .toLowerCase()
+    .trim();
 }
 
 /**

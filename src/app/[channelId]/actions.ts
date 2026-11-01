@@ -28,6 +28,7 @@ import { isReportReason } from '@/lib/report-reason';
 import { notifyAdminsOfReport } from '@/lib/report-notice';
 import { report } from '@/lib/reports';
 import { displayNameOf } from '@/lib/profiles';
+import { viewingCapReached } from '@/lib/transfer';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
 
@@ -239,6 +240,14 @@ export async function appointModeratorAction(channelId: string, author: string):
  */
 export async function channelPublishingAction(channelId: string): Promise<boolean | null> {
   return publishing(channelId);
+}
+
+/**
+ * 今月の視聴の上限に届いたか。見るのにログインは要らないので、誰でも聞ける。
+ * 配信サーバーに断られた視聴の画面が、理由を出すかを決める（src/components/player.tsx）
+ */
+export async function viewingCapAction(): Promise<boolean> {
+  return viewingCapReached();
 }
 
 /** 通報するコメント。中継が流したそのまま（src/lib/comment.ts） */

@@ -1,3 +1,5 @@
+import { hasInvisible, hasVisibleText } from './invisible';
+
 /** 名前の長さの上限。見た目の文字数で数える（絵文字の組み合わせも1文字） */
 export const DISPLAY_NAME_MAX = 20;
 
@@ -8,6 +10,7 @@ const CONTROL = /[\p{Cc}\p{Zl}\p{Zp}]/u;
 
 /**
  * 本人が入れた名前を、そのまま保存してよい形にする。前後の空白は落とす。
+ * 見えない文字は取り除かずに断る。黙って変えると、本人の入れた名前と食い違う。
  * 使えなければ理由の鍵を返す（文言は messages/ja.json の displayName.errors）
  */
 export function normalizeDisplayName(
@@ -15,7 +18,8 @@ export function normalizeDisplayName(
 ): { ok: true; name: string } | { ok: false; error: 'empty' | 'control' | 'tooLong' } {
   const name = input.trim();
   if (name === '') return { ok: false, error: 'empty' };
-  if (CONTROL.test(name)) return { ok: false, error: 'control' };
+  if (CONTROL.test(name) || hasInvisible(name)) return { ok: false, error: 'control' };
+  if (!hasVisibleText(name)) return { ok: false, error: 'empty' };
   if ([...graphemes.segment(name)].length > DISPLAY_NAME_MAX) {
     return { ok: false, error: 'tooLong' };
   }

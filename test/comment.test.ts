@@ -86,3 +86,19 @@ describe('書いた人の札', () => {
     expect(verifyAuthor(SECRET, signCommentToken(SECRET, 'ch', COMMENTER, NOW), 'ch')).toBeNull();
   });
 });
+
+describe('見えない文字', () => {
+  it('取り除く。禁止語の間に挟んでもすり抜けない', () => {
+    expect(normalizeComment('ば​か‮')).toBe('ばか');
+  });
+
+  it('見える文字が無いコメントは流さない', () => {
+    expect(normalizeComment('​')).toBeNull();
+    expect(normalizeComment('‍')).toBeNull();
+    expect(normalizeComment('⠀')).toBeNull();
+  });
+
+  it('絵文字の組み合わせは残す', () => {
+    expect(normalizeComment('👨‍👩‍👧')).toBe('👨‍👩‍👧');
+  });
+});

@@ -47,3 +47,13 @@ describe('followerMayWrite', () => {
     expect(followerMayWrite({ ...NO_RULES, followersOnlyMinutes: 0 }, now, now)).toBe(true);
   });
 });
+
+describe('無視される文字を挟んだ禁止語', () => {
+  it.each(['ば‍か', 'ば️か', 'ば​か', 'ば\u{e0067}か'])('%j を止める', (text) => {
+    expect(hasBlockedWord(text, ['ばか'])).toBe(true);
+  });
+
+  it('ゼロ幅の文字ごと貼り付けた語も、整えて覚える', () => {
+    expect(parseBlockedWords('ば​か')).toEqual({ ok: true, words: ['ばか'] });
+  });
+});

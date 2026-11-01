@@ -20,3 +20,28 @@ describe('normalizeDisplayName', () => {
     expect(normalizeDisplayName('あ'.repeat(DISPLAY_NAME_MAX + 1)).ok).toBe(false);
   });
 });
+
+describe('見えない文字', () => {
+  it.each([
+    ['ゼロ幅の空白', 'a​b'],
+    ['向きを変える印', 'a‮b'],
+    ['ゼロ幅の空白だけ', '​'],
+  ])('%s は使えない', (_, name) => {
+    expect(normalizeDisplayName(name)).toEqual({ ok: false, error: 'control' });
+  });
+
+  it.each([
+    ['結合の印だけ', '‍'],
+    ['ハングルの埋め草', 'ㅤ'],
+    ['点字の空白', '⠀⠀'],
+  ])('%s の名前は空として断る', (_, name) => {
+    expect(normalizeDisplayName(name)).toEqual({ ok: false, error: 'empty' });
+  });
+
+  it('絵文字の組み合わせと旗は使える', () => {
+    const family = '👨‍👩‍👧';
+    const england = '🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+    expect(normalizeDisplayName(family)).toEqual({ ok: true, name: family });
+    expect(normalizeDisplayName(england)).toEqual({ ok: true, name: england });
+  });
+});

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { signOut } from '@/lib/auth-client';
+import { signOut } from '@/lib/sign-out';
 import { ui } from '@/lib/ui';
 
 /** ログアウト。終わったらトップへ戻る（設定の画面はログインしていないと中身が無いため） */
@@ -21,7 +21,7 @@ export function SignOutButton() {
         onClick={() =>
           startTransition(async () => {
             // 失敗しても投げずに error を返すので、見てから進む
-            const { error } = await signOut().catch(() => ({ error: true }));
+            const { error } = await signOut();
             setFailed(Boolean(error));
             if (error) return;
             router.push('/');

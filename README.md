@@ -51,6 +51,7 @@ pnpm lint
 pnpm format:check
 pnpm knip
 pnpm test       # Vitest
+pnpm test:db    # Vitest against a throwaway database on the local Postgres (pnpm db:up first)
 pnpm build
 ```
 

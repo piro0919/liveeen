@@ -48,6 +48,9 @@ export const ui = {
   card: 'flex flex-col gap-3 rounded-2xl bg-surface p-5',
   /** 配信の一覧の1枚の絵の枠 */
   thumbnail: 'relative aspect-video overflow-hidden rounded-xl bg-surface',
+  /** 読み込み中の灰色の形。動きを減らす設定の端末では止める */
+  skeleton: 'animate-pulse rounded-xl bg-surface motion-reduce:animate-none',
+  skeletonRound: 'animate-pulse rounded-full bg-surface motion-reduce:animate-none',
   /** 見出し（ページ） */
   heading: 'text-2xl font-bold tracking-tight sm:text-3xl',
   /** 見出し（まとまり） */

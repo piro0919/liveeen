@@ -1,3 +1,5 @@
+import { hasVisibleText, withoutInvisible } from './invisible';
+
 /** コメントの長さの上限。見た目の文字数で数える */
 export const COMMENT_MAX = 200;
 
@@ -72,8 +74,8 @@ export type RelayRefusal =
 
 /** 書かれたコメントを、流してよい形にする。空か長すぎれば null */
 export function normalizeComment(input: string): string | null {
-  const text = input.replace(LINE_BREAKS, ' ').trim();
-  if (text === '') return null;
+  const text = withoutInvisible(input).replace(LINE_BREAKS, ' ').trim();
+  if (!hasVisibleText(text)) return null;
   if ([...graphemes.segment(text)].length > COMMENT_MAX) return null;
   return text;
 }

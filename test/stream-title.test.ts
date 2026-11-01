@@ -16,3 +16,13 @@ describe('normalizeStreamTitle', () => {
     expect(normalizeStreamTitle('あ'.repeat(STREAM_TITLE_MAX + 1)).ok).toBe(false);
   });
 });
+
+describe('見えない文字', () => {
+  it('取り除く', () => {
+    expect(normalizeStreamTitle('雑​談‮')).toEqual({ ok: true, title: '雑談' });
+  });
+
+  it('見える文字が無ければ、タイトルなしにする', () => {
+    expect(normalizeStreamTitle('‍ㅤ')).toEqual({ ok: true, title: null });
+  });
+});

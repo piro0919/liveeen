@@ -8,11 +8,9 @@ import {
   savePushSubscriptionAction,
 } from '@/app/settings/actions';
 import { usePwa } from 'use-pwa';
+import { currentSubscription, SERVICE_WORKER_URL } from '@/lib/push-browser';
 import { safely } from '@/lib/safe-action';
 import { ui } from '@/lib/ui';
-
-/** 受け取る service worker（public/sw.js） */
-const SERVICE_WORKER_URL = '/sw.js';
 
 /** 切り替えの状態。読み込み中・このブラウザで使えない・止められている・入／切 */
 type PushState = 'loading' | 'unsupported' | 'denied' | 'on' | 'off';
@@ -30,12 +28,6 @@ function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {
   const padded = base64.padEnd(Math.ceil(base64.length / BASE64_BLOCK) * BASE64_BLOCK, '=');
   const binary = atob(padded);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-}
-
-/** このブラウザの送り口。まだ作っていなければ null */
-async function currentSubscription(): Promise<PushSubscription | null> {
-  const registration = await navigator.serviceWorker.getRegistration(SERVICE_WORKER_URL);
-  return (await registration?.pushManager.getSubscription()) ?? null;
 }
 
 async function subscribe(publicKey: string): Promise<PushState> {

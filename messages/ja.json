@@ -1,4 +1,7 @@
 {
+  "loading": {
+    "status": "読み込み中"
+  },
   "errorPage": {
     "title": "うまく表示できませんでした",
     "message": "少しおいて、もう一度お試しください",
@@ -302,11 +305,15 @@
       "practicing": "練習中",
       "stopPractice": "練習を終える",
       "micLevel": "マイクの大きさ",
+      "microphone": "マイク",
+      "defaultMicrophone": "既定のマイク",
       "stayOnScreen": "配信中にほかのアプリへ移ると、映像や音が止まることがあります。配信中はこの画面のままにしてください",
       "start": "配信を始める",
       "errors": {
         "bgm": "曲を流せませんでした",
         "cameraSwitch": "カメラを切り替えられませんでした",
+        "microphoneSwitch": "マイクを切り替えられませんでした",
+        "microphoneFallback": "選んだマイクを使えないため、既定のマイクを使います",
         "deviceStopped": "カメラかマイクが止まったため、配信を終えました",
         "disconnected": "配信が切れました"
       }

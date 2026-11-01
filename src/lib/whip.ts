@@ -1,4 +1,5 @@
 import { captureError, type CaptureKind } from './capture-error';
+import { microphoneConstraints } from './microphone';
 import { ScreenError } from './screen-error';
 
 /** 映像の上限（CLAUDE.md：720p まで） */
@@ -35,9 +36,37 @@ async function capture(constraints: MediaStreamConstraints, kind: CaptureKind) {
   }
 }
 
-/** カメラとマイクを取る */
-export function captureCamera(choice?: MediaTrackConstraints): Promise<MediaStream> {
-  return capture({ video: cameraVideo(choice), audio: true }, 'camera');
+/** カメラとマイクを取る。microphone は選んだマイク（null は既定） */
+export function captureCamera(
+  choice?: MediaTrackConstraints,
+  microphone: string | null = null,
+): Promise<MediaStream> {
+  const take = (video?: MediaTrackConstraints) =>
+    orDefaultMicrophone(microphone, (audio) =>
+      capture({ video: cameraVideo(video), audio }, 'camera'),
+    );
+  if (!choice) return take();
+  return take(choice).catch((error: unknown) => {
+    if (isDenied(error)) throw error;
+    return take();
+  });
+}
+
+/** 許可が無くて断られたか。取り直しても同じで、端末によってはもう一度尋ねてしまうので、取り直さない */
+function isDenied(error: unknown): boolean {
+  return error instanceof ScreenError && error.key.endsWith('Denied');
+}
+
+/** 選んだマイクで取り、取れなければ（抜いた、ほかのアプリが使っている）既定のマイクで取り直す */
+async function orDefaultMicrophone(
+  microphone: string | null,
+  take: (audio: MediaTrackConstraints | true) => Promise<MediaStream>,
+): Promise<MediaStream> {
+  if (!microphone) return take(true);
+  return take(microphoneConstraints(microphone)).catch((error: unknown) => {
+    if (isDenied(error)) throw error;
+    return take(true);
+  });
 }
 
 /** カメラだけを取る（切り替えるとき）。マイクは取り直さない */
@@ -46,8 +75,13 @@ export function captureCameraVideo(choice: MediaTrackConstraints): Promise<Media
 }
 
 /** マイクだけを取る（画像で配信するとき）。カメラの許可は求めない */
-export function captureMicrophone(): Promise<MediaStream> {
-  return capture({ audio: true }, 'mic');
+export function captureMicrophone(microphone: string | null = null): Promise<MediaStream> {
+  return orDefaultMicrophone(microphone, (audio) => capture({ audio }, 'mic'));
+}
+
+/** 選び直したマイクを取る。取れなければ既定へ移らず投げる（今のマイクのままにする） */
+export function captureChosenMicrophone(microphone: string | null): Promise<MediaStream> {
+  return capture({ audio: microphoneConstraints(microphone) }, 'mic');
 }
 
 /** マイクの音を無音にする、または戻す。映像には触れない */

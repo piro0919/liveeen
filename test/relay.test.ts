@@ -832,3 +832,17 @@ describe('レビューで直した決まり', () => {
     expect(await post(sameHome, '書ける', 1)).toMatchObject({ type: 'comment' });
   });
 });
+
+describe('壊れたフレーム', () => {
+  it('上限を超えるフレームが届いても、そのつなぎだけ切って動き続ける', async () => {
+    const other = await connect(CHANNEL);
+    const bad = await connect(CHANNEL);
+    const closed = new Promise<number>((resolve) => bad.socket.once('close', resolve));
+    bad.socket.on('error', () => undefined);
+    bad.socket.send(Buffer.alloc(20_000));
+    expect(await closed).toBe(1009);
+    expect(other.socket.readyState).toBe(WebSocket.OPEN);
+    const after = await connect(CHANNEL);
+    expect(after.socket.readyState).toBe(WebSocket.OPEN);
+  });
+});

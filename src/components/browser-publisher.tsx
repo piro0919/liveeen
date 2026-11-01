@@ -14,6 +14,12 @@ import {
 import { cameraAttempts, firstCamera, knownCameraCount, listDevices } from '@/lib/camera';
 import { formatElapsed } from '@/lib/elapsed';
 import { watchMicLevel } from '@/lib/mic-level';
+import {
+  knownMicrophones,
+  type Microphone,
+  readMicrophoneChoice,
+  saveMicrophoneChoice,
+} from '@/lib/microphone';
 import { RECONNECT_LIMIT_MS, RECONNECT_WAIT_MS, refusedForGood, retryUntil } from '@/lib/reconnect';
 import { loadImage, type StillImage, stillImageStream } from '@/lib/still-image';
 import { ScreenError, useScreenErrorText } from '@/lib/screen-error';
@@ -23,6 +29,7 @@ import { SHAPE_SETTLE_MS, shapeChanged, type VideoSize } from '@/lib/video-shape
 import {
   captureCamera,
   captureCameraVideo,
+  captureChosenMicrophone,
   captureMicrophone,
   publishWhip,
   setVoiceMuted,
@@ -33,6 +40,7 @@ import { useWakeLock } from '@/lib/use-wake-lock';
 import { BgmPicker } from './bgm-picker';
 import { CommentRulesForm } from './comment-rules-form';
 import { Comments } from './comments';
+import { MicPicker } from './mic-picker';
 import { StreamTitleForm } from './stream-title-form';
 import { ViewerCount } from './viewer-count';
 
@@ -82,7 +90,7 @@ type Props = {
 };
 
 /** 配信中の画面で開いている欄。重なると下のコメントが隠れるので、1つだけ開く */
-type LivePanel = 'bgm' | 'rules' | 'title' | null;
+type LivePanel = 'bgm' | 'mic' | 'rules' | 'title' | null;
 
 /**
  * ブラウザで配信する。カメラか、画像と声かを選ぶ。画像ならカメラの許可を求めない。
@@ -128,6 +136,14 @@ export function BrowserPublisher({
   const deviceStopHandled = useRef(false);
   // カメラの台数。許可を得る前は分からない（null）
   const [cameraCount, setCameraCount] = useState<number | null>(null);
+  // 選べるマイク。許可を得る前は分からない（空）
+  const [microphones, setMicrophones] = useState<Microphone[]>([]);
+  // 選んだマイク。null は既定。次に開いたときも同じマイクを使う
+  const [microphone, setMicrophone] = useState<string | null>(() =>
+    typeof window === 'undefined' ? null : readMicrophoneChoice(),
+  );
+  // マイクを取り替えた回数。練習の目盛りを新しいマイクにつなぎ直す
+  const [voiceChanges, setVoiceChanges] = useState(0);
   // 始める前にカメラを映しているか
   const [previewing, setPreviewing] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -146,10 +162,21 @@ export function BrowserPublisher({
   const publishedSize = useRef<VideoSize | null>(null);
   const shapeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // カメラの台数を読む。抜き差しされたら読み直す
+  /** カメラの台数と、選べるマイクを読み直す。許可を得た後なら正しく分かる */
+  function readDevices() {
+    void listDevices().then((devices) => {
+      setCameraCount(knownCameraCount(devices));
+      setMicrophones(knownMicrophones(devices));
+    });
+  }
+
+  // カメラの台数とマイクを読む。抜き差しされたら読み直す
   useEffect(() => {
     const read = () => {
-      void listDevices().then((devices) => setCameraCount(knownCameraCount(devices)));
+      void listDevices().then((devices) => {
+        setCameraCount(knownCameraCount(devices));
+        setMicrophones(knownMicrophones(devices));
+      });
     };
     read();
     if (!('mediaDevices' in navigator)) return;
@@ -183,7 +210,7 @@ export function BrowserPublisher({
       // 初めの幅0は scale-x-0 で、これは transform でなく scale の値なので、同じ scale で上書きする
       if (meterFill.current) meterFill.current.style.scale = `${level} 1`;
     });
-  }, [status]);
+  }, [status, voiceChanges]);
 
   function releaseCapture() {
     cameraRun.current += 1;
@@ -402,8 +429,18 @@ export function BrowserPublisher({
   /** いま使っているカメラを覚え、台数を読み直す。許可を得た後なら正しい台数が分かる */
   function noteCamera(track: MediaStreamTrack | undefined) {
     const deviceId = track?.getSettings().deviceId;
-    if (deviceId) cameraChoice.current = { deviceId: { ideal: deviceId } };
-    void listDevices().then((devices) => setCameraCount(knownCameraCount(devices)));
+    // ideal だと Chrome は選んだカメラでなく既定のカメラを返した（2026-11-01、手元で測った）。
+    // 外していて取れなければ、captureCamera が既定で取り直す
+    if (deviceId) cameraChoice.current = { deviceId: { exact: deviceId } };
+    readDevices();
+  }
+
+  /** 選んだマイクが取れず既定で取れたら、選んでいないと見せて知らせる。黙っていると違うマイクで配信してしまう */
+  function noteMicrophone(captured: MediaStream) {
+    const actual = captured.getAudioTracks()[0]?.getSettings().deviceId;
+    if (!microphone || actual === undefined || actual === microphone) return;
+    setMicrophone(null);
+    setError(t('errors.microphoneFallback'));
   }
 
   /** 始める前に、今のカメラを映す */
@@ -412,13 +449,14 @@ export function BrowserPublisher({
     setSwitching(true);
     setError(null);
     try {
-      const captured = await captureCamera(cameraChoice.current);
+      const captured = await captureCamera(cameraChoice.current, microphone);
       if (run !== cameraRun.current) {
         captured.getTracks().forEach((track) => track.stop());
         return;
       }
       stream.current = captured;
       noteCamera(captured.getVideoTracks()[0]);
+      noteMicrophone(captured);
       if (video.current) video.current.srcObject = captured;
       setPreviewing(true);
     } catch (e) {
@@ -480,6 +518,62 @@ export function BrowserPublisher({
     if (!moved) setError(t('errors.cameraSwitch'));
   }
 
+  /**
+   * マイクを選ぶ。取っていれば、取り替えて送る音も差し替える（つなぎ直さない）。
+   * 取れなければ今のマイクのままにする
+   */
+  async function changeMicrophone(next: string | null) {
+    const current = stream.current;
+    if (!current) {
+      setMicrophone(next);
+      saveMicrophoneChoice(next);
+      return;
+    }
+    const run = ++cameraRun.current;
+    setSwitching(true);
+    setError(null);
+    const takeVoice = (deviceId: string | null) =>
+      captureChosenMicrophone(deviceId)
+        .then((captured) => captured.getAudioTracks()[0] ?? null)
+        .catch(() => null);
+    // カメラと同じく先に止める。同じ種類を2本取ると前の分が止まる端末があり、その知らせで配信が終わってしまう。
+    // 自分で止めたときは ended の知らせは来ない
+    const oldVoice = current.getAudioTracks()[0];
+    const oldId = oldVoice?.getSettings().deviceId ?? null;
+    oldVoice?.stop();
+    const chosen = await takeVoice(next);
+    const voice = chosen ?? (await takeVoice(oldId));
+    // 取れるのを待つあいだに配信を終えていたら、取れたマイクを放す
+    setSwitching(false);
+    if (run !== cameraRun.current) {
+      voice?.stop();
+      return;
+    }
+    if (!voice) {
+      // 元のマイクも取れない。配信中なら声のない配信を続けない
+      const live = status === 'live';
+      deviceStopHandled.current = live;
+      await stop();
+      setError(t(live ? 'errors.deviceStopped' : 'errors.microphoneSwitch'));
+      return;
+    }
+    if (chosen) {
+      setMicrophone(next);
+      saveMicrophoneChoice(next);
+    } else {
+      setError(t('errors.microphoneSwitch'));
+    }
+    voice.enabled = !outputRef.current.muted && !outputRef.current.hidden;
+    const replaced = new MediaStream([...current.getVideoTracks(), voice]);
+    stream.current = replaced;
+    const element = liveVideo.current ?? video.current;
+    if (element && element.srcObject === current) element.srcObject = replaced;
+    if (status !== 'idle') endWhenDeviceStops(voice);
+    setVoiceChanges((count) => count + 1);
+    syncSentAudio();
+    readDevices();
+  }
+
   function chooseSource(next: Source) {
     setSource(next);
     // 画像に変えたら、映していたカメラとマイクを放す
@@ -491,22 +585,23 @@ export function BrowserPublisher({
 
   async function capture(): Promise<MediaStream> {
     if (source === 'camera') {
-      const captured = await captureCamera(cameraChoice.current);
+      const captured = await captureCamera(cameraChoice.current, microphone);
       noteCamera(captured.getVideoTracks()[0]);
+      noteMicrophone(captured);
       return captured;
     }
-    const microphone = await captureMicrophone();
+    const voice = await captureMicrophone(microphone);
+    noteMicrophone(voice);
+    // 画像のときはここで初めてマイクの許可が出る。名前が読めるようになるので、選べるようにする
+    readDevices();
     try {
       still.current = stillImageStream(image, name);
     } catch (error) {
       // 画像の映像を作れなければ、取ったマイクも放す
-      microphone.getTracks().forEach((track) => track.stop());
+      voice.getTracks().forEach((track) => track.stop());
       throw error;
     }
-    return new MediaStream([
-      ...still.current.stream.getVideoTracks(),
-      ...microphone.getAudioTracks(),
-    ]);
+    return new MediaStream([...still.current.stream.getVideoTracks(), ...voice.getAudioTracks()]);
   }
 
   /** 映しているカメラがあればそのまま使い、無ければ取る。映している間に止まっていたら取り直す */
@@ -604,6 +699,7 @@ export function BrowserPublisher({
   );
 
   const manyCameras = source === 'camera' && cameraCount !== null && cameraCount >= 2;
+  const manyMicrophones = microphones.length >= 2;
 
   if (onAir) {
     const live = status === 'live';
@@ -658,6 +754,16 @@ export function BrowserPublisher({
                 {t('switchCamera')}
               </button>
             )}
+            {manyMicrophones && (
+              <button
+                type="button"
+                className={ui.overlayButton}
+                aria-expanded={panel === 'mic'}
+                onClick={() => setPanel((open) => (open === 'mic' ? null : 'mic'))}
+              >
+                {t('microphone')}
+              </button>
+            )}
             {bgmUrl && (
               <button
                 type="button"
@@ -700,6 +806,17 @@ export function BrowserPublisher({
         )}
         {reconnecting && (
           <p className={`relative mx-4 text-sm ${ui.overlayComments}`}>{t('reconnecting')}</p>
+        )}
+        {manyMicrophones && panel === 'mic' && (
+          <div className={`relative mx-4 ${ui.overlayPanel}`}>
+            <MicPicker
+              microphones={microphones}
+              value={microphone}
+              disabled={switching}
+              onChange={(next) => void changeMicrophone(next)}
+              overlay
+            />
+          </div>
         )}
         {bgmUrl && panel === 'bgm' && (
           <div className={`relative mx-4 flex min-h-0 flex-col ${ui.overlayPanel}`}>
@@ -801,6 +918,14 @@ export function BrowserPublisher({
           </div>
         )}
       </div>
+      {manyMicrophones && (
+        <MicPicker
+          microphones={microphones}
+          value={microphone}
+          disabled={switching || status === 'starting'}
+          onChange={(next) => void changeMicrophone(next)}
+        />
+      )}
       {((manyCameras && previewing) || bgmUrl) && (
         <div className="flex flex-wrap gap-2">
           {manyCameras && previewing && (

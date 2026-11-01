@@ -1,4 +1,5 @@
 import 'server-only';
+import { waitUntil } from '@vercel/functions';
 import { db } from './db';
 import { billableGbOf, viewCapReached } from './view-cap';
 import { env } from '@/env';
@@ -8,6 +9,13 @@ const TRANSFER_API_URL = 'https://api.linode.com/v4/account/transfer';
 const API_TIMEOUT_MS = 3000;
 /** 読んだ転送量を使い回す長さ。これより古ければ読み直す */
 const FRESH_MS = 300_000;
+/** Akamai が答えなかったとき、次に聞くまでの間。毎回 3 秒待たせない */
+const RETRY_MS = 60_000;
+
+/** この関数の実体が知っている転送量。視聴の確かめのたびに DB を読むと Neon が止まらないので、手元に持つ */
+let known: { gb: number | null; until: number } | null = null;
+/** この関数の実体が DB に覚えた値 */
+let savedGb: number | null = null;
 
 /** Akamai の API から、今月の課金される転送量（GB）を読む。答えなければ null */
 async function fetchBillableGb(token: string): Promise<number | null> {
@@ -21,23 +29,51 @@ async function fetchBillableGb(token: string): Promise<number | null> {
 }
 
 /**
- * 今月の課金される転送量（GB）。DB に覚えた値が新しければそれを、古ければ読み直して覚える。
- * 読み直せなければ古い値を使う。一度も読めていなければ null
+ * Akamai が答えないときのために DB に覚える。変わったときだけ書く。
+ * 課金が無いあいだは書かない（DB を起こさない。覚えた値は月が変われば使わないので、消さなくてよい）
+ */
+async function saveBillableGb(gb: number): Promise<void> {
+  if (gb === (savedGb ?? 0)) return;
+  await db()
+    .query(
+      `insert into transfer_usage (billable_gb, fetched_at) values ($1, now())
+       on conflict (id) do update set billable_gb = excluded.billable_gb, fetched_at = excluded.fetched_at`,
+      [gb],
+    )
+    .then(() => {
+      savedGb = gb;
+    })
+    .catch(() => undefined);
+}
+
+/** 今月 DB に覚えた転送量。先月の値は、Akamai の数え直しで意味を失うので使わない */
+async function savedBillableGb(): Promise<number | null> {
+  const result = await db()
+    .query<{ billableGb: number }>(
+      `select billable_gb as "billableGb" from transfer_usage
+       where date_trunc('month', fetched_at at time zone 'utc') = date_trunc('month', now() at time zone 'utc')`,
+    )
+    .catch(() => null);
+  return result?.rows[0]?.billableGb ?? null;
+}
+
+/**
+ * 今月の課金される転送量（GB）。Akamai を正とし、5分は手元の値を使う。
+ * 読めなければ手元の値か DB に覚えた値を使う。どれも無ければ null
  */
 async function billableGb(token: string): Promise<number | null> {
-  const { rows } = await db().query<{ billableGb: number; fetchedAt: Date }>(
-    'select billable_gb as "billableGb", fetched_at as "fetchedAt" from transfer_usage',
-  );
-  const saved = rows[0];
-  if (saved && Date.now() - saved.fetchedAt.getTime() < FRESH_MS) return saved.billableGb;
+  const now = Date.now();
+  if (known && now < known.until) return known.gb;
   const fetched = await fetchBillableGb(token);
-  if (fetched === null) return saved?.billableGb ?? null;
-  await db().query(
-    `insert into transfer_usage (billable_gb, fetched_at) values ($1, now())
-     on conflict (id) do update set billable_gb = excluded.billable_gb, fetched_at = excluded.fetched_at`,
-    [fetched],
-  );
-  return fetched;
+  if (fetched !== null) {
+    known = { gb: fetched, until: now + FRESH_MS };
+    // 視聴の確かめを、眠っている DB の起動で待たせない
+    waitUntil(saveBillableGb(fetched));
+    return fetched;
+  }
+  const gb = known?.gb ?? (await savedBillableGb());
+  known = { gb, until: now + RETRY_MS };
+  return gb;
 }
 
 /**

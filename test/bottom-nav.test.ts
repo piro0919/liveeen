@@ -7,7 +7,7 @@ describe('showsBottomNav', () => {
   it('src/app の画面はどれも出す道に入っている', () => {
     const app = join(process.cwd(), 'src/app');
     const pages = readdirSync(app, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && !e.name.startsWith('['))
+      .filter((e) => e.isDirectory() && !e.name.startsWith('[') && !e.name.startsWith('('))
       .map((e) => e.name)
       .filter((name) => existsSync(join(app, name, 'page.tsx')));
     expect(pages.length).toBeGreaterThan(0);
