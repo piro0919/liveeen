@@ -2,6 +2,7 @@ import 'server-only';
 import { AVATAR_COLUMNS, type AvatarRow, avatarJoin, avatarOfRow } from './avatars';
 import { db } from './db';
 import type { LatencyMode } from './latency';
+import { likePattern } from './search';
 import { hashStreamKey, newChannelId, newStreamKey } from './stream-key';
 
 /**
@@ -89,6 +90,56 @@ export async function setStreamTitle(userId: string, title: string | null): Prom
 /** ログインしていない人がコメントを書けるか（db/migrations/0006_guest_comments.sql） */
 export async function setGuestComments(userId: string, allowed: boolean): Promise<void> {
   await db().query('update channel set guest_comments = $2 where user_id = $1', [userId, allowed]);
+}
+
+/** 一覧の1行に出す配信者（検索・フォロー中） */
+export type ChannelSummary = Pick<Channel, 'id' | 'handle' | 'displayName' | 'title' | 'avatar'>;
+
+type ChannelSummaryRow = Omit<ChannelSummary, 'avatar'> & AvatarRow;
+
+const SELECT_SUMMARY = `select channel.id, channel.title, profile.handle,
+  profile.display_name as "displayName", ${AVATAR_COLUMNS}
+  from channel left join profile on profile.user_id = channel.user_id
+  ${avatarJoin('channel.user_id')}`;
+
+function summaryOfRow({
+  googleImage,
+  avatarChoice,
+  avatarKey,
+  ...channel
+}: ChannelSummaryRow): ChannelSummary {
+  return { ...channel, avatar: avatarOfRow({ googleImage, avatarChoice, avatarKey }) };
+}
+
+/** 一度に出す検索の結果の数 */
+const SEARCH_LIMIT = 30;
+
+/**
+ * 配信者を、名前・ハンドル・タイトルに言葉を含むかで探す。運営が止めたチャンネルは出さない。
+ * ハンドルがそのまま一致する人を先頭にする
+ */
+export async function searchChannels(query: string): Promise<ChannelSummary[]> {
+  const { rows } = await db().query<ChannelSummaryRow>(
+    `${SELECT_SUMMARY}
+     where channel.banned_at is null
+       and (profile.display_name ilike $1 or profile.handle ilike $1 or channel.title ilike $1)
+     order by lower(profile.handle) = lower($2) desc nulls last, profile.display_name, channel.id
+     limit ${SEARCH_LIMIT}`,
+    [likePattern(query), query],
+  );
+  return rows.map(summaryOfRow);
+}
+
+/** その人がフォローしている配信者。新しくフォローした順。運営が止めたチャンネルは出さない */
+export async function followedChannels(userId: string): Promise<ChannelSummary[]> {
+  const { rows } = await db().query<ChannelSummaryRow>(
+    `${SELECT_SUMMARY}
+     join follow on follow.channel_id = channel.id and follow.user_id = $1
+     where channel.banned_at is null
+     order by follow.created_at desc`,
+    [userId],
+  );
+  return rows.map(summaryOfRow);
 }
 
 /** 検索に知らせる配信者のページ（src/app/sitemap.ts）。ハンドルを選んでいて、運営が止めていないチャンネル */

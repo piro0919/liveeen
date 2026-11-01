@@ -32,6 +32,7 @@ export default async function BroadcastPage() {
   const channel = userId ? await channelOf(userId) : null;
   const displayName = userId ? await displayNameOf(userId) : null;
   const handle = userId ? await handleOf(userId) : null;
+  const commentSettings = channel ? await commentSettingsOf(channel.id) : null;
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:px-6">
       <h1 className={ui.heading}>{t('heading')}</h1>
@@ -56,11 +57,12 @@ export default async function BroadcastPage() {
             webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
             relayUrl={env.NEXT_PUBLIC_COMMENT_RELAY_URL}
             bgmUrl={env.NEXT_PUBLIC_BGM_URL}
+            commentSettings={commentSettings ?? NO_RULES}
           />
           {channel && (
             <>
               <div className={ui.card}>
-                <CommentRulesForm settings={(await commentSettingsOf(channel.id)) ?? NO_RULES} />
+                <CommentRulesForm settings={commentSettings ?? NO_RULES} />
               </div>
               <ModeratorList moderators={await moderatorsOf(channel.id)} />
               <BlockList blocks={await blocksOf(channel.id)} />

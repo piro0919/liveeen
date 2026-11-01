@@ -6,6 +6,7 @@ import {
   appointModeratorAction,
   blockCommenterAction,
   commentTokenAction,
+  removeChannelCommentAction,
   reportCommentAction,
 } from '@/app/[channelId]/actions';
 import {
@@ -125,6 +126,9 @@ export function Comments({
   const [blocked, setBlocked] = useState(false);
   // 配信者の決まり（フォロワー限定）でいまは書けなければ、書く欄の代わりに理由を出す。フォローしてから要る分数
   const [followersOnly, setFollowersOnly] = useState<number | null>(null);
+  const [closed, setClosed] = useState(false);
+  // 見ている人がこのチャンネルのモデレーターか。コメントを消せる
+  const [moderator, setModerator] = useState(false);
   // モデレーターにした人の札。同じ人のほかのコメントにも「モデレーターにしました」と出す
   const [appointed, setAppointed] = useState(() => new Set<string>());
   // 通報したコメント。読み込み直しても「通報しました」のままにするため、サーバーから受け取った分から始める
@@ -172,6 +176,8 @@ export function Comments({
       const token = result?.token ?? null;
       setBlocked(result?.blocked ?? false);
       setFollowersOnly(result?.followersOnly ?? null);
+      setClosed(result?.closed ?? false);
+      setModerator(result?.moderator ?? false);
       const query = token ? `?token=${encodeURIComponent(token)}` : '';
       const ws = new WebSocket(`${relayUrl}/${channelId}${query}`);
       socket.current = ws;
@@ -303,6 +309,18 @@ export function Comments({
     outbox.current.block(socket.current, author);
   }
 
+  /** 配信者かモデレーターが、コメントを1件だけ消す。書いた人は止めない。消えるのは中継の知らせ（remove）で全員同時 */
+  async function remove(comment: Comment) {
+    if (!window.confirm(t('confirmRemove', { name: comment.name }))) return;
+    try {
+      await removeChannelCommentAction(channelId, comment.id);
+    } catch {
+      setError(t('errors.remove'));
+      return;
+    }
+    setError(null);
+  }
+
   /** コメントを通報する。運営が管理画面で見て、消すかを決める */
   async function report(comment: Comment) {
     if (!window.confirm(t('confirmReport', { name: comment.name }))) return;
@@ -347,6 +365,19 @@ export function Comments({
                 {comment.guest && t('guestMark')}
               </span>{' '}
               {comment.text}
+              {/* 配信者はどのコメントも消せる。モデレーターは自分のものと、ブロックできる相手のものだけ */}
+              {(own || (moderator && (comment.mine || comment.author))) && (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className={overlay ? ui.overlayTextButton : ui.textButton}
+                    onClick={() => void remove(comment)}
+                  >
+                    {t('remove')}
+                  </button>
+                </>
+              )}
               {/* 書いた人の札は、配信者とモデレーターにだけ中継が付ける（relay/relay.ts） */}
               {comment.author && (
                 <>
@@ -423,10 +454,11 @@ export function Comments({
         )}
         {unreachable && <p className="text-sm">{t('unreachable')}</p>}
         {blocked && <p className="text-sm">{t('blocked')}</p>}
-        {followersOnly !== null && !blocked && (
+        {closed && !blocked && <p className="text-sm">{t('refusals.closed')}</p>}
+        {followersOnly !== null && !blocked && !closed && (
           <p className="text-sm">{t('followersOnly', { minutes: followersOnly })}</p>
         )}
-        {writer && !blocked && followersOnly === null && !editingGuestName && (
+        {writer && !blocked && !closed && followersOnly === null && !editingGuestName && (
           <form action={post} className="flex gap-2">
             <input
               value={text}

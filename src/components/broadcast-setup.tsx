@@ -5,6 +5,7 @@ import { useActionState } from 'react';
 import { useTranslations } from 'next-intl';
 import { createChannelAction, type KeyState } from '@/app/broadcast/actions';
 import type { Channel } from '@/lib/channels';
+import type { CommentSettings } from '@/lib/comment-settings';
 import { channelPath } from '@/lib/handle';
 import { BrowserPublisher } from './browser-publisher';
 import { GuestCommentsChoice } from './guest-comments-choice';
@@ -20,6 +21,7 @@ type Props = {
   webrtcUrl: string;
   relayUrl: string;
   bgmUrl?: string;
+  commentSettings: CommentSettings;
 };
 
 /**
@@ -27,7 +29,7 @@ type Props = {
  * あれば、スマホで使う人が多いので、ブラウザの配信をいちばん上に置き、その下に設定を並べる。
  * OBS に入れる設定は使う人が限られるので、別のページ（/broadcast/obs）に分ける
  */
-export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl }: Props) {
+export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl, commentSettings }: Props) {
   const t = useTranslations('broadcast.setup');
   const [, create, creating] = useActionState(guarded(createChannelAction), NO_KEY);
 
@@ -59,6 +61,8 @@ export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl }: Props) 
           guestComments={channel.guestComments}
           name={channel.displayName ?? channel.id}
           bgmUrl={bgmUrl}
+          latencyMode={channel.latencyMode}
+          commentSettings={commentSettings}
         />
       </section>
       <div className={ui.card}>

@@ -14,6 +14,7 @@ import { normalizeStreamTitle, STREAM_TITLE_MAX } from '@/lib/stream-title';
 import { unblockCommenter } from '@/lib/blocks';
 import { commandRelay } from '@/lib/comment-removal';
 import {
+  COMMENTS_CLOSED_CHOICE,
   FOLLOWERS_ONLY_CHOICES,
   BLOCKED_WORD_LENGTH_MAX,
   BLOCKED_WORDS_MAX,
@@ -22,8 +23,9 @@ import {
 } from '@/lib/comment-settings';
 import { removeModerator, setCommentSettings } from '@/lib/moderation';
 import { isLatencyMode } from '@/lib/latency';
-import { publishing } from '@/lib/live';
+import { publisherOf } from '@/lib/live';
 import { signMediaToken } from '@/lib/media-token';
+import { holdLiveNotice } from '@/lib/notify';
 import { displayNameOf } from '@/lib/profiles';
 import { currentUserId } from '@/lib/session';
 import { env } from '@/env';
@@ -47,13 +49,17 @@ export async function resetStreamKeyAction(): Promise<KeyState> {
   return { key: await resetStreamKey(userId) };
 }
 
-/** ブラウザから配信するための札（src/lib/media-token.ts） */
-export async function browserPublishTokenAction(): Promise<string> {
+/**
+ * ブラウザから配信するための札（src/lib/media-token.ts）。
+ * resume は配信の途中でつなぎ直すとき。配信を始めたわけではないので、フォローした人へ知らせ直さない
+ */
+export async function browserPublishTokenAction(resume = false): Promise<string> {
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   const channel = await channelOf(userId);
   if (!channel) throw new Error('チャンネルがありません');
   if (!env.MEDIA_TOKEN_SECRET) throw new Error('MEDIA_TOKEN_SECRET がありません');
+  if (resume) await holdLiveNotice(channel.id);
   return signMediaToken(env.MEDIA_TOKEN_SECRET, channel.id, Date.now());
 }
 
@@ -61,12 +67,12 @@ export async function browserPublishTokenAction(): Promise<string> {
  * 自分の配信が、いま配信サーバーに届いているか。分からなければ null。
  * ブラウザの配信のつながりが揺れたときに、配信サーバーの側で終わっているかを確かめる
  */
-export async function publishingAction(): Promise<boolean | null> {
+export async function publishingAction(): Promise<string | false | null> {
   const userId = await currentUserId();
   if (!userId) throw new Error('ログインしていません');
   const channel = await channelOf(userId);
   if (!channel) throw new Error('チャンネルがありません');
-  return publishing(channel.id);
+  return publisherOf(channel.id);
 }
 
 export type StreamTitleState = { error: string | null; saved: boolean };
@@ -112,7 +118,9 @@ export async function setCommentRulesAction(
     throw new Error(`低速モードの選び方が違います: ${String(form.get('slow'))}`);
   }
   const followers = String(form.get('followers') ?? '');
-  const followersOnlyMinutes = followers === '' ? null : Number(followers);
+  // コメントを止めるのは「コメントできる人」の選択肢の1つなので、フォロワー限定とは重ならない
+  const closed = followers === COMMENTS_CLOSED_CHOICE;
+  const followersOnlyMinutes = followers === '' || closed ? null : Number(followers);
   if (!(FOLLOWERS_ONLY_CHOICES as readonly (number | null)[]).includes(followersOnlyMinutes)) {
     throw new Error(`フォロワー限定の選び方が違います: ${followers}`);
   }
@@ -125,6 +133,7 @@ export async function setCommentRulesAction(
   const saved = await setCommentSettings(userId, {
     slowSeconds,
     followersOnlyMinutes,
+    closed,
     blockedWords: words.words,
   });
   if (!saved) throw new Error('チャンネルがありません');

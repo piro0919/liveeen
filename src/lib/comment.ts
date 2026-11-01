@@ -66,7 +66,7 @@ export type RelayMessage =
  * badRemoval と badCommand はサイトのサーバーにだけ返す
  */
 export type RelayRefusal =
-  | { code: 'badRemoval' | 'badCommand' | 'signIn' | 'expired' | 'tooSoon' }
+  | { code: 'badRemoval' | 'badCommand' | 'signIn' | 'expired' | 'tooSoon' | 'closed' }
   | { code: 'followersOnly'; minutes: number }
   | { code: 'slowMode'; seconds: number };
 

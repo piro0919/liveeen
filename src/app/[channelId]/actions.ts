@@ -9,7 +9,7 @@ import { blockCommenter, commenterBlocked } from '@/lib/blocks';
 import { isBot } from '@/lib/bot';
 import { channelOf } from '@/lib/channels';
 import { type Comment, guestId, isGuestId } from '@/lib/comment';
-import { commandRelay } from '@/lib/comment-removal';
+import { commandRelay, removeFromRelay } from '@/lib/comment-removal';
 import { reportComment } from '@/lib/comment-reports';
 import { followerMayWrite } from '@/lib/comment-settings';
 import {
@@ -68,7 +68,11 @@ export type CommentTokenResult = {
   token: string | null;
   blocked: boolean;
   followersOnly: number | null;
+  /** 配信者がコメントを止めていて、この人は書けない。書く欄の代わりに知らせを見せる */
+  closed?: boolean;
   writableAt?: number;
+  /** このチャンネルのモデレーターか。コメントを消すボタンを出す */
+  moderator?: boolean;
 };
 
 const READ_ONLY: CommentTokenResult = { token: null, blocked: false, followersOnly: null };
@@ -126,6 +130,8 @@ export async function commentTokenAction(
       token: signCommentToken(secret, channelId, commenter, now),
       blocked: false,
       followersOnly: waiting ? (minutes ?? 0) : null,
+      closed: settings.closed === true && !owner && !moderator,
+      moderator,
       writableAt:
         waiting && followedAt !== null && minutes !== null
           ? followedAt + minutes * MS_PER_MINUTE
@@ -136,6 +142,7 @@ export async function commentTokenAction(
   const name = normalizeDisplayName(guestName);
   if (!name.ok) return READ_ONLY;
   if (!context.guestComments) return READ_ONLY;
+  if (settings.closed) return { ...READ_ONLY, closed: true };
   // ゲストはフォローできないので、フォロワー限定のあいだは書けない
   if (settings.followersOnlyMinutes !== null) {
     return { ...READ_ONLY, followersOnly: settings.followersOnlyMinutes };
@@ -185,6 +192,22 @@ export async function blockCommenterAction(channelId: string, author: string): P
   // 配信者とブロックした人の回線は IP では止めない
   const spared = [await requestIpKey(secret), await ownerIpKeyOf(channelId)];
   await blockCommenter(channelId, verified, spared);
+}
+
+/**
+ * コメントを1件だけ消す。配信者とモデレーターができる。書いた人は止めない。
+ * 中継に知らせて全員の画面から消す。中継に届かなければ投げる（消えたことにしない）
+ */
+export async function removeChannelCommentAction(
+  channelId: string,
+  commentId: string,
+): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('ログインしていません');
+  if (!(await mayModerate(channelId, userId))) throw new Error('コメントを消せません');
+  const secret = env.COMMENT_TOKEN_SECRET;
+  if (!secret) throw new Error('COMMENT_TOKEN_SECRET がありません');
+  await removeFromRelay(env.NEXT_PUBLIC_COMMENT_RELAY_URL, secret, channelId, String(commentId));
 }
 
 /**

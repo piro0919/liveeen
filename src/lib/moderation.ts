@@ -11,10 +11,12 @@ export async function commentSettingsOf(channelId: string): Promise<CommentSetti
     slowSeconds: number;
     blockedWords: string[];
     followersOnlyMinutes: number | null;
+    closed: boolean;
     at: Date;
   }>(
     `select slow_mode_seconds::int as "slowSeconds", blocked_words as "blockedWords",
-       followers_only_minutes::int as "followersOnlyMinutes", comment_settings_at as "at"
+       followers_only_minutes::int as "followersOnlyMinutes", comments_closed as closed,
+       comment_settings_at as "at"
      from channel where id = $1`,
     [channelId],
   );
@@ -37,13 +39,15 @@ export async function commentContextOf(channelId: string): Promise<CommentContex
     slowSeconds: number;
     blockedWords: string[];
     followersOnlyMinutes: number | null;
+    closed: boolean;
     at: Date;
     ownerId: string;
     ownerIpKey: string | null;
     guestComments: boolean;
   }>(
     `select slow_mode_seconds::int as "slowSeconds", blocked_words as "blockedWords",
-       followers_only_minutes::int as "followersOnlyMinutes", comment_settings_at as "at",
+       followers_only_minutes::int as "followersOnlyMinutes", comments_closed as closed,
+       comment_settings_at as "at",
        user_id as "ownerId", owner_ip_key as "ownerIpKey", guest_comments as "guestComments"
      from channel where id = $1`,
     [channelId],
@@ -61,9 +65,15 @@ export async function setCommentSettings(
 ): Promise<{ channelId: string; settings: CommentSettings } | null> {
   const { rows } = await db().query<{ id: string; at: Date }>(
     `update channel set slow_mode_seconds = $2, blocked_words = $3, followers_only_minutes = $4,
-       comment_settings_at = now()
+       comments_closed = $5, comment_settings_at = now()
      where user_id = $1 returning id, comment_settings_at as "at"`,
-    [userId, settings.slowSeconds, settings.blockedWords, settings.followersOnlyMinutes],
+    [
+      userId,
+      settings.slowSeconds,
+      settings.blockedWords,
+      settings.followersOnlyMinutes,
+      settings.closed === true,
+    ],
   );
   const row = rows[0];
   return row ? { channelId: row.id, settings: { ...settings, at: row.at.getTime() } } : null;

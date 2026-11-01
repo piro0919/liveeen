@@ -13,6 +13,9 @@ export const ui = {
   primaryButton: `${BUTTON_BASE} bg-accent-fill text-white hover:brightness-110`,
   /** ほかの操作（フォロー中・配信する・通報する） */
   tonalButton: `${BUTTON_BASE} bg-surface-hover hover:brightness-95 dark:hover:brightness-125`,
+  /** 字のない丸いボタン（上の帯の検索）。指で押しやすいよう、スマホでは 40px */
+  iconButton:
+    'inline-flex size-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-surface-hover sm:size-9',
   /** ログインしていない人へのログイン（上の帯の右）。主な操作と同じ塗り */
   signInButton: `${BUTTON_BASE} bg-accent-fill text-white hover:brightness-110`,
   /** 文の中の小さな操作（ブロック・変える） */
@@ -51,6 +54,13 @@ export const ui = {
   /** 配信中の札。差し色で塗る */
   liveTag:
     'inline-flex items-center gap-1 rounded-md bg-live px-1.5 py-0.5 text-xs font-bold text-white',
+  /** 練習中の札。ライブと見間違えないよう、差し色で塗らない */
+  practiceTag:
+    'inline-flex items-center gap-1 rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-bold text-white',
+  /** 練習の画面のマイクの目盛りの溝 */
+  meter: 'h-2 overflow-hidden rounded-full bg-white/20',
+  /** 練習の画面のマイクの目盛りの中身。幅は測った大きさで伸び縮みさせる */
+  meterFill: 'h-full origin-left bg-white transition-transform duration-100',
   /** 一瞬だけ出す知らせ（src/components/toaster.tsx）。設定のまとまりと同じ面に細い縁 */
   toast:
     'flex items-center justify-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-bold text-foreground',
@@ -60,6 +70,8 @@ export const ui = {
   liveScreen: 'fixed inset-0 z-50 flex h-dvh flex-col bg-black text-white',
   /** 配信中の画面の上に重ねるボタン。映像の明るさに関係なく読めるよう、黒を透かした地に白 */
   overlayButton: `${BUTTON_BASE} bg-black/50 text-white backdrop-blur-md hover:bg-black/70`,
+  /** 配信中の画面の上に重ねるボタンの、入っている状態（ミュート中）。見落とさないよう差し色で塗る */
+  overlayButtonOn: `${BUTTON_BASE} bg-accent-fill text-white hover:brightness-110`,
   /** 配信中の画面の上に重ねるコメント。映像が見えるよう地を塗らず、字に影を付ける */
   overlayComments: 'text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]',
   /** 配信中の画面の上に重ねるコメントの名前 */
@@ -68,6 +80,8 @@ export const ui = {
   overlayTextButton: 'text-sm text-white/70 transition-colors hover:text-white',
   /** 配信中の画面の上に重ねる囲み（BGM の一覧） */
   overlayPanel: 'rounded-2xl bg-black/60 p-3 text-white backdrop-blur-md',
+  /** 配信中の画面の上に開く設定の欄（コメントの管理）。入力欄の色を変えずに済むよう、ふつうの地にする */
+  livePanel: 'min-h-0 overflow-y-auto rounded-2xl bg-surface p-4 text-foreground',
   /** 音量のつまみ */
   range: 'h-10 w-full min-w-0 accent-accent-fill sm:h-9',
   /** BGM の一覧の1曲 */

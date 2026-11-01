@@ -9,22 +9,39 @@ const MAX_VIDEO_BITRATE = 2_500_000;
 /** 候補の住所を集め終えるのを待つ上限。集め終わらなくても、それまでの分で始める */
 const ICE_GATHER_TIMEOUT_MS = 2000;
 const CREATED = 201;
+/** 配信を始める求めの答えを待つ上限 */
+const WHIP_TIMEOUT_MS = 10_000;
+/** つながってから、配信サーバーに自分のつなぎの id を聞くまでの間。つながった直後は、まだ配信として載っていない */
+const OWN_PUBLISHER_WAIT_MS = 5000;
 
-/** カメラとマイクを取る。720p を超える大きさでは取らない */
-export function captureCamera(): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({
-    video: {
-      width: { ideal: MAX_WIDTH, max: MAX_WIDTH },
-      height: { ideal: MAX_HEIGHT, max: MAX_HEIGHT },
-      frameRate: { ideal: FRAME_RATE, max: FRAME_RATE },
-    },
-    audio: true,
-  });
+/** 720p を超える大きさでは取らない。choice はどのカメラか */
+function cameraVideo(choice?: MediaTrackConstraints): MediaTrackConstraints {
+  return {
+    width: { ideal: MAX_WIDTH, max: MAX_WIDTH },
+    height: { ideal: MAX_HEIGHT, max: MAX_HEIGHT },
+    frameRate: { ideal: FRAME_RATE, max: FRAME_RATE },
+    ...choice,
+  };
+}
+
+/** カメラとマイクを取る */
+export function captureCamera(choice?: MediaTrackConstraints): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({ video: cameraVideo(choice), audio: true });
+}
+
+/** カメラだけを取る（切り替えるとき）。マイクは取り直さない */
+export function captureCameraVideo(choice: MediaTrackConstraints): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({ video: cameraVideo(choice) });
 }
 
 /** マイクだけを取る（画像で配信するとき）。カメラの許可は求めない */
 export function captureMicrophone(): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({ audio: true });
+}
+
+/** マイクの音を無音にする、または戻す。映像には触れない */
+export function setVoiceMuted(stream: Pick<MediaStream, 'getAudioTracks'>, muted: boolean) {
+  for (const track of stream.getAudioTracks()) track.enabled = !muted;
 }
 
 /** H264 の型の並べ方。先にあるものほど先に出す */
@@ -78,6 +95,8 @@ export type WhipSession = {
   stop: () => Promise<void>;
   /** 送る音を差し替える（BGM を流し始めた・止めた）。つなぎ直さずに済む */
   replaceAudio: (track: MediaStreamTrack) => Promise<void>;
+  /** 送る映像を差し替える（カメラを切り替えた）。つなぎ直さずに済む */
+  replaceVideo: (track: MediaStreamTrack) => Promise<void>;
 };
 
 /**
@@ -93,6 +112,16 @@ export function afterConnectionChange(state: RTCPeerConnectionState): 'ended' | 
 }
 
 /**
+ * 配信サーバーの答えから、この配信が終わったと分かるか。
+ * 届いていない（運営が止めた、など）か、別のつなぎが届けている（同じチャンネルへ OBS やほかの端末から配信した）とき。
+ * 別のつなぎに取られたのにつなぎ直すと、互いに切り合い、見る人の映像が途切れ続ける
+ */
+export function publishEnded(current: string | false | null, own: string | null): boolean {
+  if (current === false) return true;
+  return current !== null && own !== null && current !== own;
+}
+
+/**
  * WHIP で配信を始める（MediaMTX の `<WebRTC の受け口>/<チャンネルの id>/whip`）。
  * 札（token）は Bearer で渡し、MediaMTX がサイトに確かめる（src/lib/media-auth.ts）。
  * 始めた後に配信サーバーの側から切られたら（運営が止めた、回線が切れたなど）、onEnded を一度だけ呼ぶ
@@ -103,39 +132,64 @@ export async function publishWhip(
   stream: MediaStream,
   {
     onEnded,
-    stillPublishing,
+    onConnected,
+    currentPublisher,
   }: {
-    onEnded: () => void;
-    /** 配信サーバーに配信が届いているか。分からなければ null */
-    stillPublishing: () => Promise<boolean | null>;
+    /**
+     * closed は、配信サーバーに聞けて、配信が届いていないと答えた（運営が止めた、など）。
+     * lost は、つながりが切れた（回線かもしれないので、つなぎ直せる）
+     */
+    onEnded: (reason: 'closed' | 'lost') => void;
+    /** つながった。つなぎ直しが効いたことを知らせる */
+    onConnected?: () => void;
+    /** 配信を届けているつなぎの id。届いていなければ false、分からなければ null */
+    currentPublisher: () => Promise<string | false | null>;
   },
 ): Promise<WhipSession> {
   const pc = new RTCPeerConnection();
   let ended = false;
-  const end = () => {
+  // 自分のつなぎの id。別のつなぎに取られたかを見分けるために覚える
+  let own: string | null = null;
+  let ownTimer: ReturnType<typeof setTimeout> | undefined;
+  const end = (reason: 'closed' | 'lost') => {
     if (ended) return;
     ended = true;
-    onEnded();
+    clearTimeout(ownTimer);
+    onEnded(reason);
   };
   pc.addEventListener('connectionstatechange', () => {
+    if (pc.connectionState === 'connected') {
+      onConnected?.();
+      clearTimeout(ownTimer);
+      ownTimer = setTimeout(() => {
+        void currentPublisher()
+          .then((current) => {
+            if (typeof current === 'string') own = current;
+          })
+          .catch(() => undefined);
+      }, OWN_PUBLISHER_WAIT_MS);
+    }
     const next = afterConnectionChange(pc.connectionState);
-    if (next === 'ended') end();
+    if (next === 'ended') end('lost');
     if (next === 'ask') {
-      void stillPublishing()
-        .then((live) => {
-          if (live === false) end();
+      void currentPublisher()
+        .then((current) => {
+          if (publishEnded(current, own)) end('closed');
         })
         .catch(() => undefined);
     }
   });
   let audioSender: RTCRtpSender | null = null;
+  let videoSender: RTCRtpSender | null = null;
   for (const track of stream.getTracks()) {
     const transceiver = pc.addTransceiver(track, {
       direction: 'sendonly',
       sendEncodings: track.kind === 'video' ? [{ maxBitrate: MAX_VIDEO_BITRATE }] : undefined,
     });
-    if (track.kind === 'video') preferH264(transceiver);
-    else audioSender = transceiver.sender;
+    if (track.kind === 'video') {
+      preferH264(transceiver);
+      videoSender = transceiver.sender;
+    } else audioSender = transceiver.sender;
   }
   try {
     await pc.setLocalDescription(await pc.createOffer());
@@ -144,6 +198,8 @@ export async function publishWhip(
       method: 'POST',
       headers: { 'Content-Type': 'application/sdp', Authorization: `Bearer ${token}` },
       body: pc.localDescription?.sdp,
+      // 回線が切れていると答えが返らないことがある。つなぎ直しを止めないよう、待ち続けない
+      signal: AbortSignal.timeout(WHIP_TIMEOUT_MS),
     });
     if (response.status !== CREATED)
       throw new ScreenError('whipFailed', { status: response.status });
@@ -151,6 +207,9 @@ export async function publishWhip(
     await pc.setRemoteDescription({ type: 'answer', sdp: await response.text() });
     return {
       stop: async () => {
+        // 自分で止めたつなぎの知らせは、もう受けない。つなぎ直した後の配信を終わらせないため
+        ended = true;
+        clearTimeout(ownTimer);
         // 終わりを伝えてから切る。先に切ると MediaMTX が配信を片付け終えていて、伝える先が 404 になる。
         // 伝わらなくても、つながりが切れれば MediaMTX は配信を閉じる
         if (location) {
@@ -164,8 +223,13 @@ export async function publishWhip(
       replaceAudio: async (track) => {
         await audioSender?.replaceTrack(track);
       },
+      replaceVideo: async (track) => {
+        await videoSender?.replaceTrack(track);
+      },
     };
   } catch (error) {
+    ended = true;
+    clearTimeout(ownTimer);
     pc.close();
     throw error;
   }

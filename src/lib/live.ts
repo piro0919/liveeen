@@ -97,22 +97,31 @@ export async function liveChannels(): Promise<LiveChannel[]> {
 
 const NOT_FOUND = 404;
 
+const pathSource = z.object({
+  source: z.object({ type: z.string(), id: z.string() }).nullable(),
+});
+
 /**
- * そのチャンネルの配信が、いま配信サーバーに届いているか。配信サーバーが答えなければ null（分からない）。
+ * そのチャンネルにいま配信を届けているつなぎの id。届いていなければ false、配信サーバーが答えなければ null（分からない）。
  * 配信していない名前には、MediaMTX は 404 を返す
  */
-export async function publishing(channelId: string): Promise<boolean | null> {
+export async function publisherOf(channelId: string): Promise<string | false | null> {
   const response = await mediaFetch(`/v3/paths/get/${encodeURIComponent(channelId)}`).catch(
     () => null,
   );
   if (response?.status === NOT_FOUND) return false;
   if (!response?.ok) return null;
-  return livePathsOf({ items: [await response.json()] }).length > 0;
+  const item: unknown = await response.json();
+  if (livePathsOf({ items: [item] }).length === 0) return false;
+  const parsed = pathSource.safeParse(item);
+  return parsed.data?.source?.id ?? null;
 }
 
-const pathSource = z.object({
-  source: z.object({ type: z.string(), id: z.string() }).nullable(),
-});
+/** そのチャンネルの配信が、いま配信サーバーに届いているか。分からなければ null */
+export async function publishing(channelId: string): Promise<boolean | null> {
+  const publisher = await publisherOf(channelId);
+  return publisher === null ? null : publisher !== false;
+}
 
 /**
  * いまの配信のつなぎを切る（管理画面の「配信を止める」）。切れたら true。

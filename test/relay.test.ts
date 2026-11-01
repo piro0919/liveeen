@@ -587,6 +587,16 @@ describe('コメントの決まり', () => {
     expect(await viewer.nth(2)).toMatchObject({ type: 'comment' });
   });
 
+  it('コメントを止めている間は、配信者とモデレーターだけが書ける', async () => {
+    const settings = rules({ closed: true });
+    const viewer = await connect(CHANNEL, tokenFor('見る人', CHANNEL, { settings }));
+    expect(await post(viewer, 'やあ', 1)).toEqual({ type: 'error', code: 'closed' });
+    const mod = await connect(CHANNEL, tokenFor('モデ', CHANNEL, { settings, moderator: true }));
+    expect(await post(mod, '止めています', 1)).toMatchObject({ type: 'comment' });
+    const owner = await connect(CHANNEL, tokenFor('配信者', CHANNEL, { settings, owner: true }));
+    expect(await post(owner, '少し止めます', 1)).toMatchObject({ type: 'comment' });
+  });
+
   it('フォロワー限定では、フォローして決めた分数がたった人だけ書ける', async () => {
     const settings = rules({ followersOnlyMinutes: 10 });
     const stranger = await connect(CHANNEL, tokenFor('通りすがり', CHANNEL, { settings }));

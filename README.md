@@ -7,9 +7,11 @@ https://liveeen.kkweb.io
 ## ✨ Features
 
 - 🎥 Stream from the browser with your camera, or with your voice over a still picture — no camera needed
+- 🎛 While streaming: switch cameras, mute, hide the picture and sound, with reconnecting after short disconnects and a private practice mode
 - 🖥 Stream from OBS over RTMP or WHIP
 - ⚡ Pick per stream between low latency (WebRTC) and light, higher-latency delivery (HLS)
-- 💬 Live comments, with slow mode, blocked words, followers-only comments, moderators and blocking
+- 💬 Live comments, with slow mode, blocked words, followers-only comments, moderators, removing a comment, stopping comments and blocking
+- 🔎 Search for streamers and see everyone you follow
 - 🔔 Follow streamers and hear when they go live: at the top of the page, as a browser notification, or by email
 - 🎵 Mix background music into a browser stream
 - 🚩 Reports, with streams delisted automatically after several reports, and an admin screen

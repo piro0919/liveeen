@@ -371,6 +371,10 @@ export function startRelay({
       // 配信者とモデレーターは、配信者の決めた決まりにかからない
       const ruled = !privileged(writer);
       const { settings } = joined;
+      if (ruled && settings.closed) {
+        send(socket, { type: 'error', code: 'closed' });
+        return;
+      }
       if (ruled && !followerMayWrite(settings, writer.followedAt, at)) {
         send(socket, {
           type: 'error',

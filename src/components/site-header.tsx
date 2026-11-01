@@ -25,19 +25,36 @@ export async function SiteHeader() {
           <LogoMark className="h-6 w-auto text-live" />
           Liveeen
         </Link>
-        {userId ? (
-          <div className="flex items-center gap-2">
-            <Link href="/broadcast" className={ui.tonalButton}>
-              {t('broadcast')}
-            </Link>
-            {/* 素の a のままだと中の印が文字の行に乗り、下に字の下がりの分の隙間ができて印が 3px 上にずれる */}
-            <Link href="/settings" aria-label={t('settings')} className="flex">
-              <Avatar name={name ?? '?'} src={avatar?.src} size="md" />
-            </Link>
-          </div>
-        ) : (
-          <SignInButton variant="header" />
-        )}
+        <div className="flex items-center gap-2">
+          {/* 手本は YouTube のアプリ：検索は上の帯の虫眼鏡 */}
+          <Link href="/search" aria-label={t('search')} className={ui.iconButton}>
+            <svg
+              aria-hidden
+              viewBox="0 0 24 24"
+              className="size-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-4-4" />
+            </svg>
+          </Link>
+          {userId ? (
+            <>
+              <Link href="/broadcast" className={ui.tonalButton}>
+                {t('broadcast')}
+              </Link>
+              {/* 素の a のままだと中の印が文字の行に乗り、下に字の下がりの分の隙間ができて印が 3px 上にずれる */}
+              <Link href="/settings" aria-label={t('settings')} className="flex">
+                <Avatar name={name ?? '?'} src={avatar?.src} size="md" />
+              </Link>
+            </>
+          ) : (
+            <SignInButton variant="header" />
+          )}
+        </div>
       </div>
     </header>
   );

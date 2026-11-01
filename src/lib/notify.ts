@@ -11,6 +11,14 @@ import type { LiveStarted } from './push-message';
 const RENOTIFY_AFTER_MINUTES = 10;
 
 /**
+ * 配信の途中でつなぎ直すときに呼ぶ。知らせた時刻を進め、次の配信の通過で知らせが飛ばないようにする。
+ * 配信中にスマホの向きを変えるたびに「配信を始めました」が届かないようにするため
+ */
+export async function holdLiveNotice(channelId: string): Promise<void> {
+  await db().query('update channel set notified_at = now() where id = $1', [channelId]);
+}
+
+/**
  * チャンネルが配信を始めたことを、フォローした人へ知らせる（ブラウザ通知とメール）。
  * 前の知らせから RENOTIFY_AFTER_MINUTES 経っていなければ知らせない
  */

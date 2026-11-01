@@ -90,6 +90,7 @@
     "who": "コメントできる人",
     "anyone": "誰でも",
     "followers": "{minutes, plural, =0 {フォローしている人だけ} other {フォローして#分以上の人だけ}}",
+    "closed": "配信者とモデレーターだけ",
     "blockedWords": "禁止語",
     "blockedWordsDescription": "1行に1つ。含むコメントは書いた人にだけ見え、ほかの人には届きません。{max}個まで、1つ{length}文字まで",
     "errors": {
@@ -99,6 +100,7 @@
   },
   "errors": {
     "whipFailed": "配信を始められませんでした（{status}）",
+    "publishToken": "配信を始められませんでした。もう一度お試しください",
     "whepFailed": "視聴を始められませんでした（{status}）",
     "noCanvas": "このブラウザでは画像で配信できません",
     "imageUnreadable": "この画像は開けませんでした"
@@ -116,7 +118,20 @@
   },
   "settings": {
     "title": "設定 | Liveeen",
-    "heading": "設定"
+    "heading": "設定",
+    "following": "フォロー中の配信者"
+  },
+  "search": {
+    "title": "検索 | Liveeen",
+    "heading": "検索",
+    "input": "配信者を検索",
+    "submit": "検索",
+    "empty": "一致する配信者は見つかりませんでした。"
+  },
+  "following": {
+    "title": "フォロー中 | Liveeen",
+    "heading": "フォロー中",
+    "empty": "フォロー中の配信者はまだいません。"
   },
   "admin": {
     "title": "管理 | Liveeen",
@@ -146,6 +161,7 @@
   },
   "header": {
     "broadcast": "配信する",
+    "search": "検索",
     "settings": "設定"
   },
   "footer": {
@@ -259,10 +275,24 @@
       "pickImage": "画像を選ぶ",
       "imageFallback": "選ばなければ、名前を映します",
       "cameraPreview": "始めるとカメラが映ります",
+      "switchCamera": "カメラ切替",
+      "mute": "ミュート",
+      "muted": "ミュート中",
+      "hide": "隠す",
+      "hidden": "隠し中",
+      "hideLabel": "映像と音を隠す",
+      "hiddenNotice": "映像と音を隠しています",
+      "commentRules": "コメントの管理",
+      "reconnecting": "つなぎ直しています",
+      "practice": "練習する",
+      "practicing": "練習中",
+      "stopPractice": "練習を終える",
+      "micLevel": "マイクの大きさ",
       "stayOnScreen": "配信中にほかのアプリへ移ると、映像や音が止まることがあります。配信中はこの画面のままにしてください",
       "start": "配信を始める",
       "errors": {
         "bgm": "曲を流せませんでした",
+        "cameraSwitch": "カメラを切り替えられませんでした",
         "deviceStopped": "カメラかマイクが止まったため、配信を終えました",
         "disconnected": "配信が切れました"
       }
@@ -281,12 +311,14 @@
     "heading": "コメント",
     "guestMark": "（ゲスト）",
     "block": "ブロック",
+    "remove": "消す",
     "appoint": "モデレーターにする",
     "appointed": "モデレーターにしました",
     "report": "通報",
     "reported": "通報しました",
     "confirmAppoint": "{name}さんをモデレーターにしますか？このチャンネルでコメントした人をブロックできるようになります",
     "confirmBlock": "{name}さんをブロックしますか？このチャンネルでコメントできなくなります",
+    "confirmRemove": "{name}さんのこのコメントを消しますか？",
     "confirmReport": "{name}さんのこのコメントを通報しますか？",
     "signInToComment": "コメントするにはログインしてください",
     "guestName": "名前",
@@ -302,6 +334,7 @@
       "tooLong": "コメントは{max}文字までです",
       "appoint": "モデレーターにできませんでした",
       "block": "ブロックできませんでした",
+      "remove": "コメントを消せませんでした",
       "report": "通報できませんでした。読み込み直してから、もう一度試してください"
     },
     "refusals": {
@@ -310,6 +343,7 @@
       "signIn": "コメントするにはログインしてください",
       "expired": "時間が空いたので、もう一度送ってください",
       "tooSoon": "少し待ってから書いてください",
+      "closed": "いまはコメントが止められています",
       "slowMode": "低速モードです。{seconds}秒あけて書いてください"
     }
   }

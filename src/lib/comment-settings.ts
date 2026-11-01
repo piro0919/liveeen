@@ -10,6 +10,8 @@ export type CommentSettings = {
   blockedWords: string[];
   /** フォローしている人だけ書ける。フォローしてからこの分数がたった人だけ。null は誰でも */
   followersOnlyMinutes: number | null;
+  /** コメントを止めている。配信者とモデレーターだけが書ける。これを入れる前の札には無い */
+  closed?: boolean;
   at: number;
 };
 
@@ -17,6 +19,7 @@ export const NO_RULES: CommentSettings = {
   slowSeconds: 0,
   blockedWords: [],
   followersOnlyMinutes: null,
+  closed: false,
   at: 0,
 };
 
@@ -33,6 +36,8 @@ export const SLOW_MODE_CHOICES = [
 ] as const;
 /** フォロワー限定で選べる、フォローしてからの分数。null は誰でも、0 はフォローしてすぐ */
 export const FOLLOWERS_ONLY_CHOICES = [null, CHOICE.none, CHOICE.medium] as const;
+/** 「コメントできる人」で、コメントを止める選択肢の値 */
+export const COMMENTS_CLOSED_CHOICE = 'closed';
 
 const MS_PER_MINUTE = 60_000;
 

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { AvatarForm } from '@/components/avatar-form';
 import { DeleteAccountButton } from '@/components/delete-account-button';
@@ -46,6 +47,9 @@ export default async function SettingsPage() {
             </div>
           )}
           <div className={ui.card}>
+            <Link href="/following" className={ui.tonalButton}>
+              {t('following')}
+            </Link>
             <FollowNoticeChoice
               listOnTop={await listsFollowedOnTop(userId)}
               email={await emailsLiveStarted(userId)}

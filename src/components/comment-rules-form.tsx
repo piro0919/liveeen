@@ -7,6 +7,7 @@ import {
   BLOCKED_WORD_LENGTH_MAX,
   BLOCKED_WORDS_MAX,
   type CommentSettings,
+  COMMENTS_CLOSED_CHOICE,
   FOLLOWERS_ONLY_CHOICES,
   SLOW_MODE_CHOICES,
 } from '@/lib/comment-settings';
@@ -27,6 +28,21 @@ export function CommentRulesForm({ settings }: { settings: CommentSettings }) {
   return (
     <form action={save} className="flex flex-col gap-4">
       <h2 className={ui.subheading}>{t('heading')}</h2>
+      {/* 配信中の画面と /broadcast の両方に出る。片方で保存したら、もう片方の入力も今の決まりに合わせる */}
+      <RuleFields key={settings.at} settings={settings} />
+      {state.error && <p className={ui.error}>{state.error}</p>}
+      {state.saved && !state.error && <p className={ui.note}>{tForm('saved')}</p>}
+      <button type="submit" className={`self-start ${ui.primaryButton}`} disabled={saving}>
+        {tForm('save')}
+      </button>
+    </form>
+  );
+}
+
+function RuleFields({ settings }: { settings: CommentSettings }) {
+  const t = useTranslations('commentRules');
+  return (
+    <>
       <fieldset className="flex flex-col gap-1">
         <legend className="mb-1">{t('slowMode')}</legend>
         <p className={`mb-1 ${ui.note}`}>{t('slowModeDescription')}</p>
@@ -54,11 +70,21 @@ export function CommentRulesForm({ settings }: { settings: CommentSettings }) {
               className={ui.check}
               name="followers"
               value={minutes ?? ''}
-              defaultChecked={settings.followersOnlyMinutes === minutes}
+              defaultChecked={!settings.closed && settings.followersOnlyMinutes === minutes}
             />
             {minutes === null ? t('anyone') : t('followers', { minutes })}
           </label>
         ))}
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            className={ui.check}
+            name="followers"
+            value={COMMENTS_CLOSED_CHOICE}
+            defaultChecked={settings.closed === true}
+          />
+          {t('closed')}
+        </label>
       </fieldset>
       <label className="flex flex-col gap-1">
         <span>{t('blockedWords')}</span>
@@ -74,11 +100,6 @@ export function CommentRulesForm({ settings }: { settings: CommentSettings }) {
           className={ui.textarea}
         />
       </label>
-      {state.error && <p className={ui.error}>{state.error}</p>}
-      {state.saved && !state.error && <p className={ui.note}>{tForm('saved')}</p>}
-      <button type="submit" className={`self-start ${ui.primaryButton}`} disabled={saving}>
-        {tForm('save')}
-      </button>
-    </form>
+    </>
   );
 }
