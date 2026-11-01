@@ -12,6 +12,9 @@ const BUTTON_BASE =
 const BOTTOM_TAB_BASE =
   'flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px]';
 
+/** コメントの横の操作の形。行の高さは変えずに、指で押せる広さをとる */
+const COMMENT_ACTION_BASE = 'inline-block -my-1.5 px-2 py-1.5 text-sm transition-colors';
+
 export const ui = {
   /** 主な操作（フォローする・保存・配信を始める）。差し色で塗る */
   primaryButton: `${BUTTON_BASE} bg-accent-fill text-white hover:brightness-110`,
@@ -58,7 +61,8 @@ export const ui = {
   /** 映像の黒い枠（上限の知らせ・ブラウザの配信）。映像は端末の明るさに関係なく黒地に白 */
   videoFrame: 'relative aspect-video w-full overflow-hidden rounded-2xl bg-black',
   /** 見る画面の映像の枠。スマホでは画面の端まで広げ、角を丸めない（YouTube のアプリと同じ） */
-  watchFrame: 'relative aspect-video w-full overflow-hidden bg-black sm:rounded-2xl',
+  watchFrame:
+    'relative aspect-video w-full shrink-0 overflow-hidden bg-black sm:rounded-2xl phone-landscape:rounded-none',
   /** 映像の枠の真ん中に出す知らせ */
   videoMessage:
     'pointer-events-none absolute inset-0 flex items-center justify-center p-4 text-center text-white/80',
@@ -79,6 +83,10 @@ export const ui = {
   error: 'text-sm text-danger',
   /** 配信中の画面。映像を画面いっぱいに出し、上の帯にも重ねる（YouTube のアプリの配信と同じ） */
   liveScreen: 'fixed inset-0 z-50 flex h-dvh flex-col bg-black px-safe text-white',
+  /** コメントの横の操作（通報・消す・ブロック）。行の高さは変えずに、指で押せる広さをとる */
+  commentAction: `${COMMENT_ACTION_BASE} text-muted hover:text-foreground`,
+  /** 配信中の画面の上に重ねるコメントの横の操作 */
+  overlayCommentAction: `${COMMENT_ACTION_BASE} text-white/70 hover:text-white`,
   /** 配信中の画面の上に重ねるボタン。映像の明るさに関係なく読めるよう、黒を透かした地に白 */
   overlayButton: `${BUTTON_BASE} bg-black/50 text-white backdrop-blur-md hover:bg-black/70`,
   /** 配信中の画面の上に重ねるボタンの、入っている状態（ミュート中）。見落とさないよう差し色で塗る */
@@ -87,8 +95,6 @@ export const ui = {
   overlayComments: 'text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]',
   /** 配信中の画面の上に重ねるコメントの名前 */
   overlayName: 'text-white/70',
-  /** 配信中の画面の上に重ねる、文の中の小さな操作（ブロック） */
-  overlayTextButton: 'text-sm text-white/70 transition-colors hover:text-white',
   /** 配信中の画面の上に重ねる囲み（BGM の一覧） */
   overlayPanel: 'rounded-2xl bg-black/60 p-3 text-white backdrop-blur-md',
   /** 配信中の画面の上に開く設定の欄（コメントの管理）。入力欄の色を変えずに済むよう、ふつうの地にする */

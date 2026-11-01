@@ -67,9 +67,26 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 見る画面のスマホの高さ。上の帯（h-14）を除いた画面の高さで、コメント欄が残りを埋める */
+/* 横にしたスマホ。縦に積むと映像が画面に収まらないので、見る画面は映像とコメントを横に並べる */
+@custom-variant phone-landscape (@media (orientation: landscape) and (max-height: 500px) and (max-width: 1023px));
+
+/* 見る画面のスマホの高さ。上の帯（h-14 と下の線 1px）を除いた画面の高さで、コメント欄が残りを埋める */
 @utility h-below-header {
-  height: calc(100dvh - 3.5rem);
+  height: calc(100dvh - 3.5rem - 1px);
+}
+
+/* 横にしたスマホの見る画面の左の列。16:9 の映像が残りの高さに収まる幅で、コメントの幅を残すため 65% まで */
+@utility w-watch-landscape {
+  width: min(calc((100dvh - 3.5rem - 1px) * 16 / 9), 65%);
+}
+
+/* 下の帯（利用規約など）を、見る画面のスマホとタブレットでは出さない。コメントが画面の残りを埋めているので、帯の分だけ余計に送れてしまう */
+@utility hidden-on-watch {
+  body:has(main[data-watch]) & {
+    @media (width < 64rem) {
+      display: none;
+    }
+  }
 }
 
 /* 配信中の画面（src/components/browser-publisher.tsx）。iPhone の切り欠きと下の帯に、ボタンと書く欄が隠れないようにする */

@@ -1,3 +1,4 @@
+import { captureError, type CaptureKind } from './capture-error';
 import { ScreenError } from './screen-error';
 
 /** 映像の上限（CLAUDE.md：720p まで） */
@@ -24,19 +25,29 @@ function cameraVideo(choice?: MediaTrackConstraints): MediaTrackConstraints {
   };
 }
 
+/** 取れなければ、画面に出せる理由にして投げる。https でない画面やアプリの中のブラウザには mediaDevices が無い */
+async function capture(constraints: MediaStreamConstraints, kind: CaptureKind) {
+  if (!('mediaDevices' in navigator)) throw new ScreenError('captureUnsupported');
+  try {
+    return await navigator.mediaDevices.getUserMedia(constraints);
+  } catch (error) {
+    throw captureError(error, kind);
+  }
+}
+
 /** カメラとマイクを取る */
 export function captureCamera(choice?: MediaTrackConstraints): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({ video: cameraVideo(choice), audio: true });
+  return capture({ video: cameraVideo(choice), audio: true }, 'camera');
 }
 
 /** カメラだけを取る（切り替えるとき）。マイクは取り直さない */
 export function captureCameraVideo(choice: MediaTrackConstraints): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({ video: cameraVideo(choice) });
+  return capture({ video: cameraVideo(choice) }, 'camera');
 }
 
 /** マイクだけを取る（画像で配信するとき）。カメラの許可は求めない */
 export function captureMicrophone(): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({ audio: true });
+  return capture({ audio: true }, 'mic');
 }
 
 /** マイクの音を無音にする、または戻す。映像には触れない */

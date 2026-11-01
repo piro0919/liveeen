@@ -354,7 +354,7 @@ export function Comments({
       )}
       <ol
         ref={list}
-        className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 py-2 ${overlay ? 'stack-bottom' : ''}`}
+        className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-2 ${overlay ? 'stack-bottom' : ''}`}
       >
         {comments.map((comment) => (
           <li key={comment.id} className="flex gap-3 text-sm">
@@ -371,7 +371,7 @@ export function Comments({
                   {' '}
                   <button
                     type="button"
-                    className={overlay ? ui.overlayTextButton : ui.textButton}
+                    className={overlay ? ui.overlayCommentAction : ui.commentAction}
                     onClick={() => void remove(comment)}
                   >
                     {t('remove')}
@@ -384,7 +384,7 @@ export function Comments({
                   {' '}
                   <button
                     type="button"
-                    className={overlay ? ui.overlayTextButton : ui.textButton}
+                    className={overlay ? ui.overlayCommentAction : ui.commentAction}
                     onClick={() => void block(comment)}
                   >
                     {t('block')}
@@ -400,7 +400,7 @@ export function Comments({
                   ) : (
                     <button
                       type="button"
-                      className={ui.textButton}
+                      className={ui.commentAction}
                       onClick={() => void appoint(comment)}
                     >
                       {t('appoint')}
@@ -416,7 +416,7 @@ export function Comments({
                   ) : (
                     <button
                       type="button"
-                      className={ui.textButton}
+                      className={ui.commentAction}
                       onClick={() => void report(comment)}
                     >
                       {t('report')}

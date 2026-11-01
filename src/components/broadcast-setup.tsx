@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState } from 'react';
+import { useActionState, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { createChannelAction, type KeyState } from '@/app/broadcast/actions';
+import { createChannelAction, type KeyState, setStreamTitleAction } from '@/app/broadcast/actions';
 import type { Channel } from '@/lib/channels';
 import type { CommentSettings } from '@/lib/comment-settings';
 import { channelPath } from '@/lib/handle';
@@ -11,7 +11,8 @@ import { BrowserPublisher } from './browser-publisher';
 import { GuestCommentsChoice } from './guest-comments-choice';
 import { LatencyChoice } from './latency-choice';
 import { StreamTitleForm } from './stream-title-form';
-import { guarded } from '@/lib/safe-action';
+import { guarded, safely } from '@/lib/safe-action';
+import { ScreenError } from '@/lib/screen-error';
 import { ui } from '@/lib/ui';
 
 const NO_KEY: KeyState = { key: null };
@@ -32,6 +33,18 @@ type Props = {
 export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl, commentSettings }: Props) {
   const t = useTranslations('broadcast.setup');
   const [, create, creating] = useActionState(guarded(createChannelAction), NO_KEY);
+  const titleInput = useRef<HTMLInputElement>(null);
+
+  /** 配信を始めるとき、入れたままのタイトルも保存する。保存を押し忘れて、前のタイトルで始まらないように */
+  async function saveTitleBeforeStart() {
+    const value = titleInput.current?.value;
+    if (value === undefined || value.trim() === (channel?.title ?? '')) return;
+    const form = new FormData();
+    form.set('title', value);
+    const state = await safely(() => setStreamTitleAction({ error: null, saved: false }, form));
+    if (!state) throw new ScreenError('publishToken');
+    if (state.error) throw new Error(state.error);
+  }
 
   if (!channel) {
     return (
@@ -51,10 +64,12 @@ export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl, commentSe
     <div className="flex flex-col gap-4">
       {/* タイトルは配信を始める前に付けるので、配信の上に置く */}
       <div className={ui.card}>
-        <StreamTitleForm title={channel.title} />
+        <StreamTitleForm title={channel.title} inputRef={titleInput} />
       </div>
       <section className={ui.card}>
         <BrowserPublisher
+          title={channel.title}
+          beforeStart={saveTitleBeforeStart}
           whipUrl={`${webrtcUrl}/${channel.id}/whip`}
           channelId={channel.id}
           relayUrl={relayUrl}

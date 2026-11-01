@@ -12,6 +12,19 @@ import { setPlaying } from './viewer-count';
 /** 配信していないとき、もう一度つなぎに行くまでの間 */
 const RETRY_MS = 5000;
 
+/**
+ * つなぎ直した映像を流す。音を出している人の自動再生をブラウザが断ったら、音を消して流す。
+ * 流れないと iPhone では「配信していません」のまま止まるため。断り以外の失敗（つなぎの取り替えなど）では音を消さない
+ */
+function playOrMute(element: HTMLVideoElement) {
+  if (element.muted) return;
+  element.play().catch((error: unknown) => {
+    if (!(error instanceof Error) || error.name !== 'NotAllowedError') return;
+    element.muted = true;
+    void element.play().catch(() => undefined);
+  });
+}
+
 type Props = {
   channelId: string;
   latencyMode: LatencyMode;
@@ -32,6 +45,16 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
   // 見ている人の数は、映像が流れているときだけ出す（src/components/viewer-count.tsx）
   useEffect(() => setPlaying(channelId, status === 'live'), [channelId, status]);
 
+  // 音を出すかは見る人が決める。自動で再生するために、始めは音を消しておく
+  const [muted, setMuted] = useState(true);
+
+  function unmute() {
+    const element = video.current;
+    if (!element) return;
+    element.muted = false;
+    void element.play().catch(() => undefined);
+  }
+
   useEffect(() => {
     const element = video.current;
     if (!element) return;
@@ -50,6 +73,7 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
       // Safari と iPhone は HLS をそのまま再生できる
       if (!Hls.isSupported()) {
         el.src = src;
+        playOrMute(el);
         const onError = () => scheduleRetry();
         const onPlaying = () => setStatus('live');
         el.addEventListener('error', onError);
@@ -69,6 +93,7 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
       });
       hls.loadSource(src);
       hls.attachMedia(el);
+      playOrMute(el);
       cleanup = () => hls.destroy();
     }
 
@@ -79,6 +104,7 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
             // 捨てたつなぎの映像は入れない。後から届くと、いまのつなぎの映像を上書きし、閉じたまま止まる
             if (cancelled) return;
             el.srcObject = stream;
+            playOrMute(el);
             setStatus('live');
           },
           onEnded: scheduleRetry,
@@ -113,7 +139,6 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
 
   return (
     <div className={ui.watchFrame}>
-      {/* 音を出すかは見る人が決める。自動で再生するために、始めは音を消しておく */}
       {/* 配信していないあいだは映像を隠す。ブラウザの読み込み中の輪が、知らせの文字と重なるため */}
       <video
         ref={video}
@@ -122,8 +147,18 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
         playsInline
         controls
         className={`size-full ${status === 'offline' ? 'invisible' : ''}`}
+        onVolumeChange={(event) => setMuted(event.currentTarget.muted)}
       />
       {status === 'offline' && <PlayerMessage>{t('offline')}</PlayerMessage>}
+      {status === 'live' && muted && (
+        <button
+          type="button"
+          className={`absolute top-3 left-3 ${ui.overlayButton}`}
+          onClick={unmute}
+        >
+          {t('unmute')}
+        </button>
+      )}
     </div>
   );
 }

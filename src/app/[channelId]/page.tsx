@@ -63,8 +63,12 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
   // 手本は YouTube の視聴画面：左に映像と配信者、右にコメント。狭い画面では縦に並べる。
   // スマホでは映像を画面の端まで広げ、配信者の行とコメントだけに余白を付ける。コメントは画面の残りの高さを埋める（YouTube のアプリと同じ）
   return (
-    <main className="mx-auto flex h-below-header w-full max-w-screen-2xl flex-col gap-4 sm:gap-6 sm:px-6 sm:py-6 lg:h-auto lg:flex-row">
-      <div className="flex min-w-0 shrink-0 flex-col gap-3 lg:flex-1">
+    <main
+      data-watch
+      className="mx-auto flex h-below-header w-full max-w-screen-2xl flex-col gap-4 sm:gap-6 sm:px-6 sm:py-6 lg:h-auto lg:flex-row phone-landscape:flex-row phone-landscape:gap-2 phone-landscape:p-0"
+    >
+      {/* 横にしたスマホでは、映像とコメントを画面に収め、配信者の行は左の列の中で送って見る */}
+      <div className="flex min-w-0 shrink-0 flex-col gap-3 lg:flex-1 phone-landscape:w-watch-landscape phone-landscape:overflow-y-auto">
         {capReached ? (
           <div className={ui.watchFrame}>
             <PlayerMessage>{t('capReached')}</PlayerMessage>
@@ -107,7 +111,7 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
         </div>
       </div>
       {/* 広い画面では、コメントの枠を左の列（映像と配信者）と同じ高さにする。中身の多さで伸びないように、中は枠いっぱいに置く */}
-      <aside className="relative mx-4 mb-4 min-h-60 flex-1 sm:mx-0 sm:mb-0 lg:w-100 lg:flex-none">
+      <aside className="relative mx-4 mb-4 min-h-60 flex-1 sm:mx-0 sm:mb-0 lg:w-100 lg:flex-none phone-landscape:m-0 phone-landscape:min-h-0 phone-landscape:min-w-0">
         <div className="absolute inset-0 flex flex-col">
           <Comments
             channelId={channel.id}

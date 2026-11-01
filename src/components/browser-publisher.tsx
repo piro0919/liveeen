@@ -33,6 +33,7 @@ import { useWakeLock } from '@/lib/use-wake-lock';
 import { BgmPicker } from './bgm-picker';
 import { CommentRulesForm } from './comment-rules-form';
 import { Comments } from './comments';
+import { StreamTitleForm } from './stream-title-form';
 import { ViewerCount } from './viewer-count';
 
 type Status = 'idle' | 'starting' | 'live' | 'practice';
@@ -74,10 +75,14 @@ type Props = {
   latencyMode: LatencyMode;
   /** 配信中の画面から変えられるコメントの決まり */
   commentSettings: CommentSettings;
+  /** 配信中の画面から変えられるタイトル */
+  title: string | null;
+  /** つなぐ前にすること（入れたままのタイトルの保存）。投げたら配信を始めない */
+  beforeStart: () => Promise<void>;
 };
 
 /** 配信中の画面で開いている欄。重なると下のコメントが隠れるので、1つだけ開く */
-type LivePanel = 'bgm' | 'rules' | null;
+type LivePanel = 'bgm' | 'rules' | 'title' | null;
 
 /**
  * ブラウザで配信する。カメラか、画像と声かを選ぶ。画像ならカメラの許可を求めない。
@@ -92,6 +97,8 @@ export function BrowserPublisher({
   bgmUrl,
   latencyMode,
   commentSettings,
+  title,
+  beforeStart,
 }: Props) {
   const t = useTranslations('broadcast.publisher');
   const errorText = useScreenErrorText();
@@ -399,7 +406,7 @@ export function BrowserPublisher({
     void listDevices().then((devices) => setCameraCount(knownCameraCount(devices)));
   }
 
-  /** 始める前に押されたら、まず今のカメラを映す。映っていないカメラを選んでも確かめられないため */
+  /** 始める前に、今のカメラを映す */
   async function showCameraPreview() {
     const run = ++cameraRun.current;
     setSwitching(true);
@@ -428,10 +435,7 @@ export function BrowserPublisher({
   async function switchCamera() {
     const current = stream.current;
     const old = current?.getVideoTracks()[0];
-    if (!current || !old) {
-      await showCameraPreview();
-      return;
-    }
+    if (!current || !old) return;
     const run = ++cameraRun.current;
     setSwitching(true);
     setError(null);
@@ -529,6 +533,7 @@ export function BrowserPublisher({
   async function startPractice() {
     setStatus('starting');
     setError(null);
+    setPanel(null);
     try {
       if (!(await prepareCapture())) return;
       setStartedAt(Date.now());
@@ -542,6 +547,18 @@ export function BrowserPublisher({
   async function start() {
     setStatus('starting');
     setError(null);
+    setPanel(null);
+    // カメラを取る前に済ませる。断られても、映しているカメラと流している曲はそのままにする
+    const run = cameraRun.current;
+    try {
+      await beforeStart();
+    } catch (e) {
+      setStatus('idle');
+      setError(errorText(e));
+      return;
+    }
+    // 保存を待つあいだに画面を離れていたら、始めない
+    if (run !== cameraRun.current) return;
     try {
       const captured = await prepareCapture();
       if (!captured) return;
@@ -586,6 +603,8 @@ export function BrowserPublisher({
     [],
   );
 
+  const manyCameras = source === 'camera' && cameraCount !== null && cameraCount >= 2;
+
   if (onAir) {
     const live = status === 'live';
     return (
@@ -629,7 +648,7 @@ export function BrowserPublisher({
                 {output.hidden ? t('hidden') : t('hide')}
               </button>
             )}
-            {source === 'camera' && cameraCount !== null && cameraCount >= 2 && (
+            {manyCameras && (
               <button
                 type="button"
                 className={ui.overlayButton}
@@ -647,6 +666,16 @@ export function BrowserPublisher({
                 onClick={() => setPanel((open) => (open === 'bgm' ? null : 'bgm'))}
               >
                 BGM
+              </button>
+            )}
+            {live && (
+              <button
+                type="button"
+                className={ui.overlayButton}
+                aria-expanded={panel === 'title'}
+                onClick={() => setPanel((open) => (open === 'title' ? null : 'title'))}
+              >
+                {t('title')}
               </button>
             )}
             {live && (
@@ -688,12 +717,17 @@ export function BrowserPublisher({
             <CommentRulesForm settings={commentSettings} />
           </div>
         )}
+        {live && panel === 'title' && (
+          <div className={`relative mx-4 mb-4 ${ui.livePanel}`}>
+            <StreamTitleForm title={title} />
+          </div>
+        )}
         {error && <p className={`relative mx-4 ${ui.error}`}>{error}</p>}
         {/* コメントは下の半分ほどに重ね、上の映像は見えるままにする。
-            コメントの管理を開いている間は畳み、保存まで届きやすくする（つないだままにするので、外さない） */}
+            コメントの管理とタイトルを開いている間は畳み、保存まで届きやすくする（つないだままにするので、外さない） */}
         {live && (
           <div
-            className={`relative mt-auto h-live-comments pb-safe-bottom ${panel === 'rules' ? 'hidden' : 'flex'}`}
+            className={`relative mt-auto h-live-comments pb-safe-bottom ${panel === 'rules' || panel === 'title' ? 'hidden' : 'flex'}`}
           >
             <Comments
               channelId={channelId}
@@ -750,46 +784,70 @@ export function BrowserPublisher({
           <p className={ui.note}>{t('imageFallback')}</p>
         </div>
       )}
-      <div className={ui.videoFrame}>
+      {/* 広い画面でも、配信を始めるボタンが画面に収まる大きさにする */}
+      <div className={`sm:mx-auto sm:max-w-md ${ui.videoFrame}`}>
         <video ref={video} autoPlay muted playsInline className="size-full object-contain" />
+        {/* ページを開いただけではカメラを入れない。押したときに許可を求める */}
         {source === 'camera' && !previewing && (
-          <p className={ui.videoMessage}>{t('cameraPreview')}</p>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <button
+              type="button"
+              className={ui.overlayButton}
+              disabled={switching || status === 'starting'}
+              onClick={() => void showCameraPreview()}
+            >
+              {t('showCamera')}
+            </button>
+          </div>
         )}
       </div>
-      {source === 'camera' && (cameraCount === null || cameraCount >= 2) && (
+      {((manyCameras && previewing) || bgmUrl) && (
+        <div className="flex flex-wrap gap-2">
+          {manyCameras && previewing && (
+            <button
+              type="button"
+              className={ui.tonalButton}
+              disabled={switching || status === 'starting'}
+              onClick={() => void switchCamera()}
+            >
+              {t('switchCamera')}
+            </button>
+          )}
+          {bgmUrl && (
+            <button
+              type="button"
+              className={ui.tonalButton}
+              aria-expanded={panel === 'bgm'}
+              onClick={() => setPanel((open) => (open === 'bgm' ? null : 'bgm'))}
+            >
+              BGM
+            </button>
+          )}
+        </div>
+      )}
+      {bgmUrl && panel === 'bgm' && (
+        <BgmPicker playing={bgm} volume={bgmVolume} onPick={pickBgm} onVolume={changeBgmVolume} />
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className={ui.primaryButton}
+          disabled={status === 'starting' || switching}
+          onClick={() => void start()}
+        >
+          {t('start')}
+        </button>
         <button
           type="button"
           className={ui.tonalButton}
-          disabled={switching || status === 'starting'}
-          onClick={() => void switchCamera()}
+          disabled={status === 'starting' || switching}
+          onClick={() => void startPractice()}
         >
-          {t('switchCamera')}
+          {t('practice')}
         </button>
-      )}
-      {bgmUrl && (
-        <section className="flex flex-col gap-2">
-          <h2 className={ui.subheading}>BGM</h2>
-          <BgmPicker playing={bgm} volume={bgmVolume} onPick={pickBgm} onVolume={changeBgmVolume} />
-        </section>
-      )}
-      <p className={ui.note}>{t('stayOnScreen')}</p>
-      <button
-        type="button"
-        className={ui.tonalButton}
-        disabled={status === 'starting' || switching}
-        onClick={() => void startPractice()}
-      >
-        {t('practice')}
-      </button>
-      <button
-        type="button"
-        className={ui.primaryButton}
-        disabled={status === 'starting' || switching}
-        onClick={() => void start()}
-      >
-        {t('start')}
-      </button>
+      </div>
       {error && <p className={ui.error}>{error}</p>}
+      <p className={ui.note}>{t('stayOnScreen')}</p>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { ui } from '@/lib/ui';
 export function SiteFooter() {
   const t = useTranslations('footer');
   return (
-    <footer className={`mt-auto flex gap-4 px-4 py-6 sm:px-6 ${ui.note}`}>
+    <footer className={`mt-auto flex hidden-on-watch gap-4 px-4 py-6 sm:px-6 ${ui.note}`}>
       <Link href="/terms" className="hover:text-foreground">
         {t('terms')}
       </Link>
