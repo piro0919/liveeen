@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { blockCommenter, commenterBlocked } from '@/lib/blocks';
-import { searchChannels } from '@/lib/channels';
+import { channelById, searchChannels } from '@/lib/channels';
+import { follow, followerCount, unfollow } from '@/lib/follows';
 import { streamKey } from '@/lib/delist';
 import { reportComment } from '@/lib/comment-reports';
 import { holdLiveNotice, notifyLiveStarted } from '@/lib/notify';
@@ -70,6 +71,35 @@ describe('searchChannels', () => {
     await addChannel(await addUser(), { name: 'あ piro', handle: 'piro_two' });
     const exact = await addChannel(await addUser(), { name: 'ん', handle: 'piro' });
     expect((await searchChannels('piro'))[0]?.id).toBe(exact);
+  });
+});
+
+describe('followerCount', () => {
+  it('そのチャンネルをフォローしている人だけを数える', async () => {
+    const [streamer, other, viewerA, viewerB] = await Promise.all([
+      addUser(),
+      addUser(),
+      addUser(),
+      addUser(),
+    ]);
+    const channel = await addChannel(streamer);
+    const otherChannel = await addChannel(other);
+    expect(await followerCount(channel)).toBe(0);
+    await follow(viewerA, channel);
+    await follow(viewerB, channel);
+    await follow(viewerA, otherChannel);
+    expect(await followerCount(channel)).toBe(2);
+    await unfollow(viewerA, channel);
+    expect(await followerCount(channel)).toBe(1);
+  });
+});
+
+describe('lastLiveAt', () => {
+  it('配信したことがなければ null、配信を始めると知らせた時刻', async () => {
+    const channel = await addChannel(await addUser());
+    expect((await channelById(channel))?.lastLiveAt).toBeNull();
+    await notifyLiveStarted(channel);
+    expect((await channelById(channel))?.lastLiveAt).toBeInstanceOf(Date);
   });
 });
 

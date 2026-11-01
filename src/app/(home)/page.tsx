@@ -4,6 +4,7 @@ import { connection } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import marmot from '@/images/marmot.png';
 import { Avatar } from '@/components/avatar';
+import { LiveTag } from '@/components/live-tag';
 import { LiveThumbnail } from '@/components/live-thumbnail';
 import { followedAmong, listsFollowedOnTop } from '@/lib/follows';
 import { channelPath } from '@/lib/handle';
@@ -47,13 +48,11 @@ async function LiveCard({
         <div className={`flex items-center justify-center ${ui.thumbnail}`}>
           {/* 住所は1分ごとに変わる。変わったら撮れなかったことを忘れて、もう一度読ませる */}
           <LiveThumbnail key={thumbnail} name={name} src={thumbnail} />
-          <span className={`absolute top-2 left-2 ${ui.liveTag}`}>
-            <span
-              aria-hidden
-              className="size-1.5 animate-pulse rounded-xs bg-current motion-reduce:animate-none"
-            />
-            {t('live')}
-          </span>
+          <LiveTag />
+          {/* 人数は中継が答えたときだけ。誰も開いていなければ載ってこない */}
+          {viewers !== undefined && (
+            <span className={ui.thumbnailBadge}>{tViewers('count', { count: viewers })}</span>
+          )}
         </div>
         <div className="flex gap-3">
           <Avatar name={name} src={channel.avatar} />
@@ -70,13 +69,7 @@ async function LiveCard({
               <span className="truncate font-bold group-hover:text-accent">{name}</span>
             )}
             <span className={ui.note}>
-              {/* 人数は中継が答えたときだけ。誰も開いていなければ載ってこない */}
-              {viewers === undefined
-                ? t('startedAt', { time: startedAtFormat.format(channel.startedAt) })
-                : t('viewersAndStartedAt', {
-                    viewers: tViewers('count', { count: viewers }),
-                    time: startedAtFormat.format(channel.startedAt),
-                  })}
+              {t('startedAt', { time: startedAtFormat.format(channel.startedAt) })}
             </span>
           </div>
         </div>

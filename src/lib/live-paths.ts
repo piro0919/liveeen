@@ -27,6 +27,14 @@ export function splitFollowed<T extends LivePath>(
   };
 }
 
+/** 配信中の人を上にまとめる。それぞれの中の並びはそのまま */
+export function liveFirst<T extends { id: string }>(channels: T[], live: ReadonlySet<string>): T[] {
+  return [
+    ...channels.filter((channel) => live.has(channel.id)),
+    ...channels.filter((channel) => !live.has(channel.id)),
+  ];
+}
+
 /** 映像が届いている配信だけを、始まったのが新しい順に。形の合わない応答は空の一覧として扱う */
 export function livePathsOf(body: unknown): LivePath[] {
   return livePathsOrNull(body) ?? [];

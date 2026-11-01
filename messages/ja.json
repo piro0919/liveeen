@@ -122,22 +122,20 @@
     "empty": "いま配信している人はいません",
     "followed": "フォロー中",
     "live": "ライブ",
-    "startedAt": "{time} から",
-    "viewersAndStartedAt": "{viewers} ・ {time} から"
+    "startedAt": "{time} から"
   },
   "watch": {
-    "capReached": "今月の視聴の上限に達したため、いまは見られません"
+    "capReached": "今月の視聴の上限に達したため、いまは見られません",
+    "followers": "{count, number}人のフォロワー"
   },
   "settings": {
     "title": "マイページ | Liveeen",
-    "heading": "マイページ",
-    "following": "フォロー中の配信者"
+    "heading": "マイページ"
   },
   "search": {
     "title": "検索 | Liveeen",
     "heading": "検索",
     "input": "配信者を検索",
-    "submit": "検索",
     "empty": "一致する配信者は見つかりませんでした。"
   },
   "following": {
@@ -241,9 +239,11 @@
   },
   "player": {
     "offline": "配信していません",
+    "lastLive": "前回の配信：{when}",
     "unmute": "ミュートを解除"
   },
   "report": {
+    "more": "その他",
     "button": "通報する",
     "done": "通報しました",
     "reasonLegend": "通報の理由",
@@ -280,7 +280,8 @@
       "adult": "18歳以上です",
       "createChannel": "チャンネルを作る",
       "address": "配信の住所：",
-      "obsNote": "パソコンの OBS から配信するときは、<link>OBS で配信</link>の設定を使ってください。"
+      "obsNote": "パソコンの OBS から配信するときは、<link>OBS で配信</link>の設定を使ってください。",
+      "moreSettings": "その他の設定"
     },
     "publisher": {
       "live": "ライブ",
@@ -295,9 +296,10 @@
       "title": "タイトル",
       "mute": "ミュート",
       "muted": "ミュート中",
-      "hide": "隠す",
-      "hidden": "隠し中",
       "hideLabel": "映像と音を隠す",
+      "more": "その他",
+      "closePanel": "閉じる",
+      "confirmStop": "配信を終えますか？",
       "hiddenNotice": "映像と音を隠しています",
       "commentRules": "コメントの管理",
       "reconnecting": "つなぎ直しています",
@@ -330,7 +332,9 @@
   },
   "comments": {
     "heading": "コメント",
+    "more": "さらにコメントが続きます",
     "guestMark": "（ゲスト）",
+    "actions": "{name}さんのコメントの操作",
     "block": "ブロック",
     "remove": "消す",
     "appoint": "モデレーターにする",

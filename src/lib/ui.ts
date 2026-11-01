@@ -12,8 +12,9 @@ const BUTTON_BASE =
 const BOTTOM_TAB_BASE =
   'flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px]';
 
-/** コメントの横の操作の形。行の高さは変えずに、指で押せる広さをとる */
-const COMMENT_ACTION_BASE = 'inline-block -my-1.5 px-2 py-1.5 text-sm transition-colors';
+/** 配信中の画面に重ねる、字のない丸いボタンの形 */
+const OVERLAY_ICON_BASE =
+  'inline-flex size-10 shrink-0 items-center justify-center rounded-full transition duration-150 active:scale-95 disabled:opacity-50 disabled:active:scale-100 sm:size-9';
 
 export const ui = {
   /** 主な操作（フォローする・保存・配信を始める）。差し色で塗る */
@@ -48,6 +49,22 @@ export const ui = {
   card: 'flex flex-col gap-3 rounded-2xl bg-surface p-5',
   /** 配信の一覧の1枚の絵の枠 */
   thumbnail: 'relative aspect-video overflow-hidden rounded-xl bg-surface',
+  /** 配信の札の絵の左下に重ねる、見ている人の数（手本は Twitch）。絵の明るさに関係なく読めるよう、黒を透かした地に白 */
+  thumbnailBadge:
+    'absolute bottom-2 left-2 rounded-md bg-black/70 px-1.5 py-0.5 text-xs text-white',
+  /** 下から開く操作の一覧（src/components/action-sheet.tsx）。広い画面では真ん中。コメントの影と色を受け継がないよう、ここで戻す */
+  sheet:
+    'mx-auto mt-auto mb-[max(0.5rem,env(safe-area-inset-bottom))] w-[calc(100%-1rem)] max-w-sm rounded-2xl bg-surface text-foreground [text-shadow:none] backdrop:bg-black/50 sm:m-auto',
+  /** コメントの名前（高さ 20px）の押せる範囲。見た目を変えずに、隣の行に重ならないところまで透明に広げる（行の間隔は 36px） */
+  commentNamePressArea:
+    'relative before:absolute before:-inset-x-1.5 before:-top-1.5 before:-bottom-2.5',
+  /** コメントの印（高さ 24px）の押せる範囲。名前と同じく行の間隔 36px に収める */
+  commentMarkPressArea: 'relative before:absolute before:-inset-1.5',
+  /** シートの見出し（コメントの名前） */
+  sheetHeading: 'flex flex-col gap-0.5 border-b border-line px-3 py-2 text-sm',
+  /** シートの1行。指で押しやすいよう高さは 48px */
+  sheetItem:
+    'flex h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors hover:bg-surface-hover disabled:text-muted disabled:hover:bg-transparent',
   /** 読み込み中の灰色の形。動きを減らす設定の端末では止める */
   skeleton: 'animate-pulse rounded-xl bg-surface motion-reduce:animate-none',
   skeletonRound: 'animate-pulse rounded-full bg-surface motion-reduce:animate-none',
@@ -68,7 +85,7 @@ export const ui = {
     'relative aspect-video w-full shrink-0 overflow-hidden bg-black sm:rounded-2xl phone-landscape:rounded-none',
   /** 映像の枠の真ん中に出す知らせ */
   videoMessage:
-    'pointer-events-none absolute inset-0 flex items-center justify-center p-4 text-center text-white/80',
+    'pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 p-4 text-center text-white/80',
   /** 配信中の札。差し色で塗る */
   liveTag:
     'inline-flex items-center gap-1 rounded-md bg-live px-1.5 py-0.5 text-xs font-bold text-white',
@@ -86,14 +103,15 @@ export const ui = {
   error: 'text-sm text-danger',
   /** 配信中の画面。映像を画面いっぱいに出し、上の帯にも重ねる（YouTube のアプリの配信と同じ） */
   liveScreen: 'fixed inset-0 z-50 flex h-dvh flex-col bg-black px-safe text-white',
-  /** コメントの横の操作（通報・消す・ブロック）。行の高さは変えずに、指で押せる広さをとる */
-  commentAction: `${COMMENT_ACTION_BASE} text-muted hover:text-foreground`,
-  /** 配信中の画面の上に重ねるコメントの横の操作 */
-  overlayCommentAction: `${COMMENT_ACTION_BASE} text-white/70 hover:text-white`,
   /** 配信中の画面の上に重ねるボタン。映像の明るさに関係なく読めるよう、黒を透かした地に白 */
   overlayButton: `${BUTTON_BASE} bg-black/50 text-white backdrop-blur-md hover:bg-black/70`,
-  /** 配信中の画面の上に重ねるボタンの、入っている状態（ミュート中）。見落とさないよう差し色で塗る */
-  overlayButtonOn: `${BUTTON_BASE} bg-accent-fill text-white hover:brightness-110`,
+  /** 配信中の画面の上に重ねる、字のない丸いボタン（ミュート・隠す・カメラ切替・その他） */
+  overlayIconButton: `${OVERLAY_ICON_BASE} bg-black/50 text-white backdrop-blur-md hover:bg-black/70`,
+  /** 配信中の画面の上に重ねる、字のない丸いボタンの入っている状態。見落とさないよう差し色で塗る */
+  overlayIconButtonOn: `${OVERLAY_ICON_BASE} bg-accent-fill text-white hover:brightness-110`,
+  /** 畳んである設定の見出し（配信するの「その他の設定」）。まとまりと同じ面 */
+  disclosure:
+    'flex h-12 cursor-pointer list-none items-center justify-between rounded-2xl bg-surface px-5 font-bold [&::-webkit-details-marker]:hidden',
   /** 配信中の画面の上に重ねるコメント。映像が見えるよう地を塗らず、字に影を付ける */
   overlayComments: 'text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]',
   /** 配信中の画面の上に重ねるコメントの名前 */

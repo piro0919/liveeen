@@ -25,6 +25,7 @@ import {
   ROLE_CHANGED,
   TOKEN_EXPIRED,
 } from '@/lib/comment';
+import { commentActions, hasCommentActions } from '@/lib/comment-actions';
 import { CommentOutbox } from '@/lib/comment-outbox';
 import { mergeHistory } from '@/lib/comment-history';
 import { isNearBottom } from '@/lib/comment-scroll';
@@ -34,7 +35,9 @@ import { hasVisibleText } from '@/lib/invisible';
 import { relayRetryMs } from '@/lib/relay-retry';
 import { ui } from '@/lib/ui';
 import { whenVisible } from '@/lib/when-visible';
+import { ActionSheet } from './action-sheet';
 import { Avatar } from './avatar';
+import { BlockIcon, FlagIcon, ModeratorIcon, TrashIcon } from './nav-icons';
 import { DisplayNameForm } from './display-name-form';
 import { SignInButton } from './sign-in-button';
 import { setViewers } from './viewer-count';
@@ -130,6 +133,8 @@ export function Comments({
   const t = useTranslations('comments');
   const tName = useTranslations('displayName.errors');
   const [comments, setComments] = useState<Comment[]>([]);
+  /** 名前を押して操作の一覧を開いているコメント */
+  const [acting, setActing] = useState<Comment | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('');
   // 覚えておいた名前は、画面が開いてから読む（サーバーでは読めない）
@@ -155,6 +160,7 @@ export function Comments({
   const list = useRef<HTMLOListElement>(null);
   // 一番下まで読んでいるか。上へ戻して読んでいる人を、新しいコメントで下へ連れ戻さない
   const atBottom = useRef(true);
+  const [scrolledUp, setScrolledUp] = useState(false);
 
   const guest = viewer === 'signed-out' && guestComments;
   const writer = viewer === 'ready' || (guest && guestName !== null);
@@ -307,6 +313,27 @@ export function Comments({
     if (element && atBottom.current) element.scrollTop = element.scrollHeight;
   }, [comments]);
 
+  // 欄の大きさが変わっても、一番下まで読んでいる人は一番下のまま。
+  // 配信中の画面で畳んでいる間（display: none）は送れないので、開き直したここで追いつく
+  useEffect(() => {
+    const element = list.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      if (element.clientHeight > 0 && atBottom.current) element.scrollTop = element.scrollHeight;
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  /** 上を読んでいた人を、最新のコメントへ戻す */
+  function toNewest() {
+    const element = list.current;
+    if (!element) return;
+    atBottom.current = true;
+    setScrolledUp(false);
+    element.scrollTop = element.scrollHeight;
+  }
+
   function post() {
     if (!hasVisibleText(text)) return;
     const result = outbox.current.post(socket.current, text);
@@ -318,7 +345,7 @@ export function Comments({
     setText('');
     setError(null);
     // 自分で書いたら、上を読んでいても自分のコメントが見える所へ戻す
-    atBottom.current = true;
+    toNewest();
   }
 
   /** 配信者が、コメントした人をモデレーターにする。サイトが中継に知らせ、その人はつなぎ直してから効く */
@@ -381,6 +408,21 @@ export function Comments({
     setReported((ids) => new Set(ids).add(comment.id));
   }
 
+  function actionsOf(comment: Comment) {
+    return commentActions(comment, {
+      own,
+      moderator,
+      overlay,
+      canReportComments: Boolean(reportedComments),
+    });
+  }
+
+  /** シートを閉じて操作する。閉じるのが画面に出るのは確かめの窓（window.confirm）の後だが、窓はシートより手前に出る */
+  function runAction(comment: Comment, action: (comment: Comment) => Promise<void>) {
+    setActing(null);
+    void action(comment);
+  }
+
   function decideGuestName(form: FormData) {
     const result = normalizeDisplayName(String(form.get('name') ?? ''));
     if (!result.ok) {
@@ -392,6 +434,8 @@ export function Comments({
     setError(null);
   }
 
+  const actingActions = acting && actionsOf(acting);
+
   return (
     // 手本は YouTube のライブチャット：枠の上に見出し、真ん中に流れ、下に書く欄
     <section className={`flex min-h-0 flex-1 flex-col ${overlay ? ui.overlayComments : ui.panel}`}>
@@ -400,85 +444,121 @@ export function Comments({
           {t('heading')}
         </h2>
       )}
-      <ol
-        ref={list}
-        onScroll={(event) => {
-          atBottom.current = isNearBottom(event.currentTarget);
-        }}
-        className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-2 ${overlay ? 'stack-bottom' : ''}`}
-      >
-        {comments.map((comment) => (
-          <li key={comment.id} className="flex gap-3 text-sm">
-            <Avatar name={comment.name} src={comment.avatar} size="xs" />
-            <p className="min-w-0 wrap-break-word">
-              <span className={overlay ? ui.overlayName : 'text-muted'}>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <ol
+          ref={list}
+          onScroll={(event) => {
+            const near = isNearBottom(event.currentTarget);
+            atBottom.current = near;
+            setScrolledUp(!near);
+          }}
+          className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-2 ${overlay ? 'stack-bottom' : ''}`}
+        >
+          {comments.map((comment) => {
+            const label = (
+              <>
                 {comment.name}
                 {comment.guest && t('guestMark')}
-              </span>{' '}
-              {comment.text}
-              {/* 配信者はどのコメントも消せる。モデレーターは自分のものと、ブロックできる相手のものだけ */}
-              {(own || (moderator && (comment.mine || comment.author))) && (
-                <>
-                  {' '}
+              </>
+            );
+            const nameClass = overlay ? ui.overlayName : 'text-muted';
+            const pressable = hasCommentActions(actionsOf(comment));
+            return (
+              <li key={comment.id} className="flex gap-3 text-sm">
+                {pressable ? (
+                  // 手本は Twitch：名前を押すと、その人への操作が下から開く。印も同じ。読み上げには名前のボタンだけを聞かせる
                   <button
                     type="button"
-                    className={overlay ? ui.overlayCommentAction : ui.commentAction}
-                    onClick={() => void remove(comment)}
+                    aria-hidden
+                    tabIndex={-1}
+                    className={`flex shrink-0 self-start ${ui.commentMarkPressArea}`}
+                    onClick={() => setActing(comment)}
                   >
-                    {t('remove')}
+                    <Avatar name={comment.name} src={comment.avatar} size="xs" />
                   </button>
-                </>
-              )}
-              {/* 書いた人の札は、配信者とモデレーターにだけ中継が付ける（relay/relay.ts） */}
-              {comment.author && (
-                <>
-                  {' '}
-                  <button
-                    type="button"
-                    className={overlay ? ui.overlayCommentAction : ui.commentAction}
-                    onClick={() => void block(comment)}
-                  >
-                    {t('block')}
-                  </button>
-                </>
-              )}
-              {/* 配信中の画面は狭いので、モデレーターを選ぶのは見る画面と OBS の画面だけ */}
-              {own && !overlay && comment.author && !comment.guest && (
-                <>
-                  {' '}
-                  {appointed.has(comment.author) ? (
-                    <span className={ui.note}>{t('appointed')}</span>
-                  ) : (
+                ) : (
+                  <Avatar name={comment.name} src={comment.avatar} size="xs" />
+                )}
+                <p className="min-w-0 wrap-break-word">
+                  {pressable ? (
                     <button
                       type="button"
-                      className={ui.commentAction}
-                      onClick={() => void appoint(comment)}
+                      className={`${nameClass} text-left wrap-anywhere hover:underline ${ui.commentNamePressArea}`}
+                      aria-haspopup="dialog"
+                      aria-label={t('actions', { name: comment.name })}
+                      onClick={() => setActing(comment)}
                     >
-                      {t('appoint')}
+                      {label}
                     </button>
-                  )}
-                </>
-              )}
-              {reportedComments && !comment.mine && comment.proof && (
-                <>
-                  {' '}
-                  {reported.has(comment.id) ? (
-                    <span className={ui.note}>{t('reported')}</span>
                   ) : (
-                    <button
-                      type="button"
-                      className={ui.commentAction}
-                      onClick={() => void report(comment)}
-                    >
-                      {t('report')}
-                    </button>
-                  )}
-                </>
-              )}
-            </p>
-          </li>
-        ))}
-      </ol>
+                    <span className={nameClass}>{label}</span>
+                  )}{' '}
+                  {comment.text}
+                </p>
+              </li>
+            );
+          })}
+        </ol>
+        {/* 手本は Twitch の「さらにメッセージが続きます」：上へ戻すと出て、押すと最新へ戻り、消える */}
+        {scrolledUp && (
+          <button
+            type="button"
+            className={`absolute bottom-2 left-1/2 -translate-x-1/2 ${overlay ? ui.overlayButton : ui.tonalButton}`}
+            onClick={toNewest}
+          >
+            {t('more')}
+          </button>
+        )}
+      </div>
+      {acting && (
+        <ActionSheet label={t('actions', { name: acting.name })} onClose={() => setActing(null)}>
+          <div className={ui.sheetHeading}>
+            <span className="font-bold wrap-anywhere">
+              {acting.name}
+              {acting.guest && t('guestMark')}
+            </span>
+            <span className={`line-clamp-2 wrap-anywhere ${ui.note}`}>{acting.text}</span>
+          </div>
+          {actingActions?.report && (
+            <button
+              type="button"
+              className={ui.sheetItem}
+              disabled={reported.has(acting.id)}
+              onClick={() => runAction(acting, report)}
+            >
+              <FlagIcon />
+              {reported.has(acting.id) ? t('reported') : t('report')}
+            </button>
+          )}
+          {actingActions?.remove && (
+            <button
+              type="button"
+              className={ui.sheetItem}
+              onClick={() => runAction(acting, remove)}
+            >
+              <TrashIcon />
+              {t('remove')}
+            </button>
+          )}
+          {actingActions?.block && (
+            <button type="button" className={ui.sheetItem} onClick={() => runAction(acting, block)}>
+              <BlockIcon />
+              {t('block')}
+            </button>
+          )}
+          {actingActions?.appoint && (
+            <button
+              type="button"
+              className={ui.sheetItem}
+              disabled={appointed.has(acting.author ?? '')}
+              onClick={() => runAction(acting, appoint)}
+            >
+              <ModeratorIcon />
+              {appointed.has(acting.author ?? '') ? t('appointed') : t('appoint')}
+            </button>
+          )}
+        </ActionSheet>
+      )}
       <div className={`flex shrink-0 flex-col gap-2 p-3 ${overlay ? '' : 'border-t border-line'}`}>
         {viewer === 'signed-out' && !guestComments && (
           <div className="flex flex-col items-start gap-2">
@@ -517,7 +597,7 @@ export function Comments({
               maxLength={COMMENT_MAX * 2}
               className={`flex-1 ${overlay ? ui.overlayInput : ui.input}`}
               aria-label={t('input')}
-              placeholder={overlay ? t('input') : undefined}
+              placeholder={t('input')}
             />
             <button
               type="submit"

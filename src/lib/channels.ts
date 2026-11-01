@@ -19,9 +19,15 @@ export type Channel = {
   title: string | null;
   /** 配信者の印の画像（src/lib/avatar.ts）。null なら名前の1文字 */
   avatar: string | null;
+  /**
+   * 前回の配信が始まった時刻。配信の始まりを知らせた時刻（src/lib/notify.ts）を流用する。
+   * 10分以内に始め直した配信では動かないので、「3日前」のように大まかに出す用途に限る。配信したことがなければ null
+   */
+  lastLiveAt: Date | null;
 };
 
 const SELECT_CHANNEL = `select channel.id, channel.latency_mode as "latencyMode", channel.title,
+  channel.notified_at as "lastLiveAt",
   channel.guest_comments as "guestComments", profile.handle, profile.display_name as "displayName",
   ${AVATAR_COLUMNS}
   from channel left join profile on profile.user_id = channel.user_id

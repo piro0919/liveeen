@@ -21,7 +21,7 @@ export default async function FollowingPage() {
       {!userId && <SignInButton />}
       {userId &&
         (channels.length > 0 ? (
-          <ChannelList channels={channels} />
+          <ChannelList channels={channels} groupLive />
         ) : (
           <p className="text-muted">{t('empty')}</p>
         ))}

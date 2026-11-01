@@ -51,14 +51,13 @@ export default async function BroadcastPage() {
           <HandleForm handle={null} />
         </div>
       ) : userId ? (
-        <>
-          <BroadcastSetup
-            channel={channel}
-            webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
-            relayUrl={env.NEXT_PUBLIC_COMMENT_RELAY_URL}
-            bgmUrl={env.NEXT_PUBLIC_BGM_URL}
-            commentSettings={commentSettings ?? NO_RULES}
-          />
+        <BroadcastSetup
+          channel={channel}
+          webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
+          relayUrl={env.NEXT_PUBLIC_COMMENT_RELAY_URL}
+          bgmUrl={env.NEXT_PUBLIC_BGM_URL}
+          commentSettings={commentSettings ?? NO_RULES}
+        >
           {channel && (
             <>
               <div className={ui.card}>
@@ -68,7 +67,7 @@ export default async function BroadcastPage() {
               <BlockList blocks={await blocksOf(channel.id)} />
             </>
           )}
-        </>
+        </BroadcastSetup>
       ) : (
         <SignInButton />
       )}

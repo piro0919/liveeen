@@ -10,7 +10,7 @@ import { ReportButton } from '@/components/report-button';
 import { ShareButton } from '@/components/share-button';
 import { ViewerCount } from '@/components/viewer-count';
 import { channelByHandle, channelById, channelOf } from '@/lib/channels';
-import { isFollowing } from '@/lib/follows';
+import { followerCount, isFollowing } from '@/lib/follows';
 import { reportedCommentIdsOf } from '@/lib/comment-reports';
 import { channelPath, handleOfSegment } from '@/lib/handle';
 import { liveStream } from '@/lib/live';
@@ -58,6 +58,7 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
   const reportedComments = userId && !own ? await reportedCommentIdsOf(userId, channel.id) : null;
   // 上限に届くと配信サーバーが視聴を断るので、つなぎに行かずに理由を出す
   const capReached = await viewingCapReached();
+  const followers = await followerCount(channel.id);
   const t = await getTranslations('watch');
   const name = channel.displayName ?? channel.id;
   // 手本は YouTube の視聴画面：左に映像と配信者、右にコメント。狭い画面では縦に並べる。
@@ -79,35 +80,37 @@ export default async function ChannelPage({ params }: PageProps<'/[channelId]'>)
             latencyMode={channel.latencyMode}
             hlsUrl={env.NEXT_PUBLIC_MEDIA_HLS_URL}
             webrtcUrl={env.NEXT_PUBLIC_MEDIA_WEBRTC_URL}
+            lastLiveAt={channel.lastLiveAt?.getTime() ?? null}
           />
         )}
-        {/* 手本は YouTube：映像の下にタイトル、その下に配信者の行 */}
-        {channel.title && (
-          // スマホではコメントの高さを削らないよう2行で切る
-          <h1 className="line-clamp-2 px-4 text-lg font-bold wrap-break-word sm:line-clamp-none sm:px-0">
-            {channel.title}
-          </h1>
-        )}
-        {/* 見ている人の数。手本の YouTube はタイトルの下に出す */}
-        <ViewerCount channelId={channel.id} whilePlaying className={`px-4 sm:px-0 ${ui.note}`} />
-        {/* 手本は YouTube のアプリ：配信者の行は名前と登録のボタンだけにし、名前に幅を残す */}
-        <div className="flex items-center gap-3 px-4 sm:px-0">
-          <Avatar name={name} src={channel.avatar} size="lg" />
-          <div className="flex min-w-0 flex-1 flex-col">
-            {/* タイトルが無ければ、配信者の名前がこの画面の見出し */}
-            {channel.title ? (
-              <span className="truncate font-bold">{name}</span>
-            ) : (
-              <h1 className="truncate font-bold">{name}</h1>
-            )}
-            {channel.handle && <span className={`truncate ${ui.note}`}>@{channel.handle}</span>}
+        {/*
+          手本は m.youtube.com の視聴画面：タイトル、名前の行、印と登録と共有と「…」の行。
+          名前を独りで1行にするので、狭い画面でも切れにくい
+        */}
+        <div className="flex flex-col gap-0.5 px-4 sm:px-0">
+          {/* タイトルが無ければ、配信者の名前がこの画面の見出し。スマホではコメントの高さを削らないよう2行で切る */}
+          {channel.title ? (
+            <h1 className="line-clamp-2 text-lg font-bold wrap-break-word sm:line-clamp-none">
+              {channel.title}
+            </h1>
+          ) : (
+            <h1 className="truncate text-lg font-bold">{name}</h1>
+          )}
+          {/* 収まらないときだけ折り返す。いつも2行にすると、スマホのコメントの高さを削るため */}
+          <div className={`flex flex-wrap items-baseline gap-x-2 ${ui.note}`}>
+            {channel.title && <span className="max-w-full truncate">{name}</span>}
+            {channel.handle && <span className="max-w-full truncate">@{channel.handle}</span>}
+            <span className="shrink-0">{t('followers', { count: followers })}</span>
+            <ViewerCount channelId={channel.id} whilePlaying className="shrink-0" />
           </div>
-          {!own && <FollowButton channelId={channel.id} following={following} />}
         </div>
-        {/* 共有と通報は、YouTube のアプリと同じく配信者の行の下にボタンで並べる。通報の理由を選ぶ欄は次の行に出る */}
-        <div className="flex flex-wrap items-center gap-2 px-4 sm:px-0">
-          <ShareButton title={channel.title ?? name} />
-          {!own && <ReportButton channelId={channel.id} reported={reported} />}
+        <div className="flex items-center gap-2 px-4 sm:px-0">
+          <Avatar name={name} src={channel.avatar} size="lg" />
+          {!own && <FollowButton channelId={channel.id} following={following} />}
+          <div className="ml-auto flex items-center">
+            <ShareButton title={channel.title ?? name} />
+            {!own && <ReportButton channelId={channel.id} reported={reported} />}
+          </div>
         </div>
       </div>
       {/* 広い画面では、コメントの枠を左の列（映像と配信者）と同じ高さにする。中身の多さで伸びないように、中は枠いっぱいに置く */}

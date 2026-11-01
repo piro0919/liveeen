@@ -10,6 +10,8 @@ import { channelPath } from '@/lib/handle';
 import { BrowserPublisher } from './browser-publisher';
 import { GuestCommentsChoice } from './guest-comments-choice';
 import { LatencyChoice } from './latency-choice';
+import { ChevronDownIcon } from './nav-icons';
+import { ShareButton } from './share-button';
 import { StreamTitleForm } from './stream-title-form';
 import { guarded, safely } from '@/lib/safe-action';
 import { ScreenError } from '@/lib/screen-error';
@@ -23,6 +25,8 @@ type Props = {
   relayUrl: string;
   bgmUrl?: string;
   commentSettings: CommentSettings;
+  /** 「その他の設定」の中に足すもの（コメントの管理など、サーバーで読むもの） */
+  children?: React.ReactNode;
 };
 
 /**
@@ -30,7 +34,14 @@ type Props = {
  * あれば、スマホで使う人が多いので、ブラウザの配信をいちばん上に置き、その下に設定を並べる。
  * OBS に入れる設定は使う人が限られるので、別のページ（/broadcast/obs）に分ける
  */
-export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl, commentSettings }: Props) {
+export function BroadcastSetup({
+  channel,
+  webrtcUrl,
+  relayUrl,
+  bgmUrl,
+  commentSettings,
+  children,
+}: Props) {
   const t = useTranslations('broadcast.setup');
   const [, create, creating] = useActionState(guarded(createChannelAction), NO_KEY);
   const titleInput = useRef<HTMLInputElement>(null);
@@ -60,6 +71,8 @@ export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl, commentSe
     );
   }
 
+  const shareTitle = channel.title ?? channel.displayName ?? channel.id;
+
   return (
     <div className="flex flex-col gap-4">
       {/* タイトルは配信を始める前に付けるので、配信の上に置く */}
@@ -78,33 +91,46 @@ export function BroadcastSetup({ channel, webrtcUrl, relayUrl, bgmUrl, commentSe
           bgmUrl={bgmUrl}
           latencyMode={channel.latencyMode}
           commentSettings={commentSettings}
+          sharePath={channelPath(channel)}
         />
       </section>
-      <div className={ui.card}>
-        <p>
+      {/* 手本は YouTube：始める前の段階で住所を共有できる */}
+      <div className="flex items-center justify-between gap-2 rounded-2xl bg-surface py-3 pr-3 pl-5">
+        <p className="min-w-0 break-all">
           {t('address')}
           <Link href={channelPath(channel)} className={ui.link}>
             {channelPath(channel)}
           </Link>
         </p>
+        <ShareButton title={shareTitle} path={channelPath(channel)} />
       </div>
-      <div className={ui.card}>
-        <LatencyChoice mode={channel.latencyMode} />
-      </div>
-      <div className={ui.card}>
-        <GuestCommentsChoice allowed={channel.guestComments} />
-      </div>
-      <div className={ui.card}>
-        <p>
-          {t.rich('obsNote', {
-            link: (chunks) => (
-              <Link href="/broadcast/obs" className={ui.link}>
-                {chunks}
-              </Link>
-            ),
-          })}
-        </p>
-      </div>
+      {/* 手本は YouTube の MORE OPTIONS：毎回は触らない設定を畳み、配信を始めるまでの画面を短くする */}
+      <details className="group flex flex-col">
+        <summary className={ui.disclosure}>
+          {t('moreSettings')}
+          <ChevronDownIcon className="size-5 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+        </summary>
+        <div className="mt-4 flex flex-col gap-4">
+          <div className={ui.card}>
+            <LatencyChoice mode={channel.latencyMode} />
+          </div>
+          <div className={ui.card}>
+            <GuestCommentsChoice allowed={channel.guestComments} />
+          </div>
+          <div className={ui.card}>
+            <p>
+              {t.rich('obsNote', {
+                link: (chunks) => (
+                  <Link href="/broadcast/obs" className={ui.link}>
+                    {chunks}
+                  </Link>
+                ),
+              })}
+            </p>
+          </div>
+          {children}
+        </div>
+      </details>
     </div>
   );
 }

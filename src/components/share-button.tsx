@@ -1,38 +1,24 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { toast } from 'sonner';
+import { useShare } from '@/lib/use-share';
 import { ui } from '@/lib/ui';
+import { ShareIcon } from './nav-icons';
 
-/**
- * 配信の住所を広める（vocafy・鯉魂の共有と同じ考え）。スマホは端末の共有の画面（LINE や X へ送れる）を開き、
- * それが無いパソコンでは住所を写す。共有の画面を閉じただけ（AbortError）は何も出さない
- */
-export function ShareButton({ title }: { title: string }) {
+/** 配信の住所を広めるボタン。path を渡さなければ、いま開いているページの住所 */
+export function ShareButton({ title, path }: { title: string; path?: string }) {
   const t = useTranslations('share');
-  const tToast = useTranslations('toast');
-
-  async function share() {
-    const url = location.href.split('?')[0];
-    if (navigator.share) {
-      try {
-        await navigator.share({ title, url });
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          toast(tToast('shareFailed'));
-        }
-      }
-      return;
-    }
-    navigator.clipboard.writeText(url).then(
-      () => toast(tToast('linkCopied')),
-      () => toast(tToast('copyFailed')),
-    );
-  }
+  const share = useShare();
 
   return (
-    <button type="button" className={ui.tonalButton} onClick={() => void share()}>
-      {t('button')}
+    // 手本は YouTube と Twitch：字のないアイコン
+    <button
+      type="button"
+      className={ui.iconButton}
+      aria-label={t('button')}
+      onClick={() => void share(title, path)}
+    >
+      <ShareIcon />
     </button>
   );
 }

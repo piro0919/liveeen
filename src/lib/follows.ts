@@ -10,6 +10,15 @@ export async function isFollowing(userId: string, channelId: string): Promise<bo
   return rowCount === 1;
 }
 
+/** そのチャンネルをフォローしている人の数 */
+export async function followerCount(channelId: string): Promise<number> {
+  const { rows } = await db().query<{ count: number }>(
+    'select count(*)::int as count from follow where channel_id = $1',
+    [channelId],
+  );
+  return rows[0]?.count ?? 0;
+}
+
 /** そのチャンネルをフォローした時刻（ミリ秒）。していなければ null。フォロワー限定のコメントに使う */
 export async function followedAtOf(userId: string, channelId: string): Promise<number | null> {
   const { rows } = await db().query<{ createdAt: Date }>(

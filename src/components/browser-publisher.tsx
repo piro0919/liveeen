@@ -13,6 +13,7 @@ import {
 } from '@/lib/bgm';
 import { cameraAttempts, firstCamera, knownCameraCount, listDevices } from '@/lib/camera';
 import { formatElapsed } from '@/lib/elapsed';
+import { liveMenuItems } from '@/lib/live-menu';
 import { watchMicLevel } from '@/lib/mic-level';
 import {
   knownMicrophones,
@@ -36,11 +37,25 @@ import {
   type WhipSession,
 } from '@/lib/whip';
 import { ui } from '@/lib/ui';
+import { useShare } from '@/lib/use-share';
 import { useWakeLock } from '@/lib/use-wake-lock';
+import { ActionSheet } from './action-sheet';
 import { BgmPicker } from './bgm-picker';
 import { CommentRulesForm } from './comment-rules-form';
 import { Comments } from './comments';
 import { MicPicker } from './mic-picker';
+import {
+  CloseIcon,
+  CommentIcon,
+  EditIcon,
+  HideIcon,
+  MicIcon,
+  MicOffIcon,
+  MoreIcon,
+  MusicIcon,
+  ShareIcon,
+  SwitchCameraIcon,
+} from './nav-icons';
 import { StreamTitleForm } from './stream-title-form';
 import { ViewerCount } from './viewer-count';
 
@@ -87,6 +102,8 @@ type Props = {
   title: string | null;
   /** つなぐ前にすること（入れたままのタイトルの保存）。投げたら配信を始めない */
   beforeStart: () => Promise<void>;
+  /** 配信中の画面の共有で送る、配信の住所 */
+  sharePath: string;
 };
 
 /** 配信中の画面で開いている欄。重なると下のコメントが隠れるので、1つだけ開く */
@@ -107,6 +124,7 @@ export function BrowserPublisher({
   commentSettings,
   title,
   beforeStart,
+  sharePath,
 }: Props) {
   const t = useTranslations('broadcast.publisher');
   const errorText = useScreenErrorText();
@@ -129,6 +147,9 @@ export function BrowserPublisher({
   const [bgm, setBgm] = useState<number | null>(null);
   const [bgmVolume, setBgmVolume] = useState(DEFAULT_BGM_VOLUME);
   const [panel, setPanel] = useState<LivePanel>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const share = useShare();
+  const tShare = useTranslations('share');
   // 選んだカメラ。配信を終えて次に始めるときも同じカメラを使う
   const cameraChoice = useRef<MediaTrackConstraints | undefined>(undefined);
   // カメラを取りに行った回の番号。取れるのを待つあいだに配信を終えたら、取れた映像を捨てる
@@ -324,8 +345,12 @@ export function BrowserPublisher({
     clearTimeout(shapeTimer.current);
     setReconnecting(false);
     setPanel(null);
+    setMenuOpen(false);
     await current?.stop();
     release();
+    // 切るのを待つ間も配信中の画面は残るので、その間に開かれた分も閉じる。残すと次の配信で勝手に開く
+    setPanel(null);
+    setMenuOpen(false);
     setStatus('idle');
   }
 
@@ -701,8 +726,27 @@ export function BrowserPublisher({
   const manyCameras = source === 'camera' && cameraCount !== null && cameraCount >= 2;
   const manyMicrophones = microphones.length >= 2;
 
+  function openPanel(next: LivePanel) {
+    setMenuOpen(false);
+    setPanel(next);
+  }
+
   if (onAir) {
     const live = status === 'live';
+    const menuItems = liveMenuItems({ live, manyMicrophones, hasBgm: Boolean(bgmUrl) });
+    /** 開いた欄を閉じるボタン。暗い囲み（マイク・BGM）とふつうの地の囲みで、押したときの色を分ける */
+    const closePanelButton = (className: string) => (
+      <div className="flex justify-end">
+        <button
+          type="button"
+          className={className}
+          aria-label={t('closePanel')}
+          onClick={() => setPanel(null)}
+        >
+          <CloseIcon />
+        </button>
+      </div>
+    );
     return (
       <div className={ui.liveScreen}>
         <video
@@ -724,81 +768,103 @@ export function BrowserPublisher({
               <ViewerCount channelId={channelId} className={`text-sm ${ui.overlayComments}`} />
             )}
           </div>
-          <div className="ml-auto flex flex-wrap justify-end gap-2">
+          {/* 手本は YouTube：終えるときは確かめる。練習は誰も見ていないので、そのまま終える */}
+          <button
+            type="button"
+            className={`ml-auto ${ui.overlayButton}`}
+            onClick={() => {
+              if (!live || window.confirm(t('confirmStop'))) void stop();
+            }}
+          >
+            {t(live ? 'stop' : 'stopPractice')}
+          </button>
+          {/* 急いで押すものだけアイコンで出し、残りは「…」のシートに入れて、映像を隠さない */}
+          <div className="flex w-full justify-end gap-2 sm:w-auto">
             <button
               type="button"
-              className={output.muted ? ui.overlayButtonOn : ui.overlayButton}
+              className={output.muted ? ui.overlayIconButtonOn : ui.overlayIconButton}
               aria-pressed={output.muted}
+              aria-label={output.muted ? t('muted') : t('mute')}
               onClick={() => changeOutput({ ...output, muted: !output.muted })}
             >
-              {output.muted ? t('muted') : t('mute')}
+              {output.muted ? <MicOffIcon /> : <MicIcon />}
             </button>
             {live && (
               <button
                 type="button"
-                className={output.hidden ? ui.overlayButtonOn : ui.overlayButton}
+                className={output.hidden ? ui.overlayIconButtonOn : ui.overlayIconButton}
                 aria-pressed={output.hidden}
                 aria-label={t('hideLabel')}
                 onClick={() => changeOutput({ ...output, hidden: !output.hidden })}
               >
-                {output.hidden ? t('hidden') : t('hide')}
+                <HideIcon />
               </button>
             )}
             {manyCameras && (
               <button
                 type="button"
-                className={ui.overlayButton}
+                className={ui.overlayIconButton}
+                aria-label={t('switchCamera')}
                 disabled={switching}
                 onClick={() => void switchCamera()}
               >
-                {t('switchCamera')}
+                <SwitchCameraIcon />
               </button>
             )}
-            {manyMicrophones && (
+            {menuItems.length > 0 && (
               <button
                 type="button"
-                className={ui.overlayButton}
-                aria-expanded={panel === 'mic'}
-                onClick={() => setPanel((open) => (open === 'mic' ? null : 'mic'))}
+                className={ui.overlayIconButton}
+                aria-label={t('more')}
+                aria-haspopup="dialog"
+                onClick={() => setMenuOpen(true)}
               >
+                <MoreIcon />
+              </button>
+            )}
+          </div>
+        </div>
+        {menuOpen && (
+          <ActionSheet label={t('more')} onClose={() => setMenuOpen(false)}>
+            {menuItems.includes('microphone') && (
+              <button type="button" className={ui.sheetItem} onClick={() => openPanel('mic')}>
+                <MicIcon />
                 {t('microphone')}
               </button>
             )}
-            {bgmUrl && (
-              <button
-                type="button"
-                className={ui.overlayButton}
-                aria-expanded={panel === 'bgm'}
-                onClick={() => setPanel((open) => (open === 'bgm' ? null : 'bgm'))}
-              >
+            {menuItems.includes('bgm') && (
+              <button type="button" className={ui.sheetItem} onClick={() => openPanel('bgm')}>
+                <MusicIcon />
                 BGM
               </button>
             )}
-            {live && (
-              <button
-                type="button"
-                className={ui.overlayButton}
-                aria-expanded={panel === 'title'}
-                onClick={() => setPanel((open) => (open === 'title' ? null : 'title'))}
-              >
+            {menuItems.includes('title') && (
+              <button type="button" className={ui.sheetItem} onClick={() => openPanel('title')}>
+                <EditIcon />
                 {t('title')}
               </button>
             )}
-            {live && (
-              <button
-                type="button"
-                className={ui.overlayButton}
-                aria-expanded={panel === 'rules'}
-                onClick={() => setPanel((open) => (open === 'rules' ? null : 'rules'))}
-              >
+            {menuItems.includes('commentRules') && (
+              <button type="button" className={ui.sheetItem} onClick={() => openPanel('rules')}>
+                <CommentIcon />
                 {t('commentRules')}
               </button>
             )}
-            <button type="button" className={ui.overlayButton} onClick={() => void stop()}>
-              {t(live ? 'stop' : 'stopPractice')}
-            </button>
-          </div>
-        </div>
+            {menuItems.includes('share') && (
+              <button
+                type="button"
+                className={ui.sheetItem}
+                onClick={() => {
+                  setMenuOpen(false);
+                  void share(title ?? name, sharePath);
+                }}
+              >
+                <ShareIcon />
+                {tShare('button')}
+              </button>
+            )}
+          </ActionSheet>
+        )}
         {!live && (
           <div role="img" aria-label={t('micLevel')} className={`relative mx-4 ${ui.meter}`}>
             <div ref={meterFill} className={`${ui.meterFill} scale-x-0`} />
@@ -809,6 +875,7 @@ export function BrowserPublisher({
         )}
         {manyMicrophones && panel === 'mic' && (
           <div className={`relative mx-4 ${ui.overlayPanel}`}>
+            {closePanelButton(ui.overlayIconButton)}
             <MicPicker
               microphones={microphones}
               value={microphone}
@@ -820,6 +887,7 @@ export function BrowserPublisher({
         )}
         {bgmUrl && panel === 'bgm' && (
           <div className={`relative mx-4 flex min-h-0 flex-col ${ui.overlayPanel}`}>
+            {closePanelButton(ui.overlayIconButton)}
             <BgmPicker
               playing={bgm}
               volume={bgmVolume}
@@ -831,11 +899,13 @@ export function BrowserPublisher({
         )}
         {live && panel === 'rules' && (
           <div className={`relative mx-4 mb-4 ${ui.livePanel}`}>
+            {closePanelButton(ui.iconButton)}
             <CommentRulesForm settings={commentSettings} />
           </div>
         )}
         {live && panel === 'title' && (
           <div className={`relative mx-4 mb-4 ${ui.livePanel}`}>
+            {closePanelButton(ui.iconButton)}
             <StreamTitleForm title={title} />
           </div>
         )}

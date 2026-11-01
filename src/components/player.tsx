@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import type { LatencyMode } from '@/lib/latency';
 import { channelPublishingAction, viewingCapAction } from '@/app/[channelId]/actions';
 import { ScreenError } from '@/lib/screen-error';
+import { timeAgo } from '@/lib/time-ago';
 import { ui } from '@/lib/ui';
 import { whenVisible } from '@/lib/when-visible';
 import { playWhep } from '@/lib/whep';
@@ -41,13 +42,15 @@ type Props = {
   latencyMode: LatencyMode;
   hlsUrl: string;
   webrtcUrl: string;
+  /** 前回の配信が始まった時刻（ミリ秒）。配信したことがなければ null */
+  lastLiveAt: number | null;
 };
 
 /**
  * 配信を見る。遅延の選び方は配信者が決める（CLAUDE.md）。low は WebRTC（WHEP）、hls は HLS。
  * 配信していなければ、少し待ってつなぎ直す
  */
-export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
+export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl, lastLiveAt }: Props) {
   const t = useTranslations('player');
   const tWatch = useTranslations('watch');
   const video = useRef<HTMLVideoElement>(null);
@@ -59,6 +62,7 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
 
   // 音を出すかは見る人が決める。自動で再生するために、始めは音を消しておく
   const [muted, setMuted] = useState(true);
+  const [lastSeenAt, setLastSeenAt] = useState(lastLiveAt);
 
   function unmute() {
     const element = video.current;
@@ -95,7 +99,11 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
       disconnect();
       setStatus('offline');
       if (cancelled) return;
-      if (played) retryUntil = Date.now() + HIDDEN_RETRY_MS;
+      if (played) {
+        retryUntil = Date.now() + HIDDEN_RETRY_MS;
+        // 開いている間に配信が終わった。読み込んだときの時刻は、この配信より前のもの
+        setLastSeenAt(Date.now());
+      }
       played = false;
       retry = setTimeout(() => {
         if (Date.now() < retryUntil) connect();
@@ -215,7 +223,15 @@ export function Player({ channelId, latencyMode, hlsUrl, webrtcUrl }: Props) {
         className={`size-full ${status === 'offline' || status === 'capped' ? 'invisible' : ''}`}
         onVolumeChange={(event) => setMuted(event.currentTarget.muted)}
       />
-      {status === 'offline' && <PlayerMessage>{t('offline')}</PlayerMessage>}
+      {status === 'offline' && (
+        <PlayerMessage>
+          {t('offline')}
+          {/* 手本は Twitch の配信していないチャンネルの「前回の配信：先月」 */}
+          {lastSeenAt !== null && (
+            <span className="text-sm">{t('lastLive', { when: timeAgo(lastSeenAt) })}</span>
+          )}
+        </PlayerMessage>
+      )}
       {status === 'capped' && <PlayerMessage>{tWatch('capReached')}</PlayerMessage>}
       {status === 'live' && muted && (
         <button

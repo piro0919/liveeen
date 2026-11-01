@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { livePathsOf, splitFollowed } from '@/lib/live-paths';
+import { liveFirst, livePathsOf, splitFollowed } from '@/lib/live-paths';
+
+describe('liveFirst', () => {
+  it('配信中の人を上にまとめ、それぞれの中の並びは変えない', () => {
+    const channels = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+    expect(liveFirst(channels, new Set(['d', 'b'])).map((channel) => channel.id)).toEqual([
+      'b',
+      'd',
+      'a',
+      'c',
+    ]);
+  });
+});
 
 function path(name: string, ready: boolean, readyTime: string | null) {
   return { name, ready, readyTime, confName: 'all_others', readers: [] };

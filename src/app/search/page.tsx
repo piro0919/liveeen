@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Form from 'next/form';
 import { getTranslations } from 'next-intl/server';
 import { ChannelList } from '@/components/channel-list';
+import { SearchIcon } from '@/components/nav-icons';
 import { searchChannels } from '@/lib/channels';
 import { normalizeSearchQuery } from '@/lib/search';
 import { ui } from '@/lib/ui';
@@ -22,7 +23,9 @@ export default async function SearchPage({
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:px-6">
       <h1 className="sr-only">{t('heading')}</h1>
-      <Form action="/search" className="flex gap-2">
+      {/* 手本は Twitch と YouTube のスマホ：欄の中に虫眼鏡。送るのはキーボードの検索 */}
+      <Form action="/search" className="relative flex">
+        <SearchIcon className="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-muted" />
         <input
           type="search"
           name="q"
@@ -31,11 +34,8 @@ export default async function SearchPage({
           enterKeyHint="search"
           aria-label={t('input')}
           placeholder={t('input')}
-          className={`flex-1 ${ui.input}`}
+          className={`flex-1 pl-10 ${ui.input}`}
         />
-        <button type="submit" className={ui.tonalButton}>
-          {t('submit')}
-        </button>
       </Form>
       {query &&
         (channels.length > 0 ? (
