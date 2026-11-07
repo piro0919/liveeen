@@ -40,14 +40,14 @@ jobs:
       NEXT_PUBLIC_MEDIA_HLS_URL: http://localhost:8888
       NEXT_PUBLIC_COMMENT_RELAY_URL: ws://localhost:8090
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # 下の移行の確かめで、push の前のコミットと比べる
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
