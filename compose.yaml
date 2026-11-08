@@ -2,7 +2,7 @@
 # 設定は media/mediamtx.yml。版は本番とそろえる
 services:
   media:
-    image: bluenviron/mediamtx:1.21.2
+    image: bluenviron/mediamtx:1.21.3
     volumes:
       - ./media/mediamtx.yml:/mediamtx.yml:ro
     ports:

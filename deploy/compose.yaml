@@ -5,7 +5,7 @@
 services:
   media:
     # 手元（compose.yaml）と同じ版
-    image: bluenviron/mediamtx:1.21.2
+    image: bluenviron/mediamtx:1.21.3
     network_mode: host
     restart: unless-stopped
     volumes:
