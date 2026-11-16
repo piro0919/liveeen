@@ -26,7 +26,7 @@ services:
       RELAY_HOST: 127.0.0.1
       RELAY_PORT: '8090'
   caddy:
-    image: caddy:2.10.2-alpine
+    image: caddy:2.11.7-alpine
     network_mode: host
     restart: unless-stopped
     volumes:
