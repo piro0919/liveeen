@@ -17,7 +17,7 @@ services:
       # 配信中の一覧などを読む API
       - '9997:9997'
   db:
-    image: postgres:18-alpine
+    image: postgres:19-alpine
     environment:
       POSTGRES_USER: liveeen
       POSTGRES_PASSWORD: liveeen
